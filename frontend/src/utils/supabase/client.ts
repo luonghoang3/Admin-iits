@@ -251,4 +251,38 @@ export async function deleteTeam(teamId: string) {
     console.error('Lỗi khi xóa team:', error)
     return { success: false, error: error.message }
   }
+}
+
+// Hàm tạo team mới
+export async function createTeam({ name, description }: { 
+  name: string, 
+  description?: string 
+}) {
+  const supabase = createClient()
+  
+  try {
+    // Kiểm tra tên team
+    if (!name.trim()) {
+      throw new Error('Tên team không được để trống')
+    }
+    
+    // Thêm team mới vào bảng teams
+    const { data: team, error } = await supabase
+      .from('teams')
+      .insert({
+        name: name.trim(),
+        description: description?.trim() || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    return { team, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi tạo team:', error)
+    return { team: null, error: error.message }
+  }
 } 
