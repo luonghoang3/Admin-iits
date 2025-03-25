@@ -3,7 +3,32 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient, createUser } from '@/utils/supabase/client'
+import { createClient, createUser, fetchTeams } from '@/utils/supabase/client'
+
+interface Team {
+  id: string
+  name: string
+  description: string | null
+}
+
+// Hàm tạo màu ngẫu nhiên nhưng ổn định cho mỗi team dựa trên id
+function getTeamColor(id: string): string {
+  // Tạo hash từ id
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  // Danh sách các màu pastel an toàn
+  const colors = [
+    '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf', 
+    '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
+    '#fffffc', '#d8f3dc', '#b7e4c7', '#95d5b2'
+  ];
+  
+  // Lấy màu dựa trên hash
+  return colors[Math.abs(hash) % colors.length];
+}
 
 export default function AddUserPage() {
   const router = useRouter()
@@ -14,12 +39,33 @@ export default function AddUserPage() {
     username: '',
     full_name: '',
     role: 'user',
-    is_active: true
+    is_active: true,
+    team_ids: [] as string[]
   })
   
+  const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  
+  // Tải danh sách teams
+  useEffect(() => {
+    async function loadTeams() {
+      try {
+        const { teams: teamsList, error } = await fetchTeams()
+        
+        if (error) {
+          console.error('Lỗi khi tải danh sách teams:', error)
+        } else {
+          setTeams(teamsList || [])
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải danh sách teams:', err)
+      }
+    }
+    
+    loadTeams()
+  }, [])
   
   // Kiểm tra đăng nhập và quyền admin
   useEffect(() => {
@@ -75,6 +121,26 @@ export default function AddUserPage() {
     }
   }
   
+  // Xử lý chọn/bỏ chọn team
+  const toggleTeam = (teamId: string) => {
+    setFormData(prevData => {
+      // Nếu team đã được chọn, loại bỏ khỏi danh sách
+      if (prevData.team_ids.includes(teamId)) {
+        return {
+          ...prevData,
+          team_ids: prevData.team_ids.filter(id => id !== teamId)
+        }
+      } 
+      // Nếu team chưa được chọn, thêm vào danh sách
+      else {
+        return {
+          ...prevData,
+          team_ids: [...prevData.team_ids, teamId]
+        }
+      }
+    })
+  }
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -104,7 +170,8 @@ export default function AddUserPage() {
         username: formData.username,
         full_name: formData.full_name,
         role: formData.role,
-        is_active: formData.is_active
+        is_active: formData.is_active,
+        team_ids: formData.team_ids
       })
       
       if (error) {
@@ -129,7 +196,8 @@ export default function AddUserPage() {
         username: '',
         full_name: '',
         role: 'user',
-        is_active: true
+        is_active: true,
+        team_ids: []
       })
       
       // Chuyển về trang danh sách sau 2 giây
@@ -215,7 +283,9 @@ export default function AddUserPage() {
                 className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 minLength={6}
               />
-              <p className="mt-1 text-xs text-gray-500">Tối thiểu 6 ký tự</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Tối thiểu 6 ký tự
+              </p>
             </div>
             
             <div>
@@ -230,6 +300,7 @@ export default function AddUserPage() {
                 onChange={handleChange}
                 required
                 className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                minLength={6}
               />
             </div>
             
@@ -262,6 +333,61 @@ export default function AddUserPage() {
                 <option value="admin">Quản trị viên</option>
               </select>
             </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Teams
+              </label>
+              <div className="mt-1 p-2 border border-gray-300 rounded-md min-h-12">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {formData.team_ids.length > 0 ? (
+                    formData.team_ids.map(teamId => {
+                      const team = teams.find(t => t.id === teamId);
+                      if (!team) return null;
+                      
+                      return (
+                        <span 
+                          key={teamId}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-gray-800"
+                          style={{ backgroundColor: getTeamColor(teamId) }}
+                        >
+                          {team.name}
+                          <button
+                            type="button"
+                            onClick={() => toggleTeam(teamId)}
+                            className="ml-1.5 text-gray-600 hover:text-gray-900 focus:outline-none"
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      );
+                    })
+                  ) : (
+                    <span className="text-gray-500 text-sm">Chưa chọn team nào</span>
+                  )}
+                </div>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500 mb-1">Chọn team:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {teams.map(team => (
+                      <button
+                        key={team.id}
+                        type="button"
+                        onClick={() => toggleTeam(team.id)}
+                        disabled={formData.team_ids.includes(team.id)}
+                        className={`px-2 py-1 text-xs rounded focus:outline-none ${
+                          formData.team_ids.includes(team.id)
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            : 'hover:bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {team.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
             
             <div>
               <div className="flex items-center mt-5">
@@ -277,6 +403,9 @@ export default function AddUserPage() {
                   Kích hoạt tài khoản
                 </label>
               </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Tài khoản không kích hoạt sẽ không thể đăng nhập
+              </p>
             </div>
           </div>
           

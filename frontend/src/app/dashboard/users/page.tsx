@@ -14,6 +14,28 @@ interface Profile {
   is_active: boolean
   created_at: string
   email: string
+  team_ids?: string[]
+  teams?: string[]
+  team_names?: string
+}
+
+// Hàm tạo màu ngẫu nhiên nhưng ổn định cho mỗi team dựa trên tên
+function getTeamColor(teamName: string): string {
+  // Tạo hash từ tên team
+  let hash = 0;
+  for (let i = 0; i < teamName.length; i++) {
+    hash = teamName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  // Danh sách các màu pastel an toàn
+  const colors = [
+    '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf', 
+    '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
+    '#fffffc', '#d8f3dc', '#b7e4c7', '#95d5b2'
+  ];
+  
+  // Lấy màu dựa trên hash
+  return colors[Math.abs(hash) % colors.length];
 }
 
 export default function UsersPage() {
@@ -64,7 +86,7 @@ export default function UsersPage() {
           return
         }
         
-        // Lấy danh sách người dùng
+        // Lấy danh sách người dùng với thông tin team
         const { users, error: usersError } = await fetchUsers()
         
         if (usersError) {
@@ -150,6 +172,9 @@ export default function UsersPage() {
                   Vai trò
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nhóm
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Trạng thái
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -163,7 +188,7 @@ export default function UsersPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {profiles.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
                     Không có người dùng nào.
                   </td>
                 </tr>
@@ -196,6 +221,23 @@ export default function UsersPage() {
                       }`}>
                         {profile.role === 'admin' ? 'Quản trị viên' : 'Người dùng'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {profile.teams && profile.teams.length > 0 ? (
+                          profile.teams.map((teamName, index) => (
+                            <span 
+                              key={index}
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-gray-800"
+                              style={{ backgroundColor: getTeamColor(teamName) }}
+                            >
+                              {teamName}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-500">Không có nhóm</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${

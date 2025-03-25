@@ -34,12 +34,29 @@ export async function fetchUsers() {
       return { users: [], error: null }
     }
     
-    // Không sử dụng admin.listUsers vì nó yêu cầu quyền admin
-    // Thay vào đó, chỉ trả về thông tin từ bảng profiles
+    // Lấy danh sách teams để có thông tin chi tiết về mỗi team
+    const { data: teams, error: teamsError } = await supabase
+      .from('teams')
+      .select('*')
+    
+    if (teamsError) {
+      console.error('Lỗi khi lấy danh sách teams:', teamsError)
+    }
+    
+    // Map team IDs to team names for each user
     const users = profiles.map(profile => {
+      // Tìm thông tin teams cho mỗi người dùng
+      const userTeams = teams && profile.team_ids ? 
+        profile.team_ids.map((teamId: string) => {
+          const team = teams.find(t => t.id === teamId)
+          return team ? team.name : null
+        }).filter(Boolean) : []
+      
       return {
         ...profile,
-        email: profile.username ? `${profile.username}@example.com` : 'Không có thông tin'
+        email: profile.username ? `${profile.username}@example.com` : 'Không có thông tin',
+        teams: userTeams,
+        team_names: userTeams.join(', ')
       }
     })
     
@@ -51,13 +68,14 @@ export async function fetchUsers() {
 }
 
 // Hàm tạo người dùng mới
-export async function createUser({ email, password, username, full_name, role, is_active }: {
+export async function createUser({ email, password, username, full_name, role, is_active, team_ids }: {
   email: string
   password: string
   username?: string
   full_name?: string
   role?: string
   is_active?: boolean
+  team_ids?: string[]
 }) {
   const supabase = createClient()
   
@@ -90,6 +108,7 @@ export async function createUser({ email, password, username, full_name, role, i
         full_name: full_name || '',
         role: role || 'user',
         is_active: is_active !== undefined ? is_active : true,
+        team_ids: team_ids || [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -114,6 +133,7 @@ export async function updateUser(userId: string, data: {
   role?: string
   is_active?: boolean
   avatar_url?: string
+  team_ids?: string[]
 }) {
   const supabase = createClient()
   
@@ -126,6 +146,7 @@ export async function updateUser(userId: string, data: {
     if (data.role !== undefined) profileData.role = data.role
     if (data.is_active !== undefined) profileData.is_active = data.is_active
     if (data.avatar_url !== undefined) profileData.avatar_url = data.avatar_url
+    if (data.team_ids !== undefined) profileData.team_ids = data.team_ids
     
     profileData.updated_at = new Date().toISOString()
     
@@ -160,5 +181,25 @@ export async function deleteUser(userId: string) {
   } catch (error: any) {
     console.error('Lỗi khi xóa người dùng:', error)
     return { success: false, error: error.message }
+  }
+}
+
+// Hàm lấy danh sách teams
+export async function fetchTeams() {
+  const supabase = createClient()
+  
+  try {
+    // Lấy danh sách các teams
+    const { data: teams, error: teamsError } = await supabase
+      .from('teams')
+      .select('*')
+      .order('name', { ascending: true })
+    
+    if (teamsError) throw teamsError
+    
+    return { teams, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi lấy danh sách teams:', error)
+    return { teams: [], error: error.message }
   }
 } 

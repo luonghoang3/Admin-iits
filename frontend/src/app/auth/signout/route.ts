@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
 export async function POST() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const supabase = await createClient()
   
   await supabase.auth.signOut()
