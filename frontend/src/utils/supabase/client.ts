@@ -231,4 +231,24 @@ export async function checkTeamsTable() {
     console.error('Lỗi khi kiểm tra bảng teams:', error)
     return { exists: false, error: error.message }
   }
+}
+
+// Hàm xóa team
+export async function deleteTeam(teamId: string) {
+  const supabase = createClient()
+  
+  try {
+    // Xóa bản ghi trong bảng teams
+    const { error } = await supabase
+      .from('teams')
+      .delete()
+      .eq('id', teamId)
+    
+    if (error) throw error
+    
+    return { success: true, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi xóa team:', error)
+    return { success: false, error: error.message }
+  }
 } 
