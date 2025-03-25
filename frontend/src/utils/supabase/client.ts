@@ -285,4 +285,33 @@ export async function createTeam({ name, description }: {
     console.error('Lỗi khi tạo team:', error)
     return { team: null, error: error.message }
   }
+}
+
+// Hàm cập nhật thông tin team
+export async function updateTeam(
+  teamId: string,
+  { name, description }: { name?: string; description?: string }
+) {
+  const supabase = createClient()
+  
+  try {
+    // Cập nhật thông tin team
+    const { data: team, error } = await supabase
+      .from('teams')
+      .update({
+        name: name?.trim(),
+        description: description?.trim(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', teamId)
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    return { success: true, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi cập nhật team:', error)
+    return { success: false, error: error.message }
+  }
 } 
