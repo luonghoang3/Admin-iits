@@ -16,6 +16,7 @@ node_modules
 # misc
 .DS_Store
 *.pem
+*.log
 
 # debug
 npm-debug.log*
@@ -37,3 +38,6 @@ next-env.d.ts
 /supabase/.temp
 .branches
 .temp
+
+# Temp files
+.cache
