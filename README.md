@@ -1,73 +1,108 @@
-# Admin-IITS Dashboard
+# Admin IITS - Hệ thống Quản lý Người dùng và Teams
 
-Admin Dashboard built with Next.js and Supabase for managing users, teams, and more.
+Hệ thống quản lý người dùng và teams được xây dựng bằng Next.js 14, Supabase và Tailwind CSS.
 
-## Technologies Used
+## Tính năng chính
 
-- **Frontend:** Next.js 14 with App Router
-- **Backend:** Supabase
-- **Database:** PostgreSQL
-- **Authentication:** Supabase Auth
-- **Styling:** Tailwind CSS
+- **Quản lý người dùng**:
+  - Xem danh sách người dùng
+  - Thêm người dùng mới
+  - Chỉnh sửa thông tin người dùng
+  - Xóa người dùng
+  - Gán người dùng vào nhiều team
 
-## Features
+- **Quản lý teams**:
+  - Xem danh sách teams
+  - Tạo team mới
+  - Chỉnh sửa thông tin team
+  - Xóa team
+  - Hiển thị thành viên trong team
 
-- User Management (CRUD)
-- Role-based Access Control
-- Team Management
-- Real-time Updates
-- Responsive Design
+- **Xác thực và phân quyền**:
+  - Đăng nhập/Đăng xuất
+  - Phân quyền người dùng (admin/user)
+  - Bảo vệ các route yêu cầu xác thực
 
-## Getting Started
+## Công nghệ sử dụng
 
-1. Clone the repository:
+- **Frontend**:
+  - Next.js 14 (App Router)
+  - React
+  - Tailwind CSS
+  - Shadcn UI
+  - TypeScript
+
+- **Backend**:
+  - Supabase (Database & Authentication)
+  - PostgreSQL
+
+## Cài đặt và Chạy
+
+1. Clone repository:
 ```bash
 git clone https://github.com/luonghoang3/Admin-iits.git
 cd Admin-iits
 ```
 
-2. Install dependencies:
+2. Cài đặt dependencies:
 ```bash
 cd frontend
 npm install
 ```
 
-3. Set up environment variables:
-Create a `.env.local` file in the frontend directory with:
+3. Cấu hình môi trường:
+- Tạo file `.env.local` trong thư mục `frontend`
+- Thêm các biến môi trường:
 ```
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-4. Start the development server:
+4. Chạy ứng dụng:
 ```bash
 npm run dev
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+Ứng dụng sẽ chạy tại `http://localhost:3000`
 
-## Project Structure
+## Cấu trúc Database
 
-```
-frontend/
-├── src/
-│   ├── app/                    # App Router pages
-│   ├── components/             # Reusable components
-│   ├── lib/                    # Library code
-│   ├── modules/                # Feature modules
-│   └── utils/                  # Utility functions
-├── public/                     # Static assets
-└── package.json               # Dependencies
-```
+### Bảng `profiles`
+- `id`: UUID (primary key)
+- `username`: string
+- `full_name`: string
+- `role`: string (admin/user)
+- `is_active`: boolean
+- `avatar_url`: string
+- `team_ids`: UUID[] (array of team IDs)
+- `created_at`: timestamp
+- `updated_at`: timestamp
 
-## Contributing
+### Bảng `teams`
+- `id`: UUID (primary key)
+- `name`: string
+- `description`: string
+- `created_at`: timestamp
+- `updated_at`: timestamp
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## API Endpoints
+
+### Users
+- `GET /api/users`: Lấy danh sách người dùng
+- `POST /api/users`: Tạo người dùng mới
+- `PUT /api/users/:id`: Cập nhật thông tin người dùng
+- `DELETE /api/users/:id`: Xóa người dùng
+
+### Teams
+- `GET /api/teams`: Lấy danh sách teams
+- `POST /api/teams`: Tạo team mới
+- `PUT /api/teams/:id`: Cập nhật thông tin team
+- `DELETE /api/teams/:id`: Xóa team
+
+## Đóng góp
+
+Mọi đóng góp đều được hoan nghênh! Vui lòng tạo issue hoặc pull request để cải thiện dự án.
 
 ## License
 
-This project is licensed under the MIT License.
+[MIT License](LICENSE)
