@@ -202,4 +202,33 @@ export async function fetchTeams() {
     console.error('Lỗi khi lấy danh sách teams:', error)
     return { teams: [], error: error.message }
   }
+}
+
+// Hàm kiểm tra bảng teams tồn tại
+export async function checkTeamsTable() {
+  const supabase = createClient()
+  
+  try {
+    // Cách 1: Thử truy vấn đến bảng teams
+    const { data, error } = await supabase
+      .from('teams')
+      .select('id')
+      .limit(1)
+    
+    // Nếu không có lỗi, bảng tồn tại
+    if (!error) {
+      return { exists: true, error: null }
+    }
+    
+    // Nếu có lỗi "relation does not exist", bảng không tồn tại
+    if (error.message && error.message.includes('relation "teams" does not exist')) {
+      return { exists: false, error: 'Bảng teams không tồn tại trong cơ sở dữ liệu' }
+    }
+    
+    // Lỗi khác (quyền truy cập, kết nối, v.v.)
+    return { exists: false, error: error.message }
+  } catch (error: any) {
+    console.error('Lỗi khi kiểm tra bảng teams:', error)
+    return { exists: false, error: error.message }
+  }
 } 
