@@ -453,12 +453,13 @@ export async function fetchClient(clientId: string) {
 }
 
 // Create a new client
-export async function createClientRecord({ name, address, email, phone, tax_id }: {
+export async function createClientRecord({ name, address, email, phone, tax_id, team_ids }: {
   name: string
   address?: string
   email?: string
   phone?: string
   tax_id?: string
+  team_ids?: string[]
 }) {
   const supabase = createClient()
   
@@ -471,6 +472,7 @@ export async function createClientRecord({ name, address, email, phone, tax_id }
         email,
         phone,
         tax_id,
+        team_ids: team_ids || [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -493,6 +495,7 @@ export async function updateClient(clientId: string, data: {
   email?: string
   phone?: string
   tax_id?: string
+  team_ids?: string[]
 }) {
   const supabase = createClient()
   

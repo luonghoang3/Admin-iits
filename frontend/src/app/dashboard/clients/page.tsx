@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { createClient, fetchClients, deleteClient } from '@/utils/supabase/client'
+import { createClient, fetchClients, deleteClient, fetchTeams } from '@/utils/supabase/client'
 
 interface Contact {
   id: string
@@ -23,13 +23,40 @@ interface Client {
   email: string | null
   phone: string | null
   tax_id: string | null
+  team_ids?: string[]
   created_at: string
   updated_at: string
   contacts: Contact[]
 }
 
+interface Team {
+  id: string
+  name: string
+  description: string | null
+}
+
+// Function to generate a consistent color for each team based on id
+function getTeamColor(id: string): string {
+  // Create hash from id
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  // List of safe pastel colors
+  const colors = [
+    '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf', 
+    '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
+    '#fffffc', '#d8f3dc', '#b7e4c7', '#95d5b2'
+  ];
+  
+  // Get color based on hash
+  return colors[Math.abs(hash) % colors.length];
+}
+
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
@@ -59,6 +86,15 @@ export default function ClientsPage() {
           setError(`Could not load clients: ${clientsError}`)
         } else {
           setClients(clientData)
+        }
+        
+        // Fetch teams data to display team names
+        const { teams: teamsData, error: teamsError } = await fetchTeams()
+        
+        if (teamsError) {
+          console.error('Error loading teams:', teamsError)
+        } else if (teamsData) {
+          setTeams(teamsData)
         }
       } catch (err: any) {
         console.error('Error:', err)
@@ -102,6 +138,32 @@ export default function ClientsPage() {
     return phone
   }
   
+  // Display client teams as badges
+  const renderClientTeams = (teamIds?: string[]) => {
+    if (!teamIds || teamIds.length === 0) {
+      return <span className="text-gray-500 text-sm">No teams</span>;
+    }
+    
+    return (
+      <div className="flex flex-wrap gap-1">
+        {teamIds.map(teamId => {
+          const team = teams.find(t => t.id === teamId);
+          if (!team) return null;
+          
+          return (
+            <span 
+              key={teamId}
+              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-gray-800"
+              style={{ backgroundColor: getTeamColor(teamId) }}
+            >
+              {team.name}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+  
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
@@ -139,6 +201,9 @@ export default function ClientsPage() {
                   Tax ID
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Teams
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Contacts
                 </th>
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -149,7 +214,7 @@ export default function ClientsPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {clients.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
                     No clients found.
                   </td>
                 </tr>
@@ -183,6 +248,9 @@ export default function ClientsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {client.tax_id || '-'}
+                    </td>
+                    <td className="px-6 py-4">
+                      {renderClientTeams(client.team_ids)}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col space-y-1">

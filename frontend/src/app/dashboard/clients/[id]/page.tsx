@@ -8,7 +8,8 @@ import {
   fetchClient, 
   createContact, 
   updateContact, 
-  deleteContact 
+  deleteContact,
+  fetchTeams
 } from '@/utils/supabase/client'
 
 interface Contact {
@@ -31,7 +32,34 @@ interface Client {
   tax_id: string | null
   created_at: string
   updated_at: string
+  team_ids?: string[]
   contacts: Contact[]
+}
+
+interface Team {
+  id: string
+  name: string
+  description: string | null
+}
+
+// Add the getTeamColor function
+// Function to generate a consistent color for each team based on id
+function getTeamColor(id: string): string {
+  // Create hash from id
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  // List of safe pastel colors
+  const colors = [
+    '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf', 
+    '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
+    '#fffffc', '#d8f3dc', '#b7e4c7', '#95d5b2'
+  ];
+  
+  // Get color based on hash
+  return colors[Math.abs(hash) % colors.length];
 }
 
 export default function ClientDetailPage() {
@@ -43,6 +71,7 @@ export default function ClientDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [client, setClient] = useState<Client | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
   
   // Modal state for adding/editing contacts
   const [showModal, setShowModal] = useState(false)
@@ -66,6 +95,17 @@ export default function ClientDetailPage() {
         if (clientData) {
           setClient(clientData)
           setContacts(clientData.contacts || [])
+          
+          // Fetch teams data to display team names
+          if (clientData.team_ids && clientData.team_ids.length > 0) {
+            const { teams: teamsData, error: teamsError } = await fetchTeams()
+            
+            if (teamsError) {
+              console.error('Error loading teams:', teamsError)
+            } else if (teamsData) {
+              setTeams(teamsData)
+            }
+          }
         } else {
           throw new Error('Client not found')
         }
@@ -195,6 +235,32 @@ export default function ClientDetailPage() {
     }))
   }
   
+  // Function to render team badges
+  const renderTeamBadges = () => {
+    if (!client || !client.team_ids || client.team_ids.length === 0) {
+      return <span className="text-gray-500">Not assigned to any team</span>;
+    }
+    
+    return (
+      <div className="flex flex-wrap gap-1 mt-1">
+        {client.team_ids.map(teamId => {
+          const team = teams.find(t => t.id === teamId);
+          if (!team) return null;
+          
+          return (
+            <span 
+              key={teamId}
+              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-gray-800"
+              style={{ backgroundColor: getTeamColor(teamId) }}
+            >
+              {team.name}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+  
   if (loading) {
     return (
       <div className="p-8">
@@ -271,6 +337,10 @@ export default function ClientDetailPage() {
                 Business Details
               </h3>
               <p className="text-gray-800"><strong>Tax ID:</strong> {client.tax_id || '-'}</p>
+              <div className="mt-2">
+                <p className="text-gray-800"><strong>Teams:</strong></p>
+                {renderTeamBadges()}
+              </div>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
