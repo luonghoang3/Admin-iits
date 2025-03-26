@@ -1,14 +1,16 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
+import { PostgrestError } from '@supabase/supabase-js'
 
 interface TeamData {
   id: number | string
   name: string
   description?: string | null
+  created_at: string
 }
 
-export default async function EditTeamPage({ 
+export default async function TeamDetailPage({ 
   params 
 }: { 
   params: { id: string } 
@@ -49,7 +51,7 @@ export default async function EditTeamPage({
     // Lấy dữ liệu team - hỗ trợ cả ID số hoặc UUID
     const { data, error } = await supabase
       .from('teams')
-      .select('id, name, description')
+      .select('*')
       .eq('id', id)
       .single();
     
@@ -91,61 +93,56 @@ export default async function EditTeamPage({
         </div>
         
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">Chỉnh sửa đội</h2>
-          <Link
-            href="/dashboard/teams"
-            className="px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-          >
-            Hủy
-          </Link>
-        </div>
-        
-        <form action={`/api/teams/${team.id}`} method="POST" className="bg-white shadow-md rounded-lg p-6">
-          <input type="hidden" name="_method" value="PUT" />
-          <div className="mb-4">
-            <label htmlFor="name" className="block text-gray-700 font-medium mb-2">
-              Tên đội
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              defaultValue={team.name}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Nhập tên đội"
-              required
-            />
-          </div>
-          
-          <div className="mb-4">
-            <label htmlFor="description" className="block text-gray-700 font-medium mb-2">
-              Mô tả
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={3}
-              defaultValue={team.description || ''}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Nhập mô tả về đội (không bắt buộc)"
-            ></textarea>
-          </div>
-          
-          <div className="flex justify-end space-x-2">
+          <h2 className="text-xl font-semibold">Chi tiết đội</h2>
+          <div className="space-x-2">
+            <Link
+              href={`/dashboard/teams/edit/${team.id}`}
+              className="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
+            >
+              Chỉnh sửa
+            </Link>
             <Link
               href="/dashboard/teams"
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
-              Hủy
+              Quay lại
             </Link>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Lưu thay đổi
-            </button>
           </div>
-        </form>
+        </div>
+        
+        <div className="bg-white shadow-md rounded-lg p-6">
+          <table className="w-full">
+            <tbody>
+              <tr>
+                <td className="py-2 font-semibold pr-4">ID:</td>
+                <td>{team.id}</td>
+              </tr>
+              <tr>
+                <td className="py-2 font-semibold pr-4">Tên đội:</td>
+                <td>{team.name}</td>
+              </tr>
+              <tr>
+                <td className="py-2 font-semibold pr-4">Mô tả:</td>
+                <td>
+                  {team.description ? (
+                    team.description
+                  ) : (
+                    <span className="text-gray-400 italic">Chưa có mô tả</span>
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2 font-semibold pr-4">Ngày tạo:</td>
+                <td>{new Date(team.created_at).toLocaleDateString('vi-VN')}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div className="mt-8 border-t pt-4">
+            <h3 className="text-lg font-semibold mb-4">Thành viên</h3>
+            <p className="text-gray-500 italic">Chức năng quản lý thành viên đang được phát triển</p>
+          </div>
+        </div>
       </div>
     );
   } catch (error) {

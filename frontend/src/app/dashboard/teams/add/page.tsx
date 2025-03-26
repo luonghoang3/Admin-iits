@@ -1,182 +1,154 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { createClient } from '@/utils/supabase/server'
+import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
-import { createClient, createTeam } from '@/utils/supabase/client'
 
-export default function AddTeamPage() {
-  const router = useRouter()
-  const [formData, setFormData] = useState({
-    name: '',
-    description: ''
-  })
+// Server action để xử lý form
+async function createTeam(formData: FormData) {
+  'use server'
   
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const name = formData.get('name') as string
+  const description = formData.get('description') as string
   
-  // Kiểm tra đăng nhập và quyền admin
-  useEffect(() => {
-    async function checkAuth() {
-      const supabase = createClient()
-      
-      try {
-        // Kiểm tra đăng nhập
-        const { data: { user } } = await supabase.auth.getUser()
-        
-        if (!user) {
-          router.push('/login')
-          return
-        }
-        
-        // Kiểm tra quyền admin
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-        
-        if (profileError) throw profileError
-        
-        if (profile?.role !== 'admin') {
-          router.push('/dashboard')
-          return
-        }
-      } catch (err: any) {
-        console.error('Lỗi khi kiểm tra quyền:', err)
-        router.push('/login')
-      }
-    }
-    
-    checkAuth()
-  }, [router])
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    
-    setFormData({
-      ...formData,
-      [name]: value
-    })
+  if (!name || name.trim() === '') {
+    return; // Sẽ hiển thị lỗi thông qua validation của HTML
   }
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    setSuccess(null)
+  try {
+    const supabase = await createClient()
     
-    try {
-      // Kiểm tra tên nhóm
-      if (!formData.name.trim()) {
-        throw new Error('Tên nhóm không được để trống')
-      }
-      
-      // Tạo nhóm mới
-      const { team, error } = await createTeam({
-        name: formData.name.trim(),
-        description: formData.description.trim() || undefined
-      })
-      
-      if (error) {
-        throw new Error(error)
-      }
-      
-      setSuccess('Tạo nhóm thành công!')
-      
-      // Reset form
-      setFormData({
-        name: '',
-        description: ''
-      })
-      
-      // Chuyển về trang danh sách sau 2 giây
-      setTimeout(() => {
-        router.push('/dashboard/teams')
-      }, 2000)
-    } catch (err: any) {
-      console.error('Lỗi khi tạo nhóm:', err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
+    // Kiểm tra session
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      redirect('/login')
     }
+    
+    // Kiểm tra quyền admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, is_active')
+      .eq('id', user.id)
+      .single()
+      
+    if (!profile?.is_active) {
+      redirect('/login?error=inactive')
+    }
+    
+    if (profile?.role !== 'admin') {
+      redirect('/dashboard')
+    }
+    
+    // Tạo team mới
+    const { error } = await supabase
+      .from('teams')
+      .insert([{ 
+        name: name.trim(),
+        description: description ? description.trim() : null
+      }])
+    
+    if (error) throw error
+    
+    // Cập nhật cache và chuyển hướng
+    revalidatePath('/dashboard/teams')
+    redirect('/dashboard/teams')
+  } catch (err) {
+    console.error('Lỗi khi tạo team:', err)
+    // Không trả về lỗi, mà sẽ hiển thị lỗi server thông qua error.tsx
+    redirect('/dashboard/teams/add?error=failed')
+  }
+}
+
+export default async function AddTeamPage() {
+  const supabase = await createClient()
+  
+  // Kiểm tra session
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    redirect('/login')
+  }
+  
+  // Kiểm tra quyền admin
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, is_active')
+    .eq('id', user.id)
+    .single()
+    
+  if (!profile?.is_active) {
+    redirect('/login?error=inactive')
+  }
+  
+  if (profile?.role !== 'admin') {
+    redirect('/dashboard')
   }
   
   return (
-    <div className="p-8">
+    <div className="p-6">
+      <div className="border-b pb-4 mb-6">
+        <h1 className="text-2xl font-bold mb-4">Quản lý đội nhóm</h1>
+        <div className="flex space-x-4">
+          <Link 
+            href="/dashboard/teams" 
+            className="px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200"
+          >
+            Danh sách
+          </Link>
+          <Link 
+            href="/dashboard/teams/add" 
+            className="px-3 py-2 rounded-md bg-blue-500 text-white"
+          >
+            Thêm đội mới
+          </Link>
+        </div>
+      </div>
+      
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Thêm nhóm mới</h1>
-        <Link 
-          href="/dashboard/teams"
-          className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors"
-        >
-          Quay lại danh sách
-        </Link>
+        <h2 className="text-xl font-semibold">Thêm đội mới</h2>
       </div>
       
-      {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-md mb-6">
-          {error}
+      <form action={createTeam} className="bg-white shadow-md rounded-lg p-6">
+        <div className="mb-4">
+          <label htmlFor="name" className="block text-gray-700 font-medium mb-2">
+            Tên đội
+          </label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Nhập tên đội"
+            required
+          />
         </div>
-      )}
-      
-      {success && (
-        <div className="bg-green-50 text-green-600 p-4 rounded-md mb-6">
-          {success}
+        
+        <div className="mb-4">
+          <label htmlFor="description" className="block text-gray-700 font-medium mb-2">
+            Mô tả
+          </label>
+          <textarea
+            id="description"
+            name="description"
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Nhập mô tả về đội (không bắt buộc)"
+          ></textarea>
         </div>
-      )}
-      
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Tên nhóm <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Nhập tên nhóm"
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-              Mô tả
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows={4}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Nhập mô tả cho nhóm (tùy chọn)"
-            />
-          </div>
-          
-          <div className="flex justify-end space-x-3">
-            <Link
-              href="/dashboard/teams"
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-            >
-              Hủy
-            </Link>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              {loading ? 'Đang lưu...' : 'Lưu nhóm'}
-            </button>
-          </div>
-        </form>
-      </div>
+        
+        <div className="flex justify-end space-x-2">
+          <Link
+            href="/dashboard/teams"
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+          >
+            Hủy
+          </Link>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Tạo đội
+          </button>
+        </div>
+      </form>
     </div>
   )
 } 

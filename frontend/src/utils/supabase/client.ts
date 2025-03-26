@@ -184,53 +184,104 @@ export async function deleteUser(userId: string) {
   }
 }
 
-// Hàm lấy danh sách teams
-export async function fetchTeams() {
-  const supabase = createClient()
+// Hàm lấy danh sách teams với cơ chế retry
+export async function fetchTeams(retryCount = 3, retryDelay = 1000) {
+  let lastError = null;
   
-  try {
-    // Lấy danh sách các teams
-    const { data: teams, error: teamsError } = await supabase
-      .from('teams')
-      .select('*')
-      .order('name', { ascending: true })
-    
-    if (teamsError) throw teamsError
-    
-    return { teams, error: null }
-  } catch (error: any) {
-    console.error('Lỗi khi lấy danh sách teams:', error)
-    return { teams: [], error: error.message }
+  for (let attempt = 0; attempt < retryCount; attempt++) {
+    try {
+      const supabase = createClient()
+      
+      // Lấy danh sách các teams
+      const { data: teams, error: teamsError } = await supabase
+        .from('teams')
+        .select('*')
+        .order('name', { ascending: true })
+      
+      if (teamsError) {
+        console.warn(`Lỗi khi lấy danh sách teams (lần thử ${attempt + 1}/${retryCount}):`, teamsError);
+        lastError = teamsError;
+        
+        if (attempt < retryCount - 1) {
+          console.log(`Thử lại sau ${retryDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          continue;
+        }
+        throw teamsError;
+      }
+      
+      return { teams, error: null }
+    } catch (error: any) {
+      console.error(`Lỗi khi lấy danh sách teams (lần thử ${attempt + 1}/${retryCount}):`, error);
+      lastError = error;
+      
+      if (attempt < retryCount - 1) {
+        console.log(`Thử lại sau ${retryDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
   }
+  
+  return { 
+    teams: [], 
+    error: lastError ? `Lỗi kết nối sau ${retryCount} lần thử: ${lastError.message}` : 'Không thể kết nối đến cơ sở dữ liệu'
+  };
 }
 
-// Hàm kiểm tra bảng teams tồn tại
-export async function checkTeamsTable() {
-  const supabase = createClient()
+// Hàm kiểm tra bảng teams tồn tại với cơ chế retry
+export async function checkTeamsTable(retryCount = 3, retryDelay = 1000) {
+  let lastError = null;
   
-  try {
-    // Cách 1: Thử truy vấn đến bảng teams
-    const { data, error } = await supabase
-      .from('teams')
-      .select('id')
-      .limit(1)
-    
-    // Nếu không có lỗi, bảng tồn tại
-    if (!error) {
-      return { exists: true, error: null }
+  for (let attempt = 0; attempt < retryCount; attempt++) {
+    try {
+      const supabase = createClient();
+      
+      // Kiểm tra kết nối đến Supabase trước
+      const { data: connectionTest, error: connectionError } = await supabase.from('profiles').select('id').limit(1);
+      if (connectionError) {
+        console.warn(`Lỗi kết nối đến Supabase (lần thử ${attempt + 1}/${retryCount}):`, connectionError);
+        lastError = connectionError;
+        
+        if (attempt < retryCount - 1) {
+          console.log(`Thử lại sau ${retryDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          continue;
+        }
+        return { exists: false, error: `Không thể kết nối đến Supabase: ${connectionError.message}` };
+      }
+      
+      // Nếu kết nối OK, kiểm tra bảng teams
+      const { data, error } = await supabase.from('teams').select('id').limit(1);
+      
+      // Nếu không có lỗi, bảng tồn tại
+      if (!error) {
+        return { exists: true, error: null };
+      }
+      
+      // Nếu có lỗi "relation does not exist", bảng không tồn tại
+      if (error.message && error.message.includes('relation "teams" does not exist')) {
+        return { exists: false, error: 'Bảng teams không tồn tại trong cơ sở dữ liệu' };
+      }
+      
+      // Lỗi khác (quyền truy cập, v.v.)
+      console.error('Lỗi kiểm tra bảng teams:', error);
+      return { exists: false, error: error.message };
+      
+    } catch (error: any) {
+      console.error(`Lỗi khi kiểm tra bảng teams (lần thử ${attempt + 1}/${retryCount}):`, error);
+      lastError = error;
+      
+      if (attempt < retryCount - 1) {
+        console.log(`Thử lại sau ${retryDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
     }
-    
-    // Nếu có lỗi "relation does not exist", bảng không tồn tại
-    if (error.message && error.message.includes('relation "teams" does not exist')) {
-      return { exists: false, error: 'Bảng teams không tồn tại trong cơ sở dữ liệu' }
-    }
-    
-    // Lỗi khác (quyền truy cập, kết nối, v.v.)
-    return { exists: false, error: error.message }
-  } catch (error: any) {
-    console.error('Lỗi khi kiểm tra bảng teams:', error)
-    return { exists: false, error: error.message }
   }
+  
+  return { 
+    exists: false, 
+    error: lastError ? `Lỗi kết nối sau ${retryCount} lần thử: ${lastError.message}` : 'Không thể kết nối đến cơ sở dữ liệu'
+  };
 }
 
 // Hàm xóa team
