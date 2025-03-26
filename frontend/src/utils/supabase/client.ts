@@ -365,4 +365,257 @@ export async function updateTeam(
     console.error('Lỗi khi cập nhật team:', error)
     return { success: false, error: error.message }
   }
+}
+
+// Client Management Functions
+
+// Fetch clients with their contacts
+export async function fetchClients() {
+  const supabase = createClient()
+  
+  try {
+    // Get all clients
+    const { data: clients, error: clientsError } = await supabase
+      .from('clients')
+      .select('*')
+      .order('name', { ascending: true })
+    
+    if (clientsError) throw clientsError
+    
+    // If no clients, return empty array
+    if (!clients || clients.length === 0) {
+      return { clients: [], error: null }
+    }
+    
+    // Get all contacts to associate with clients
+    const { data: contacts, error: contactsError } = await supabase
+      .from('contacts')
+      .select('*')
+    
+    if (contactsError) {
+      console.error('Error fetching contacts:', contactsError)
+    }
+    
+    // Associate contacts with clients
+    const clientsWithContacts = clients.map(client => {
+      const clientContacts = contacts 
+        ? contacts.filter(contact => contact.client_id === client.id)
+        : []
+      
+      return {
+        ...client,
+        contacts: clientContacts
+      }
+    })
+    
+    return { clients: clientsWithContacts, error: null }
+  } catch (error: any) {
+    console.error('Error fetching clients:', error)
+    return { clients: [], error: error.message }
+  }
+}
+
+// Fetch a single client with contacts
+export async function fetchClient(clientId: string) {
+  const supabase = createClient()
+  
+  try {
+    // Get client details
+    const { data: client, error: clientError } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', clientId)
+      .single()
+    
+    if (clientError) throw clientError
+    
+    // Get client contacts
+    const { data: contacts, error: contactsError } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('client_id', clientId)
+    
+    if (contactsError) {
+      console.error('Error fetching client contacts:', contactsError)
+    }
+    
+    return { 
+      client: {
+        ...client,
+        contacts: contacts || []
+      }, 
+      error: null 
+    }
+  } catch (error: any) {
+    console.error('Error fetching client details:', error)
+    return { client: null, error: error.message }
+  }
+}
+
+// Create a new client
+export async function createClientRecord({ name, address, email, phone, tax_id }: {
+  name: string
+  address?: string
+  email?: string
+  phone?: string
+  tax_id?: string
+}) {
+  const supabase = createClient()
+  
+  try {
+    const { data: client, error } = await supabase
+      .from('clients')
+      .insert({
+        name,
+        address,
+        email,
+        phone,
+        tax_id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    return { client, error: null }
+  } catch (error: any) {
+    console.error('Error creating client:', error)
+    return { client: null, error: error.message }
+  }
+}
+
+// Update a client
+export async function updateClient(clientId: string, data: {
+  name?: string
+  address?: string
+  email?: string
+  phone?: string
+  tax_id?: string
+}) {
+  const supabase = createClient()
+  
+  try {
+    const updateData = {
+      ...data,
+      updated_at: new Date().toISOString()
+    }
+    
+    const { data: client, error } = await supabase
+      .from('clients')
+      .update(updateData)
+      .eq('id', clientId)
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    return { client, error: null }
+  } catch (error: any) {
+    console.error('Error updating client:', error)
+    return { client: null, error: error.message }
+  }
+}
+
+// Delete a client
+export async function deleteClient(clientId: string) {
+  const supabase = createClient()
+  
+  try {
+    // Delete the client (contacts will be deleted via cascade)
+    const { error } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', clientId)
+    
+    if (error) throw error
+    
+    return { success: true, error: null }
+  } catch (error: any) {
+    console.error('Error deleting client:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+// Contact Management Functions
+
+// Create a contact for a client
+export async function createContact(data: {
+  client_id: string
+  full_name: string
+  position?: string
+  phone?: string
+  email?: string
+}) {
+  const supabase = createClient()
+  
+  try {
+    const { data: contact, error } = await supabase
+      .from('contacts')
+      .insert({
+        ...data,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    return { contact, error: null }
+  } catch (error: any) {
+    console.error('Error creating contact:', error)
+    return { contact: null, error: error.message }
+  }
+}
+
+// Update a contact
+export async function updateContact(contactId: string, data: {
+  full_name?: string
+  position?: string
+  phone?: string
+  email?: string
+}) {
+  const supabase = createClient()
+  
+  try {
+    const updateData = {
+      ...data,
+      updated_at: new Date().toISOString()
+    }
+    
+    const { data: contact, error } = await supabase
+      .from('contacts')
+      .update(updateData)
+      .eq('id', contactId)
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    return { contact, error: null }
+  } catch (error: any) {
+    console.error('Error updating contact:', error)
+    return { contact: null, error: error.message }
+  }
+}
+
+// Delete a contact
+export async function deleteContact(contactId: string) {
+  const supabase = createClient()
+  
+  try {
+    const { error } = await supabase
+      .from('contacts')
+      .delete()
+      .eq('id', contactId)
+    
+    if (error) throw error
+    
+    return { success: true, error: null }
+  } catch (error: any) {
+    console.error('Error deleting contact:', error)
+    return { success: false, error: error.message }
+  }
 } 
