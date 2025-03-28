@@ -708,7 +708,9 @@ export async function createOrder({
   department,
   order_number,
   order_date,
-  client_ref_code
+  client_ref_code,
+  shipper_id,
+  buyer_id
 }: {
   client_id: string
   contact_id?: string | null
@@ -717,6 +719,8 @@ export async function createOrder({
   order_number: string
   order_date: string
   client_ref_code?: string | null
+  shipper_id?: string | null
+  buyer_id?: string | null
 }) {
   const supabase = createClient()
   
@@ -731,6 +735,8 @@ export async function createOrder({
         order_number,
         order_date,
         client_ref_code,
+        shipper_id,
+        buyer_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -758,6 +764,8 @@ export async function updateOrder(
     order_date?: string
     client_ref_code?: string | null
     notes?: string | null
+    shipper_id?: string | null
+    buyer_id?: string | null
   }
 ) {
   const supabase = createClient()
