@@ -621,4 +621,223 @@ export async function deleteContact(contactId: string) {
     console.error('Error deleting contact:', error)
     return { success: false, error: error.message }
   }
+}
+
+// Fetch orders with client information
+export async function fetchOrders() {
+  const supabase = createClient()
+  
+  try {
+    // Fetch orders
+    const { data: orders, error: ordersError } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        clients:client_id (name)
+      `)
+      .order('created_at', { ascending: false })
+    
+    if (ordersError) throw ordersError
+    
+    // Format response with client names
+    const formattedOrders = orders.map(order => ({
+      ...order,
+      client_name: order.clients?.name
+    }))
+    
+    return { orders: formattedOrders, error: null }
+  } catch (error: any) {
+    console.error('Error fetching orders:', error)
+    return { orders: [], error: error.message }
+  }
+}
+
+// Fetch a single order by ID
+export async function fetchOrder(orderId: string) {
+  const supabase = createClient()
+  
+  try {
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        clients:client_id (id, name, phone, email)
+      `)
+      .eq('id', orderId)
+      .single()
+    
+    if (error) throw error
+    
+    // Fetch contacts for this client
+    const { data: contacts, error: contactsError } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('client_id', order.client_id)
+      .order('full_name', { ascending: true })
+    
+    if (contactsError) {
+      console.error('Error fetching client contacts:', contactsError)
+    }
+    
+    // Find the selected contact if contact_id is set
+    let selectedContact = null
+    if (order.contact_id && contacts) {
+      selectedContact = contacts.find(contact => contact.id === order.contact_id) || null
+    }
+    
+    return { 
+      order: {
+        ...order,
+        client_name: order.clients?.name,
+        client_contacts: contacts || [],
+        selected_contact: selectedContact
+      }, 
+      error: null 
+    }
+  } catch (error: any) {
+    console.error('Error fetching order:', error)
+    return { order: null, error: error.message }
+  }
+}
+
+// Create a new order
+export async function createOrder({
+  client_id,
+  contact_id,
+  type,
+  department,
+  order_number,
+  order_date,
+  client_ref_code
+}: {
+  client_id: string
+  contact_id?: string | null
+  type: 'international' | 'local'
+  department: 'marine' | 'agri' | 'consumer_goods'
+  order_number: string
+  order_date: string
+  client_ref_code?: string | null
+}) {
+  const supabase = createClient()
+  
+  try {
+    const { data: order, error } = await supabase
+      .from('orders')
+      .insert({
+        client_id,
+        contact_id,
+        type,
+        department,
+        order_number,
+        order_date,
+        client_ref_code,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    return { order, error: null }
+  } catch (error: any) {
+    console.error('Error creating order:', error)
+    return { order: null, error: error.message }
+  }
+}
+
+// Update an existing order
+export async function updateOrder(
+  orderId: string,
+  data: {
+    client_id?: string
+    contact_id?: string | null
+    type?: 'international' | 'local'
+    department?: 'marine' | 'agri' | 'consumer_goods'
+    status?: 'draft' | 'confirmed' | 'completed' | 'cancelled'
+    order_date?: string
+    client_ref_code?: string | null
+    notes?: string | null
+  }
+) {
+  const supabase = createClient()
+  
+  try {
+    const updateData = {
+      ...data,
+      updated_at: new Date().toISOString()
+    }
+    
+    const { data: order, error } = await supabase
+      .from('orders')
+      .update(updateData)
+      .eq('id', orderId)
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    return { order, error: null }
+  } catch (error: any) {
+    console.error('Error updating order:', error)
+    return { order: null, error: error.message }
+  }
+}
+
+// Delete an order
+export async function deleteOrder(orderId: string) {
+  const supabase = createClient()
+  
+  try {
+    const { error } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', orderId)
+    
+    if (error) throw error
+    
+    return { success: true, error: null }
+  } catch (error: any) {
+    console.error('Error deleting order:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+// Get the next sequence number for order numbers
+export async function fetchNextOrderSequence(
+  typePrefix: string,
+  departmentCode: string,
+  yearCode: string
+) {
+  const supabase = createClient()
+  
+  try {
+    // Look for the highest existing sequence number for this prefix combination
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('order_number')
+      .like('order_number', `${typePrefix}${departmentCode}${yearCode}-%`)
+      .order('order_number', { ascending: false })
+    
+    if (error) throw error
+    
+    // Default to 1 if no orders found
+    let nextSequence = 1
+    
+    if (orders && orders.length > 0) {
+      // Parse the sequence number from the latest order
+      const latestOrder = orders[0]
+      const sequencePart = latestOrder.order_number.split('-')[1]
+      
+      // Convert to number and increment
+      if (sequencePart) {
+        nextSequence = parseInt(sequencePart, 10) + 1
+      }
+    }
+    
+    return { nextSequence, error: null }
+  } catch (error: any) {
+    console.error('Error getting next sequence:', error)
+    return { nextSequence: 1, error: error.message }
+  }
 } 
