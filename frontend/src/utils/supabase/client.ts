@@ -701,44 +701,47 @@ export async function fetchOrder(orderId: string) {
 }
 
 // Create a new order
-export async function createOrder({
-  client_id,
-  contact_id,
-  type,
-  department,
-  order_number,
-  order_date,
-  client_ref_code,
-  shipper_id,
-  buyer_id
-}: {
+export async function createOrder(data: {
   client_id: string
   contact_id?: string | null
-  type: 'international' | 'local'
-  department: 'marine' | 'agri' | 'consumer_goods'
-  order_number: string
-  order_date: string
-  client_ref_code?: string | null
   shipper_id?: string | null
   buyer_id?: string | null
+  type: 'international' | 'local'
+  department: 'marine' | 'agri' | 'consumer_goods'
+  order_date: string
+  client_ref_code?: string | null
+  vessel_carrier?: string | null
+  bill_of_lading?: string | null
+  bill_of_lading_date?: string | null
 }) {
   const supabase = createClient()
   
   try {
+    // Generate an order number based on the department and a random number
+    const prefix = data.department === 'marine' ? 'MR' : 
+                  data.department === 'agri' ? 'AG' : 'CG';
+    const typePrefix = data.type === 'international' ? 'I' : 'L';
+    const randomNum = Math.floor(1000 + Math.random() * 9000); // 4-digit random number
+    const orderNumber = `${typePrefix}${prefix}${randomNum}`;
+    
+    // Insert new order
     const { data: order, error } = await supabase
       .from('orders')
       .insert({
-        client_id,
-        contact_id,
-        type,
-        department,
-        order_number,
-        order_date,
-        client_ref_code,
-        shipper_id,
-        buyer_id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        client_id: data.client_id,
+        contact_id: data.contact_id,
+        type: data.type,
+        department: data.department,
+        order_number: orderNumber,
+        order_date: data.order_date,
+        client_ref_code: data.client_ref_code,
+        shipper_id: data.shipper_id,
+        buyer_id: data.buyer_id,
+        vessel_carrier: data.vessel_carrier,
+        bill_of_lading: data.bill_of_lading,
+        bill_of_lading_date: data.bill_of_lading_date,
+        status: 'draft',
+        created_at: new Date().toISOString()
       })
       .select()
       .single()
@@ -766,6 +769,9 @@ export async function updateOrder(
     notes?: string | null
     shipper_id?: string | null
     buyer_id?: string | null
+    vessel_carrier?: string | null
+    bill_of_lading?: string | null
+    bill_of_lading_date?: string | null
   }
 ) {
   const supabase = createClient()

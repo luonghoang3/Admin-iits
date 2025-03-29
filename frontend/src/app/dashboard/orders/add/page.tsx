@@ -56,6 +56,9 @@ export default function AddOrderPage() {
   const [department, setDepartment] = useState<'marine' | 'agri' | 'consumer_goods'>('marine')
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]) // Today's date
   const [clientRefCode, setClientRefCode] = useState('')
+  const [vessel, setVessel] = useState('')
+  const [billOfLading, setBillOfLading] = useState('')
+  const [billOfLadingDate, setBillOfLadingDate] = useState('')
   const [notes, setNotes] = useState('')
   const [previewOrderNumber, setPreviewOrderNumber] = useState('')
   
@@ -226,11 +229,13 @@ export default function AddOrderPage() {
         contact_id: contactId || null,
         type,
         department,
-        order_number: previewOrderNumber,
         order_date: orderDate,
         client_ref_code: clientRefCode || null,
         shipper_id: shipperId || null,
-        buyer_id: buyerId || null
+        buyer_id: buyerId || null,
+        vessel_carrier: vessel || null,
+        bill_of_lading: billOfLading || null,
+        bill_of_lading_date: billOfLadingDate || null
       })
       
       if (createError) throw new Error(createError)
@@ -882,8 +887,8 @@ export default function AddOrderPage() {
   }
   
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <div className="mb-8">
+    <div className="max-w-7xl mx-auto p-6" style={{ overflow: 'visible' }}>
+      <div className="mb-8" style={{ overflow: 'visible' }}>
         <h1 className="text-2xl font-bold text-gray-900">Create New Order</h1>
       </div>
 
@@ -898,26 +903,23 @@ export default function AddOrderPage() {
         <div className="bg-gray-50 p-6 border-b border-gray-200">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
             <div>
-              <h2 className="text-lg font-medium text-gray-900 mb-1">Order Number Preview</h2>
+              <h2 className="text-lg font-medium text-gray-900 mb-1">Order Number</h2>
               <div className="text-2xl font-bold text-blue-600">{previewOrderNumber}</div>
-              <p className="mt-1 text-sm text-gray-500">
-                This number will be automatically generated based on your selections
-              </p>
             </div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="p-6" style={{ overflow: 'visible', isolation: 'isolate' }}>
           {/* Order Type & Details Section */}
           <div className="mb-8">
-            <h3 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b border-gray-100">Order Details</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b border-gray-100">Order Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
                 <label id="orderTypeLabel" className="block text-sm font-medium text-gray-700 mb-1">
                   Order Type
                 </label>
                 <Listbox value={type} onChange={(selectedType) => handleTypeChange(selectedType)}>
-                  <div className="relative">
+                  <div className="relative" style={{ position: "relative", zIndex: 60, overflow: "visible", transform: "translate3d(0,0,0)" }}>
                     <Listbox.Button className="relative w-full cursor-default rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <span className="block truncate">
                         {type === 'international' ? 'International (I)' : 'Local (L)'}
@@ -935,7 +937,7 @@ export default function AddOrderPage() {
                       leaveFrom="opacity-100"
                       leaveTo="opacity-0"
                     >
-                      <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                      <Listbox.Options className="absolute z-[999] mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm" style={{ position: 'fixed', top: 'auto', left: 'auto', width: 'auto', maxWidth: '300px', overflowY: 'auto' }}>
                         <Listbox.Option
                           value="international"
                           className={({ active }) =>
@@ -997,7 +999,7 @@ export default function AddOrderPage() {
                   Department
                 </label>
                 <Listbox value={department} onChange={(selectedDepartment) => handleDepartmentChange(selectedDepartment)}>
-                  <div className="relative">
+                  <div className="relative" style={{ position: "relative", zIndex: 60, overflow: "visible", transform: "translate3d(0,0,0)" }}>
                     <Listbox.Button className="relative w-full cursor-default rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <span className="block truncate">
                         {department === 'marine' ? 'Marine (MR)' : 
@@ -1017,7 +1019,7 @@ export default function AddOrderPage() {
                       leaveFrom="opacity-100"
                       leaveTo="opacity-0"
                     >
-                      <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                      <Listbox.Options className="absolute z-[999] mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm" style={{ position: 'fixed', top: 'auto', left: 'auto', width: 'auto', maxWidth: '300px', overflowY: 'auto' }}>
                         <Listbox.Option
                           value="marine"
                           className={({ active }) =>
@@ -1127,654 +1129,668 @@ export default function AddOrderPage() {
                 />
               </div>
             </div>
-          </div>
-
-          {/* Client & Contact Section */}
-          <div className="mb-8">
-            <h3 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b border-gray-100">Client Information</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label id="clientLabel" className="block text-sm font-medium text-gray-700 mb-1">
-                  Client <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center space-x-2">
-                  <div className="relative flex-grow">
-                    <Combobox value={clients.find(c => c.id === clientId) || null} onChange={(client: Client | null) => {
-                      if (client) {
-                        setClientId(client.id);
-                        // Load contacts for this client
-                        if (client.id) {
-                          loadClientContacts(client.id);
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label id="clientLabel" className="block text-sm font-medium text-gray-700 mb-1">
+                    Client <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <div className="relative flex-grow">
+                      <Combobox value={clients.find(c => c.id === clientId) || null} onChange={(client: Client | null) => {
+                        if (client) {
+                          setClientId(client.id);
+                          // Load contacts for this client
+                          if (client.id) {
+                            loadClientContacts(client.id);
+                          }
+                        } else {
+                          setClientId('');
+                          setContacts([]);
+                          setContactId('');
                         }
-                      } else {
-                        setClientId('');
-                        setContacts([]);
-                        setContactId('');
-                      }
-                    }}>
-                      <div className="relative">
-                        <div className="relative w-full cursor-default overflow-hidden rounded-md border border-gray-300 bg-white text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300">
-                          <Combobox.Input
-                            className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0"
-                            displayValue={(client: Client | null) => client?.name || ''}
-                            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setClientQuery(event.target.value)}
-                            placeholder="Select Client"
-                            required
-                          />
-                          <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
-                            <ChevronUpDownIcon
-                              className="h-5 w-5 text-gray-400"
-                              aria-hidden="true"
+                      }}>
+                        <div className="relative" style={{ position: "relative", zIndex: 50, overflow: "visible", transform: "translate3d(0,0,0)" }}>
+                          <div className="relative w-full cursor-default overflow-visible rounded-md border border-gray-300 bg-white text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300" style={{ position: "relative", overflow: "visible" }}>
+                            <Combobox.Input
+                              className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0"
+                              displayValue={(client: Client | null) => client?.name || ''}
+                              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setClientQuery(event.target.value)}
+                              placeholder="Select Client"
+                              required
                             />
-                          </Combobox.Button>
-                        </div>
-                        <Transition
-                          as={Fragment}
-                          leave="transition ease-in duration-100"
-                          leaveFrom="opacity-100"
-                          leaveTo="opacity-0"
-                          afterLeave={() => setClientQuery('')}
-                        >
-                          <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                            {filteredClients.length === 0 && clientQuery !== '' ? (
-                              <div className="relative cursor-default select-none px-4 py-2 text-gray-700">
-                                Nothing found.
-                              </div>
-                            ) : (
-                              filteredClients.map((client) => (
-                                <Combobox.Option
-                                  key={client.id}
-                                  className={({ active }: { active: boolean }) =>
-                                    `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                      active ? 'bg-blue-600 text-white' : 'text-gray-900'
-                                    }`
-                                  }
-                                  value={client}
-                                >
-                                  {({ selected, active }: { selected: boolean; active: boolean }) => (
-                                    <>
-                                      <span
-                                        className={`block truncate ${
-                                          selected ? 'font-medium' : 'font-normal'
-                                        }`}
-                                      >
-                                        {client.name}
-                                      </span>
-                                      {selected ? (
+                            <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                              <ChevronUpDownIcon
+                                className="h-5 w-5 text-gray-400"
+                                aria-hidden="true"
+                              />
+                            </Combobox.Button>
+                          </div>
+                          <Transition
+                            as={Fragment}
+                            leave="transition ease-in duration-100"
+                            leaveFrom="opacity-100"
+                            leaveTo="opacity-0"
+                            afterLeave={() => setClientQuery('')}
+                          >
+                            <Combobox.Options className="fixed z-[999] mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm" style={{ position: 'fixed', top: 'auto', left: 'auto', width: 'auto', maxWidth: '300px', overflowY: 'auto' }}>
+                              {filteredClients.length === 0 && clientQuery !== '' ? (
+                                <div className="relative cursor-default select-none px-4 py-2 text-gray-700">
+                                  Nothing found.
+                                </div>
+                              ) : (
+                                filteredClients.map((client) => (
+                                  <Combobox.Option
+                                    key={client.id}
+                                    className={({ active }: { active: boolean }) =>
+                                      `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                        active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                                      }`
+                                    }
+                                    value={client}
+                                  >
+                                    {({ selected, active }: { selected: boolean; active: boolean }) => (
+                                      <>
                                         <span
-                                          className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                                            active ? 'text-white' : 'text-blue-600'
+                                          className={`block truncate ${
+                                            selected ? 'font-medium' : 'font-normal'
                                           }`}
                                         >
-                                          <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                          {client.name}
                                         </span>
-                                      ) : null}
-                                    </>
-                                  )}
-                                </Combobox.Option>
-                              ))
-                            )}
-                          </Combobox.Options>
-                        </Transition>
-                      </div>
-                    </Combobox>
-                  </div>
-                  
-                  <Menu as="div" className="relative inline-block text-left">
-                    <div>
-                      <Menu.Button className="mt-1 p-2 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
-                        <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
-                      </Menu.Button>
-                    </div>
-                    <Transition
-                      as={Fragment}
-                      enter="transition ease-out duration-100"
-                      enterFrom="transform opacity-0 scale-95"
-                      enterTo="transform opacity-100 scale-100"
-                      leave="transition ease-in duration-75"
-                      leaveFrom="transform opacity-100 scale-100"
-                      leaveTo="transform opacity-0 scale-95"
-                    >
-                      <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                        <div className="py-1">
-                          <Menu.Item>
-                            {({ active }) => (
-                              <button
-                                onClick={openAddClientModal}
-                                className={`${
-                                  active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                } flex items-center w-full px-4 py-2 text-sm`}
-                              >
-                                <PlusIcon className="mr-3 h-5 w-5 text-blue-500" aria-hidden="true" />
-                                Add New Client
-                              </button>
-                            )}
-                          </Menu.Item>
-                          
-                          {clientId && (
-                            <>
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={openEditClientModal}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } flex items-center w-full px-4 py-2 text-sm`}
-                                  >
-                                    <PencilSquareIcon className="mr-3 h-5 w-5 text-gray-500" aria-hidden="true" />
-                                    Edit Client
-                                  </button>
-                                )}
-                              </Menu.Item>
-                              
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={handleDeleteClient}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } flex items-center w-full px-4 py-2 text-sm`}
-                                  >
-                                    <TrashIcon className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
-                                    Delete Client
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            </>
-                          )}
+                                        {selected ? (
+                                          <span
+                                            className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                                              active ? 'text-white' : 'text-blue-600'
+                                            }`}
+                                          >
+                                            <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                          </span>
+                                        ) : null}
+                                      </>
+                                    )}
+                                  </Combobox.Option>
+                                ))
+                              )}
+                            </Combobox.Options>
+                          </Transition>
                         </div>
-                      </Menu.Items>
-                    </Transition>
-                  </Menu>
+                      </Combobox>
+                    </div>
+                    
+                    <Menu as="div" className="relative inline-block text-left">
+                      <div>
+                        <Menu.Button className="mt-1 p-2 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
+                          <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
+                        </Menu.Button>
+                      </div>
+                      <Transition
+                        as={Fragment}
+                        enter="transition ease-out duration-100"
+                        enterFrom="transform opacity-0 scale-95"
+                        enterTo="transform opacity-100 scale-100"
+                        leave="transition ease-in duration-75"
+                        leaveFrom="transform opacity-100 scale-100"
+                        leaveTo="transform opacity-0 scale-95"
+                      >
+                        <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                          <div className="py-1">
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={openAddClientModal}
+                                  className={`${
+                                    active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                  } flex items-center w-full px-4 py-2 text-sm`}
+                                >
+                                  <PlusIcon className="mr-3 h-5 w-5 text-blue-500" aria-hidden="true" />
+                                  Add New Client
+                                </button>
+                              )}
+                            </Menu.Item>
+                            
+                            {clientId && (
+                              <>
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button
+                                      onClick={openEditClientModal}
+                                      className={`${
+                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                      } flex items-center w-full px-4 py-2 text-sm`}
+                                    >
+                                      <PencilSquareIcon className="mr-3 h-5 w-5 text-gray-500" aria-hidden="true" />
+                                      Edit Client
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                                
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button
+                                      onClick={handleDeleteClient}
+                                      className={`${
+                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                      } flex items-center w-full px-4 py-2 text-sm`}
+                                    >
+                                      <TrashIcon className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
+                                      Delete Client
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                              </>
+                            )}
+                          </div>
+                        </Menu.Items>
+                      </Transition>
+                    </Menu>
+                  </div>
                 </div>
-              </div>
-              
-              <div>
-                <label id="contactLabel" className="block text-sm font-medium text-gray-700 mb-1">
-                  Contact Person
-                </label>
-                <div className="flex items-center space-x-2">
-                  <div className="relative flex-grow">
-                    <Combobox value={contacts.find(c => c.id === contactId) || null} onChange={(contact: Contact | null) => {
-                      setContactId(contact?.id || '')
-                    }}>
-                      <div className="relative mt-1">
-                        <div className="relative w-full cursor-default overflow-hidden rounded-md border border-gray-300 bg-white text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300">
-                          <Combobox.Input
-                            className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0"
-                            displayValue={(contact: Contact | null) => 
-                              contact 
-                                ? `${contact.full_name}${contact.position ? ` (${contact.position})` : ''}`
-                                : ''
-                            }
-                            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setContactQuery(event.target.value)}
-                            placeholder={!clientId ? "Select a client first" : contacts.length === 0 ? "No contacts available" : "Select Contact"}
-                            disabled={!clientId || contacts.length === 0}
-                          />
-                          <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
-                            <ChevronUpDownIcon
-                              className="h-5 w-5 text-gray-400"
-                              aria-hidden="true"
+                
+                <div>
+                  <label id="contactLabel" className="block text-sm font-medium text-gray-700 mb-1">
+                    Contact Person
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <div className="relative flex-grow">
+                      <Combobox value={contacts.find(c => c.id === contactId) || null} onChange={(contact: Contact | null) => {
+                        setContactId(contact?.id || '')
+                      }}>
+                        <div className="relative" style={{ position: "relative", zIndex: 40, overflow: "visible", transform: "translate3d(0,0,0)" }}>
+                          <div className="relative w-full cursor-default overflow-visible rounded-md border border-gray-300 bg-white text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300" style={{ position: "relative", overflow: "visible" }}>
+                            <Combobox.Input
+                              className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0"
+                              displayValue={(contact: Contact | null) => 
+                                contact 
+                                  ? `${contact.full_name}${contact.position ? ` (${contact.position})` : ''}`
+                                  : ''
+                              }
+                              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setContactQuery(event.target.value)}
+                              placeholder={!clientId ? "Select a client first" : contacts.length === 0 ? "No contacts available" : "Select Contact"}
+                              disabled={!clientId || contacts.length === 0}
                             />
-                          </Combobox.Button>
-                        </div>
-                        <Transition
-                          as={Fragment}
-                          leave="transition ease-in duration-100"
-                          leaveFrom="opacity-100"
-                          leaveTo="opacity-0"
-                          afterLeave={() => setContactQuery('')}
-                        >
-                          <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                            {filteredContacts.length === 0 ? (
-                              <div className="relative cursor-default select-none px-4 py-2 text-gray-700">
-                                {contactQuery !== '' ? 'No matching contacts.' : 'No contacts available.'}
-                              </div>
-                            ) : (
-                              filteredContacts.map((contact) => (
-                                <Combobox.Option
-                                  key={contact.id}
-                                  className={({ active }: { active: boolean }) =>
-                                    `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                      active ? 'bg-blue-600 text-white' : 'text-gray-900'
-                                    }`
-                                  }
-                                  value={contact}
-                                >
-                                  {({ selected, active }: { selected: boolean; active: boolean }) => (
-                                    <>
-                                      <span
-                                        className={`block truncate ${
-                                          selected ? 'font-medium' : 'font-normal'
-                                        }`}
-                                      >
-                                        {contact.full_name} {contact.position ? `(${contact.position})` : ''}
-                                      </span>
-                                      {selected ? (
+                            <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                              <ChevronUpDownIcon
+                                className="h-5 w-5 text-gray-400"
+                                aria-hidden="true"
+                              />
+                            </Combobox.Button>
+                          </div>
+                          <Transition
+                            as={Fragment}
+                            leave="transition ease-in duration-100"
+                            leaveFrom="opacity-100"
+                            leaveTo="opacity-0"
+                            afterLeave={() => setContactQuery('')}
+                          >
+                            <Combobox.Options className="fixed z-[999] mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm" style={{ position: 'fixed', top: 'auto', left: 'auto', width: 'auto', maxWidth: '300px', overflowY: 'auto' }}>
+                              {filteredContacts.length === 0 ? (
+                                <div className="relative cursor-default select-none px-4 py-2 text-gray-700">
+                                  {contactQuery !== '' ? 'No matching contacts.' : 'No contacts available.'}
+                                </div>
+                              ) : (
+                                filteredContacts.map((contact) => (
+                                  <Combobox.Option
+                                    key={contact.id}
+                                    className={({ active }: { active: boolean }) =>
+                                      `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                        active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                                      }`
+                                    }
+                                    value={contact}
+                                  >
+                                    {({ selected, active }: { selected: boolean; active: boolean }) => (
+                                      <>
                                         <span
-                                          className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                                            active ? 'text-white' : 'text-blue-600'
+                                          className={`block truncate ${
+                                            selected ? 'font-medium' : 'font-normal'
                                           }`}
                                         >
-                                          <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                          {contact.full_name} {contact.position ? `(${contact.position})` : ''}
                                         </span>
-                                      ) : null}
-                                    </>
-                                  )}
-                                </Combobox.Option>
-                              ))
-                            )}
-                          </Combobox.Options>
-                        </Transition>
-                      </div>
-                    </Combobox>
-                  </div>
-                  
-                  <Menu as="div" className="relative inline-block text-left">
-                    <div>
-                      <Menu.Button className="mt-1 p-2 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
-                        <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
-                      </Menu.Button>
-                    </div>
-                    <Transition
-                      as={Fragment}
-                      enter="transition ease-out duration-100"
-                      enterFrom="transform opacity-0 scale-95"
-                      enterTo="transform opacity-100 scale-100"
-                      leave="transition ease-in duration-75"
-                      leaveFrom="transform opacity-100 scale-100"
-                      leaveTo="transform opacity-0 scale-95"
-                    >
-                      <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                        <div className="py-1">
-                          <Menu.Item>
-                            {({ active }) => (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  openAddContactModal();
-                                }}
-                                className={`${
-                                  active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                } flex items-center w-full px-4 py-2 text-sm`}
-                              >
-                                <PlusIcon className="mr-3 h-5 w-5 text-blue-500" aria-hidden="true" />
-                                Add New Contact
-                              </button>
-                            )}
-                          </Menu.Item>
-                          
-                          {contactId && (
-                            <>
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      openEditContactModal();
-                                    }}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } flex items-center w-full px-4 py-2 text-sm`}
-                                  >
-                                    <PencilSquareIcon className="mr-3 h-5 w-5 text-gray-500" aria-hidden="true" />
-                                    Edit Contact
-                                  </button>
-                                )}
-                              </Menu.Item>
-                              
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleDeleteContact();
-                                    }}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } flex items-center w-full px-4 py-2 text-sm`}
-                                  >
-                                    <TrashIcon className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
-                                    Delete Contact
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            </>
-                          )}
+                                        {selected ? (
+                                          <span
+                                            className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                                              active ? 'text-white' : 'text-blue-600'
+                                            }`}
+                                          >
+                                            <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                          </span>
+                                        ) : null}
+                                      </>
+                                    )}
+                                  </Combobox.Option>
+                                ))
+                              )}
+                            </Combobox.Options>
+                          </Transition>
                         </div>
-                      </Menu.Items>
-                    </Transition>
-                  </Menu>
+                      </Combobox>
+                    </div>
+                    
+                    <Menu as="div" className="relative inline-block text-left">
+                      <div>
+                        <Menu.Button className="mt-1 p-2 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
+                          <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
+                        </Menu.Button>
+                      </div>
+                      <Transition
+                        as={Fragment}
+                        enter="transition ease-out duration-100"
+                        enterFrom="transform opacity-0 scale-95"
+                        enterTo="transform opacity-100 scale-100"
+                        leave="transition ease-in duration-75"
+                        leaveFrom="transform opacity-100 scale-100"
+                        leaveTo="transform opacity-0 scale-95"
+                      >
+                        <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                          <div className="py-1">
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    openAddContactModal();
+                                  }}
+                                  className={`${
+                                    active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                  } flex items-center w-full px-4 py-2 text-sm`}
+                                >
+                                  <PlusIcon className="mr-3 h-5 w-5 text-blue-500" aria-hidden="true" />
+                                  Add New Contact
+                                </button>
+                              )}
+                            </Menu.Item>
+                            
+                            {contactId && (
+                              <>
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        openEditContactModal();
+                                      }}
+                                      className={`${
+                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                      } flex items-center w-full px-4 py-2 text-sm`}
+                                    >
+                                      <PencilSquareIcon className="mr-3 h-5 w-5 text-gray-500" aria-hidden="true" />
+                                      Edit Contact
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                                
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleDeleteContact();
+                                      }}
+                                      className={`${
+                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                      } flex items-center w-full px-4 py-2 text-sm`}
+                                    >
+                                      <TrashIcon className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
+                                      Delete Contact
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                              </>
+                            )}
+                          </div>
+                        </Menu.Items>
+                      </Transition>
+                    </Menu>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
           
-          {/* Shipping Section */}
-          <div className="mb-8">
-            <h3 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b border-gray-100">Shipping Information</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label id="shipperLabel" className="block text-sm font-medium text-gray-700 mb-1">
-                  Shipper (Optional)
-                </label>
-                <div className="flex items-center space-x-2">
-                  <div className="relative flex-grow">
-                    <Combobox value={shippers.find(s => s.id === shipperId) || null} onChange={(shipper: Shipper | null) => {
-                      setShipperId(shipper?.id || '');
-                    }}>
-                      <div className="relative">
-                        <div className="relative w-full cursor-default overflow-hidden rounded-md border border-gray-300 bg-white text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300">
-                          <Combobox.Input
-                            className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0"
-                            displayValue={(shipper: Shipper | null) => shipper?.name || ''}
-                            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setShipperQuery(event.target.value)}
-                            placeholder="Select Shipper (Optional)"
-                          />
-                          <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
-                            <ChevronUpDownIcon
-                              className="h-5 w-5 text-gray-400"
-                              aria-hidden="true"
-                            />
-                          </Combobox.Button>
-                        </div>
-                        <Transition
-                          as={Fragment}
-                          leave="transition ease-in duration-100"
-                          leaveFrom="opacity-100"
-                          leaveTo="opacity-0"
-                          afterLeave={() => setShipperQuery('')}
-                        >
-                          <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                            {filteredShippers.length === 0 && shipperQuery !== '' ? (
-                              <div className="relative cursor-default select-none px-4 py-2 text-gray-700">
-                                Nothing found.
-                              </div>
-                            ) : (
-                              filteredShippers.map((shipper) => (
-                                <Combobox.Option
-                                  key={shipper.id}
-                                  className={({ active }: { active: boolean }) =>
-                                    `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                      active ? 'bg-blue-600 text-white' : 'text-gray-900'
-                                    }`
-                                  }
-                                  value={shipper}
-                                >
-                                  {({ selected, active }: { selected: boolean; active: boolean }) => (
-                                    <>
-                                      <span
-                                        className={`block truncate ${
-                                          selected ? 'font-medium' : 'font-normal'
-                                        }`}
-                                      >
-                                        {shipper.name}
-                                      </span>
-                                      {selected ? (
-                                        <span
-                                          className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                                            active ? 'text-white' : 'text-blue-600'
-                                          }`}
-                                        >
-                                          <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                                        </span>
-                                      ) : null}
-                                    </>
-                                  )}
-                                </Combobox.Option>
-                              ))
-                            )}
-                          </Combobox.Options>
-                        </Transition>
-                      </div>
-                    </Combobox>
-                  </div>
-                  
-                  <Menu as="div" className="relative inline-block text-left">
-                    <div>
-                      <Menu.Button className="mt-1 p-2 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
-                        <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
-                      </Menu.Button>
-                    </div>
-                    <Transition
-                      as={Fragment}
-                      enter="transition ease-out duration-100"
-                      enterFrom="transform opacity-0 scale-95"
-                      enterTo="transform opacity-100 scale-100"
-                      leave="transition ease-in duration-75"
-                      leaveFrom="transform opacity-100 scale-100"
-                      leaveTo="transform opacity-0 scale-95"
-                    >
-                      <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                        <div className="py-1">
-                          <Menu.Item>
-                            {({ active }) => (
-                              <button
-                                onClick={openAddShipperModal}
-                                className={`${
-                                  active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                } flex items-center w-full px-4 py-2 text-sm`}
-                              >
-                                <PlusIcon className="mr-3 h-5 w-5 text-blue-500" aria-hidden="true" />
-                                Add New Shipper
-                              </button>
-                            )}
-                          </Menu.Item>
-                          
-                          {shipperId && (
-                            <>
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={openEditShipperModal}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } flex items-center w-full px-4 py-2 text-sm`}
-                                  >
-                                    <PencilSquareIcon className="mr-3 h-5 w-5 text-gray-500" aria-hidden="true" />
-                                    Edit Shipper
-                                  </button>
-                                )}
-                              </Menu.Item>
-                              
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={handleDeleteShipper}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } flex items-center w-full px-4 py-2 text-sm`}
-                                  >
-                                    <TrashIcon className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
-                                    Delete Shipper
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            </>
-                          )}
-                        </div>
-                      </Menu.Items>
-                    </Transition>
-                  </Menu>
-                </div>
-              </div>
-              
-              <div>
-                <label id="buyerLabel" className="block text-sm font-medium text-gray-700 mb-1">
-                  Buyer (Optional)
-                </label>
-                <div className="flex items-center space-x-2">
-                  <div className="relative flex-grow">
-                    <Combobox value={buyers.find(b => b.id === buyerId) || null} onChange={(buyer: Buyer | null) => {
-                      setBuyerId(buyer?.id || '');
-                    }}>
-                      <div className="relative">
-                        <div className="relative w-full cursor-default overflow-hidden rounded-md border border-gray-300 bg-white text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300">
-                          <Combobox.Input
-                            className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0"
-                            displayValue={(buyer: Buyer | null) => buyer?.name || ''}
-                            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setBuyerQuery(event.target.value)}
-                            placeholder="Select Buyer (Optional)"
-                          />
-                          <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
-                            <ChevronUpDownIcon
-                              className="h-5 w-5 text-gray-400"
-                              aria-hidden="true"
-                            />
-                          </Combobox.Button>
-                        </div>
-                        <Transition
-                          as={Fragment}
-                          leave="transition ease-in duration-100"
-                          leaveFrom="opacity-100"
-                          leaveTo="opacity-0"
-                          afterLeave={() => setBuyerQuery('')}
-                        >
-                          <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                            {filteredBuyers.length === 0 && buyerQuery !== '' ? (
-                              <div className="relative cursor-default select-none px-4 py-2 text-gray-700">
-                                Nothing found.
-                              </div>
-                            ) : (
-                              filteredBuyers.map((buyer) => (
-                                <Combobox.Option
-                                  key={buyer.id}
-                                  className={({ active }: { active: boolean }) =>
-                                    `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                      active ? 'bg-blue-600 text-white' : 'text-gray-900'
-                                    }`
-                                  }
-                                  value={buyer}
-                                >
-                                  {({ selected, active }: { selected: boolean; active: boolean }) => (
-                                    <>
-                                      <span
-                                        className={`block truncate ${
-                                          selected ? 'font-medium' : 'font-normal'
-                                        }`}
-                                      >
-                                        {buyer.name}
-                                      </span>
-                                      {selected ? (
-                                        <span
-                                          className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                                            active ? 'text-white' : 'text-blue-600'
-                                          }`}
-                                        >
-                                          <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                                        </span>
-                                      ) : null}
-                                    </>
-                                  )}
-                                </Combobox.Option>
-                              ))
-                            )}
-                          </Combobox.Options>
-                        </Transition>
-                      </div>
-                    </Combobox>
-                  </div>
-                  
-                  <Menu as="div" className="relative inline-block text-left">
-                    <div>
-                      <Menu.Button className="mt-1 p-2 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
-                        <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
-                      </Menu.Button>
-                    </div>
-                    <Transition
-                      as={Fragment}
-                      enter="transition ease-out duration-100"
-                      enterFrom="transform opacity-0 scale-95"
-                      enterTo="transform opacity-100 scale-100"
-                      leave="transition ease-in duration-75"
-                      leaveFrom="transform opacity-100 scale-100"
-                      leaveTo="transform opacity-0 scale-95"
-                    >
-                      <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-                        <div className="py-1">
-                          <Menu.Item>
-                            {({ active }) => (
-                              <button
-                                onClick={openAddBuyerModal}
-                                className={`${
-                                  active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                } flex items-center w-full px-4 py-2 text-sm`}
-                              >
-                                <PlusIcon className="mr-3 h-5 w-5 text-blue-500" aria-hidden="true" />
-                                Add New Buyer
-                              </button>
-                            )}
-                          </Menu.Item>
-                          
-                          {buyerId && (
-                            <>
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={openEditBuyerModal}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } flex items-center w-full px-4 py-2 text-sm`}
-                                  >
-                                    <PencilSquareIcon className="mr-3 h-5 w-5 text-gray-500" aria-hidden="true" />
-                                    Edit Buyer
-                                  </button>
-                                )}
-                              </Menu.Item>
-                              
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={handleDeleteBuyer}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } flex items-center w-full px-4 py-2 text-sm`}
-                                  >
-                                    <TrashIcon className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
-                                    Delete Buyer
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            </>
-                          )}
-                        </div>
-                      </Menu.Items>
-                    </Transition>
-                  </Menu>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Additional Notes Section */}
-          <div className="mb-8">
-            <h3 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b border-gray-100">Additional Information</h3>
-            
-            <div>
-              <label id="notesLabel" htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-                Notes (Optional)
+          {/* Shipping and Additional Shipping Information */}
+          <div className="mt-6 grid grid-cols-5 gap-6" style={{ isolation: 'isolate', perspective: 'none', overflow: 'visible' }}>
+            <div className="col-span-1">
+              <label id="shipperLabel" className="block text-sm font-medium text-gray-700 mb-1">
+                Shipper (Optional)
               </label>
-              <textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Enter any additional notes about this order"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                rows={4}
-              ></textarea>
+              <div className="flex items-center space-x-2">
+                <div className="relative flex-grow">
+                  <Combobox value={shippers.find(s => s.id === shipperId) || null} onChange={(shipper: Shipper | null) => {
+                    setShipperId(shipper?.id || '');
+                  }}>
+                    <div className="relative">
+                      <div className="relative w-full cursor-default overflow-hidden rounded-md border border-gray-300 bg-white text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300">
+                        <Combobox.Input
+                          className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0"
+                          displayValue={(shipper: Shipper | null) => shipper?.name || ''}
+                          onChange={(event: React.ChangeEvent<HTMLInputElement>) => setShipperQuery(event.target.value)}
+                          placeholder="Select Shipper (Optional)"
+                        />
+                        <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                          <ChevronUpDownIcon
+                            className="h-5 w-5 text-gray-400"
+                            aria-hidden="true"
+                          />
+                        </Combobox.Button>
+                      </div>
+                      <Transition
+                        as={Fragment}
+                        leave="transition ease-in duration-100"
+                        leaveFrom="opacity-100"
+                        leaveTo="opacity-0"
+                        afterLeave={() => setShipperQuery('')}
+                      >
+                        <Combobox.Options className="fixed z-[999] mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm" style={{ position: 'fixed', top: 'auto', left: 'auto', width: 'auto', maxWidth: '300px', overflowY: 'auto' }}>
+                          {filteredShippers.length === 0 && shipperQuery !== '' ? (
+                            <div className="relative cursor-default select-none px-4 py-2 text-gray-700">
+                              Nothing found.
+                            </div>
+                          ) : (
+                            filteredShippers.map((shipper) => (
+                              <Combobox.Option
+                                key={shipper.id}
+                                className={({ active }: { active: boolean }) =>
+                                  `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                    active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                                  }`
+                                }
+                                value={shipper}
+                              >
+                                {({ selected, active }: { selected: boolean; active: boolean }) => (
+                                  <>
+                                    <span
+                                      className={`block truncate ${
+                                        selected ? 'font-medium' : 'font-normal'
+                                      }`}
+                                    >
+                                      {shipper.name}
+                                    </span>
+                                    {selected ? (
+                                      <span
+                                        className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                                          active ? 'text-white' : 'text-blue-600'
+                                        }`}
+                                      >
+                                        <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                      </span>
+                                    ) : null}
+                                  </>
+                                )}
+                              </Combobox.Option>
+                            ))
+                          )}
+                        </Combobox.Options>
+                      </Transition>
+                    </div>
+                  </Combobox>
+                </div>
+                
+                <Menu as="div" className="relative inline-block text-left">
+                  <div>
+                    <Menu.Button className="mt-1 p-2 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
+                      <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
+                    </Menu.Button>
+                  </div>
+                  <Transition
+                    as={Fragment}
+                    enter="transition ease-out duration-100"
+                    enterFrom="transform opacity-0 scale-95"
+                    enterTo="transform opacity-100 scale-100"
+                    leave="transition ease-in duration-75"
+                    leaveFrom="transform opacity-100 scale-100"
+                    leaveTo="transform opacity-0 scale-95"
+                  >
+                    <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                      <div className="py-1">
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              onClick={openAddShipperModal}
+                              className={`${
+                                active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                              } flex items-center w-full px-4 py-2 text-sm`}
+                            >
+                              <PlusIcon className="mr-3 h-5 w-5 text-blue-500" aria-hidden="true" />
+                              Add New Shipper
+                            </button>
+                          )}
+                        </Menu.Item>
+                        
+                        {shipperId && (
+                          <>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={openEditShipperModal}
+                                  className={`${
+                                    active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                  } flex items-center w-full px-4 py-2 text-sm`}
+                                >
+                                  <PencilSquareIcon className="mr-3 h-5 w-5 text-gray-500" aria-hidden="true" />
+                                  Edit Shipper
+                                </button>
+                              )}
+                            </Menu.Item>
+                            
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={handleDeleteShipper}
+                                  className={`${
+                                    active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                  } flex items-center w-full px-4 py-2 text-sm`}
+                                >
+                                  <TrashIcon className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
+                                  Delete Shipper
+                                </button>
+                              )}
+                            </Menu.Item>
+                          </>
+                        )}
+                      </div>
+                    </Menu.Items>
+                  </Transition>
+                </Menu>
+              </div>
+            </div>
+            
+            <div className="col-span-1">
+              <label id="buyerLabel" className="block text-sm font-medium text-gray-700 mb-1">
+                Buyer (Optional)
+              </label>
+              <div className="flex items-center space-x-2">
+                <div className="relative flex-grow">
+                  <Combobox value={buyers.find(b => b.id === buyerId) || null} onChange={(buyer: Buyer | null) => {
+                    setBuyerId(buyer?.id || '');
+                  }}>
+                    <div className="relative">
+                      <div className="relative w-full cursor-default overflow-hidden rounded-md border border-gray-300 bg-white text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300">
+                        <Combobox.Input
+                          className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0"
+                          displayValue={(buyer: Buyer | null) => buyer?.name || ''}
+                          onChange={(event: React.ChangeEvent<HTMLInputElement>) => setBuyerQuery(event.target.value)}
+                          placeholder="Select Buyer (Optional)"
+                        />
+                        <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                          <ChevronUpDownIcon
+                            className="h-5 w-5 text-gray-400"
+                            aria-hidden="true"
+                          />
+                        </Combobox.Button>
+                      </div>
+                      <Transition
+                        as={Fragment}
+                        leave="transition ease-in duration-100"
+                        leaveFrom="opacity-100"
+                        leaveTo="opacity-0"
+                        afterLeave={() => setBuyerQuery('')}
+                      >
+                        <Combobox.Options className="fixed z-[999] mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm" style={{ position: 'fixed', top: 'auto', left: 'auto', width: 'auto', maxWidth: '300px', overflowY: 'auto' }}>
+                          {filteredBuyers.length === 0 && buyerQuery !== '' ? (
+                            <div className="relative cursor-default select-none px-4 py-2 text-gray-700">
+                              Nothing found.
+                            </div>
+                          ) : (
+                            filteredBuyers.map((buyer) => (
+                              <Combobox.Option
+                                key={buyer.id}
+                                className={({ active }: { active: boolean }) =>
+                                  `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                    active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                                  }`
+                                }
+                                value={buyer}
+                              >
+                                {({ selected, active }: { selected: boolean; active: boolean }) => (
+                                  <>
+                                    <span
+                                      className={`block truncate ${
+                                        selected ? 'font-medium' : 'font-normal'
+                                      }`}
+                                    >
+                                      {buyer.name}
+                                    </span>
+                                    {selected ? (
+                                      <span
+                                        className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                                          active ? 'text-white' : 'text-blue-600'
+                                        }`}
+                                      >
+                                        <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                      </span>
+                                    ) : null}
+                                  </>
+                                )}
+                              </Combobox.Option>
+                            ))
+                          )}
+                        </Combobox.Options>
+                      </Transition>
+                    </div>
+                  </Combobox>
+                </div>
+                
+                <Menu as="div" className="relative inline-block text-left">
+                  <div>
+                    <Menu.Button className="mt-1 p-2 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
+                      <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
+                    </Menu.Button>
+                  </div>
+                  <Transition
+                    as={Fragment}
+                    enter="transition ease-out duration-100"
+                    enterFrom="transform opacity-0 scale-95"
+                    enterTo="transform opacity-100 scale-100"
+                    leave="transition ease-in duration-75"
+                    leaveFrom="transform opacity-100 scale-100"
+                    leaveTo="transform opacity-0 scale-95"
+                  >
+                    <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                      <div className="py-1">
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              onClick={openAddBuyerModal}
+                              className={`${
+                                active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                              } flex items-center w-full px-4 py-2 text-sm`}
+                            >
+                              <PlusIcon className="mr-3 h-5 w-5 text-blue-500" aria-hidden="true" />
+                              Add New Buyer
+                            </button>
+                          )}
+                        </Menu.Item>
+                        
+                        {buyerId && (
+                          <>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={openEditBuyerModal}
+                                  className={`${
+                                    active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                  } flex items-center w-full px-4 py-2 text-sm`}
+                                >
+                                  <PencilSquareIcon className="mr-3 h-5 w-5 text-gray-500" aria-hidden="true" />
+                                  Edit Buyer
+                                </button>
+                              )}
+                            </Menu.Item>
+                            
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={handleDeleteBuyer}
+                                  className={`${
+                                    active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                  } flex items-center w-full px-4 py-2 text-sm`}
+                                >
+                                  <TrashIcon className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
+                                  Delete Buyer
+                                </button>
+                              )}
+                            </Menu.Item>
+                          </>
+                        )}
+                      </div>
+                    </Menu.Items>
+                  </Transition>
+                </Menu>
+              </div>
+            </div>
+            
+            <div className="col-span-1">
+              <label id="vesselCarrierLabel" className="block text-sm font-medium text-gray-700 mb-1">
+                Vessel/Carrier (Optional)
+              </label>
+              <input
+                type="text"
+                id="vesselCarrier"
+                value={vessel}
+                onChange={(e) => setVessel(e.target.value)}
+                className="w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Enter vessel or carrier"
+              />
+            </div>
+            
+            <div className="col-span-1">
+              <label id="billOfLadingLabel" className="block text-sm font-medium text-gray-700 mb-1">
+                Bill of Lading (Optional)
+              </label>
+              <input
+                type="text"
+                id="billOfLading"
+                value={billOfLading}
+                onChange={(e) => setBillOfLading(e.target.value)}
+                className="w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Enter bill of lading number"
+              />
+            </div>
+            
+            <div className="col-span-1">
+              <label id="billOfLadingDateLabel" className="block text-sm font-medium text-gray-700 mb-1">
+                Bill of Lading Date (Optional)
+              </label>
+              <input
+                type="date"
+                id="billOfLadingDate"
+                value={billOfLadingDate}
+                onChange={(e) => setBillOfLadingDate(e.target.value)}
+                className="w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
             </div>
           </div>
           
-          {/* Form Actions */}
-          <div className="flex justify-end space-x-3 border-t border-gray-200 pt-6">
+          <div className="flex justify-end space-x-3 border-t border-gray-200 pt-6 mt-6">
             <button
               type="button"
               className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

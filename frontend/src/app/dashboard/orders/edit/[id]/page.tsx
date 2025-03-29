@@ -62,6 +62,9 @@ interface Order {
   notes: string | null
   created_at: string
   updated_at: string
+  vessel_carrier?: string
+  bill_of_lading?: string
+  bill_of_lading_date?: string
 }
 
 export default function EditOrderPage() {
@@ -84,6 +87,9 @@ export default function EditOrderPage() {
   const [refNumber, setRefNumber] = useState('')
   const [notes, setNotes] = useState('')
   const [orderNumber, setOrderNumber] = useState('')
+  const [vessel, setVessel] = useState('')
+  const [billOfLading, setBillOfLading] = useState('')
+  const [billOfLadingDate, setBillOfLadingDate] = useState('')
   
   // Client/Contact State
   const [clientId, setClientId] = useState('')
@@ -211,6 +217,9 @@ export default function EditOrderPage() {
           setOrderNumber(order.order_number)
           setShipperId(order.shipper_id || null)
           setBuyerId(order.buyer_id || null)
+          setVessel(order.vessel_carrier || '')
+          setBillOfLading(order.bill_of_lading || '')
+          setBillOfLadingDate(order.bill_of_lading_date ? order.bill_of_lading_date.split('T')[0] : '')
           
           // Fetch latest contacts for the client
           if (order.client_id) {
@@ -301,7 +310,10 @@ export default function EditOrderPage() {
         status,
         order_date: orderDate,
         client_ref_code: refNumber || null,
-        notes: notes || null
+        notes: notes || null,
+        vessel_carrier: vessel || null,
+        bill_of_lading: billOfLading || null,
+        bill_of_lading_date: billOfLadingDate || null
       })
       
       if (updateError) throw new Error(updateError)
@@ -977,445 +989,9 @@ export default function EditOrderPage() {
   }, []);
   
   return (
-    <div className="min-h-screen bg-gray-50 pb-12" style={{ height: 'auto', overflow: 'visible' }}>
-      {/* Client Modal */}
-      {showClientModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-            <span className="hidden sm:inline-block sm:h-screen sm:align-middle" aria-hidden="true">
-              &#8203;
-            </span>
-            <div className="inline-block transform overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:align-middle">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 w-full text-center sm:mt-0 sm:text-left">
-                    <h3 className="text-lg font-medium leading-6 text-gray-900">
-                      {clientMode === 'add' ? 'Add Client' : 'Edit Client'} 
-                      {clientMode === 'edit' && (
-                        <span className="ml-2 text-sm text-gray-500">
-                          (Current Data: {JSON.stringify(clientForm)})
-                        </span>
-                      )}
-                    </h3>
-                    <div className="mt-2">
-                      <div className="space-y-4">
-                        <div>
-                          <label htmlFor="clientName" className="block text-sm font-medium text-gray-700">
-                            Name <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            id="clientName"
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                            placeholder="Enter name"
-                            value={clientForm.name}
-                            onChange={(e) => setClientForm({...clientForm, name: e.target.value})}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="clientAddress" className="block text-sm font-medium text-gray-700">
-                            Address
-                          </label>
-                          <input
-                            type="text"
-                            id="clientAddress"
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                            placeholder="Enter address"
-                            value={clientForm.address}
-                            onChange={(e) => setClientForm({...clientForm, address: e.target.value})}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="clientPhone" className="block text-sm font-medium text-gray-700">
-                            Phone
-                          </label>
-                          <input
-                            type="text"
-                            id="clientPhone"
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                            placeholder="Enter phone"
-                            value={clientForm.phone}
-                            onChange={(e) => setClientForm({...clientForm, phone: e.target.value})}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="clientEmail" className="block text-sm font-medium text-gray-700">
-                            Email
-                          </label>
-                          <input
-                            type="email"
-                            id="clientEmail"
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                            placeholder="Enter email"
-                            value={clientForm.email}
-                            onChange={(e) => setClientForm({...clientForm, email: e.target.value})}
-                          />
-                        </div>
-                        
-                        {clientMode === 'add' && (
-                          <div className="mt-6 border-t border-gray-200 pt-6">
-                            <h4 className="text-md font-medium leading-6 text-gray-900 mb-4">
-                              Add Primary Contact (Optional)
-                            </h4>
-                            <div className="space-y-4">
-                              <div>
-                                <label htmlFor="contactName" className="block text-sm font-medium text-gray-700">
-                                  Name
-                                </label>
-                                <input
-                                  type="text"
-                                  id="contactName"
-                                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                  placeholder="Enter contact name"
-                                  value={clientForm.contact_name}
-                                  onChange={(e) => setClientForm({...clientForm, contact_name: e.target.value})}
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor="contactPosition" className="block text-sm font-medium text-gray-700">
-                                  Position
-                                </label>
-                                <input
-                                  type="text"
-                                  id="contactPosition"
-                                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                  placeholder="Enter position"
-                                  value={clientForm.contact_position}
-                                  onChange={(e) => setClientForm({...clientForm, contact_position: e.target.value})}
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor="contactPhone" className="block text-sm font-medium text-gray-700">
-                                  Phone
-                                </label>
-                                <input
-                                  type="text"
-                                  id="contactPhone"
-                                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                  placeholder="Enter phone"
-                                  value={clientForm.contact_phone}
-                                  onChange={(e) => setClientForm({...clientForm, contact_phone: e.target.value})}
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor="contactEmail" className="block text-sm font-medium text-gray-700">
-                                  Email
-                                </label>
-                                <input
-                                  type="email"
-                                  id="contactEmail"
-                                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                                  placeholder="Enter email"
-                                  value={clientForm.contact_email}
-                                  onChange={(e) => setClientForm({...clientForm, contact_email: e.target.value})}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                <button
-                  type="button"
-                  className="inline-flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm"
-                  onClick={handleSaveClient}
-                >
-                  {clientMode === 'add' ? 'Add' : 'Save'}
-                </button>
-                <button
-                  type="button"
-                  className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
-                  onClick={() => setShowClientModal(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Contact Modal */}
-      {showContactModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              {contactMode === 'add' ? 'Add New Contact' : 'Edit Contact'}
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="contactFullName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="contactFullName"
-                  value={contactForm.full_name}
-                  onChange={(e) => setContactForm({...contactForm, full_name: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="contactPosition" className="block text-sm font-medium text-gray-700 mb-1">
-                  Position
-                </label>
-                <input
-                  type="text"
-                  id="contactPosition"
-                  value={contactForm.position}
-                  onChange={(e) => setContactForm({...contactForm, position: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="contactPhone" className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  id="contactPhone"
-                  value={contactForm.phone}
-                  onChange={(e) => setContactForm({...contactForm, phone: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="contactEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  id="contactEmail"
-                  value={contactForm.email}
-                  onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={() => setShowContactModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveContact}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-              >
-                {contactMode === 'add' ? 'Add Contact' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Shipper Modal */}
-      {showShipperModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              {shipperMode === 'add' ? 'Add New Shipper' : 'Edit Shipper'}
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="shipperName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="shipperName"
-                  value={shipperForm.name}
-                  onChange={(e) => setShipperForm({...shipperForm, name: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="shipperAddress" className="block text-sm font-medium text-gray-700 mb-1">
-                  Address
-                </label>
-                <input
-                  type="text"
-                  id="shipperAddress"
-                  value={shipperForm.address}
-                  onChange={(e) => setShipperForm({...shipperForm, address: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="shipperPhone" className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  id="shipperPhone"
-                  value={shipperForm.phone}
-                  onChange={(e) => setShipperForm({...shipperForm, phone: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="shipperEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  id="shipperEmail"
-                  value={shipperForm.email}
-                  onChange={(e) => setShipperForm({...shipperForm, email: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={() => setShowShipperModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveShipper}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-              >
-                {shipperMode === 'add' ? 'Add Shipper' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Buyer Modal */}
-      {showBuyerModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              {buyerMode === 'add' ? 'Add New Buyer' : 'Edit Buyer'}
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="buyerName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="buyerName"
-                  value={buyerForm.name}
-                  onChange={(e) => setBuyerForm({...buyerForm, name: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="buyerAddress" className="block text-sm font-medium text-gray-700 mb-1">
-                  Address
-                </label>
-                <input
-                  type="text"
-                  id="buyerAddress"
-                  value={buyerForm.address}
-                  onChange={(e) => setBuyerForm({...buyerForm, address: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="buyerPhone" className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  id="buyerPhone"
-                  value={buyerForm.phone}
-                  onChange={(e) => setBuyerForm({...buyerForm, phone: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="buyerEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  id="buyerEmail"
-                  value={buyerForm.email}
-                  onChange={(e) => setBuyerForm({...buyerForm, email: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={() => setShowBuyerModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveBuyer}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-              >
-                {buyerMode === 'add' ? 'Add Buyer' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Main Page Content */}
-      <header className="bg-white shadow border-b border-gray-200">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <h1 className="text-xl font-semibold text-gray-900">Edit Order</h1>
-          
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/dashboard/orders"
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </Link>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={handleSubmit}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Order'}
-            </button>
-          </div>
-        </div>
-      </header>
-      
-      <main className="py-6" style={{ height: 'auto', minHeight: 'auto', overflow: 'visible' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" style={{ height: 'auto', minHeight: 'auto', overflow: 'visible' }}>
+    <div className="min-h-screen bg-gray-100" style={{ overflow: 'visible' }}>
+      <main className="py-10" style={{ overflow: 'visible' }}>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8" style={{ overflow: 'visible' }}>
           {error && (
             <div className="mb-4 bg-red-50 border-l-4 border-red-400 p-4">
               <div className="flex">
@@ -1442,9 +1018,9 @@ export default function EditOrderPage() {
               <span className="text-lg text-gray-500">Loading...</span>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-8 overflow-visible" style={{ minHeight: 'auto', height: 'auto', maxHeight: 'none', position: 'relative' }}>
-              <div className="bg-white shadow sm:rounded-lg overflow-visible" style={{ minHeight: 'auto', height: 'auto', maxHeight: 'none', position: 'relative' }}>
-                <div className="px-4 py-5 sm:px-6">
+            <form onSubmit={handleSubmit} className="space-y-4 overflow-visible" style={{ minHeight: 'auto', height: 'auto', maxHeight: 'none', position: 'relative', overflow: 'visible', isolation: 'isolate' }}>
+              <div className="bg-white shadow sm:rounded-lg overflow-visible" style={{ minHeight: 'auto', height: 'auto', maxHeight: 'none', position: 'relative', overflow: 'visible' }}>
+                <div className="px-4 py-3 sm:px-5">
                   <h2 className="text-lg font-medium leading-6 text-gray-900">
                     Order Information
                   </h2>
@@ -1455,8 +1031,8 @@ export default function EditOrderPage() {
                   </p>
                 </div>
                 
-                <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
-                  <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="border-t border-gray-200 px-4 py-3 sm:p-4">
+                  <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
                       <label id="orderNumberLabel" htmlFor="orderNumber" className="block text-sm font-medium text-gray-700 mb-1">
                         Order Number
@@ -1466,7 +1042,7 @@ export default function EditOrderPage() {
                         id="orderNumber"
                         value={orderNumber}
                         disabled
-                        className="bg-gray-100 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 pl-3 pr-10 text-sm h-[38px]"
+                        className="bg-gray-100 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-1.5 pl-3 pr-10 text-sm h-[34px]"
                       />
                     </div>
                     
@@ -1479,7 +1055,7 @@ export default function EditOrderPage() {
                         id="refNumber"
                         value={refNumber}
                         onChange={(e) => setRefNumber(e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 pl-3 pr-10 text-sm h-[38px]"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-1.5 pl-3 pr-10 text-sm h-[34px]"
                         placeholder="Enter reference number"
                       />
                     </div>
@@ -1493,7 +1069,7 @@ export default function EditOrderPage() {
                         id="orderDate"
                         value={orderDate}
                         onChange={(e) => setOrderDate(e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 pl-3 pr-10 text-sm h-[38px]"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-1.5 pl-3 pr-10 text-sm h-[34px]"
                         required
                       />
                     </div>
@@ -1503,8 +1079,8 @@ export default function EditOrderPage() {
                         Status <span className="text-red-500">*</span>
                       </label>
                       <Listbox value={status} onChange={setStatus}>
-                        <div className="relative mt-1">
-                          <Listbox.Button className="relative w-full cursor-default rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 h-[38px]">
+                        <div className="relative mt-1" style={{ position: "relative", zIndex: 60, overflow: "visible", transform: "translate3d(0,0,0)" }}>
+                          <Listbox.Button className="relative w-full cursor-default rounded-md border border-gray-300 bg-white py-1.5 pl-3 pr-10 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 h-[34px]">
                             <span className="block truncate">
                               {status === 'draft' ? 'Draft' : 
                                 status === 'confirmed' ? 'Confirmed' : 
@@ -1520,7 +1096,7 @@ export default function EditOrderPage() {
                             leaveFrom="opacity-100"
                             leaveTo="opacity-0"
                           >
-                            <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                            <Listbox.Options className="absolute z-[999] mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm" style={{ position: 'fixed', top: 'auto', left: 'auto', width: 'auto', maxWidth: '300px', overflowY: 'auto' }}>
                               {['draft', 'confirmed', 'completed', 'cancelled'].map((statusOption) => (
                                 <Listbox.Option
                                   key={statusOption}
@@ -1553,543 +1129,579 @@ export default function EditOrderPage() {
                       </Listbox>
                     </div>
                   </div>
-                </div>
-              </div>
-              
-              <div className="bg-white shadow sm:rounded-lg overflow-visible" style={{ minHeight: 'auto', height: 'auto', maxHeight: 'none', position: 'relative' }}>
-                <div className="px-4 py-5 sm:px-6">
-                  <h2 className="text-lg font-medium leading-6 text-gray-900">
-                    Client & Contact Information
-                  </h2>
-                </div>
-                
-                <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
-                  <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2" style={{ overflow: 'visible' }}>
-                    <div>
-                      <label id="clientLabel" className="block text-sm font-medium text-gray-700 mb-1">
-                        Client <span className="text-red-500">*</span>
-                      </label>
-                      <div className="flex" style={{ overflow: 'visible' }}>
-                        <div className="relative flex-grow" style={{ overflow: 'visible' }}>
-                          <Combobox value={clients.find(c => c.id === clientId) || null} onChange={(client: Client | null) => {
-                            if (client) {
-                              setClientId(client.id)
-                              handleClientChange({ target: { value: client.id } } as React.ChangeEvent<HTMLSelectElement>)
-                            } else {
-                              setClientId('')
-                              setClientContacts([])
-                              setContactId(null)
-                            }
-                          }}>
-                            <div className="relative mt-1" style={{ overflow: 'visible' }}>
-                              <div className="relative w-full cursor-default overflow-hidden rounded-lg bg-white text-left border border-gray-300 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
-                                <Combobox.Input
-                                  className="w-full border-none h-[38px] py-2 pl-3 pr-10 text-sm text-gray-900 focus:ring-0"
-                                  onChange={(event) => setClientQuery(event.target.value)}
-                                  displayValue={(client: Client | null) => client?.name || ''}
-                                  placeholder="Select a client"
-                                />
-                                <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
-                                  <ChevronUpDownIcon
-                                    className="h-5 w-5 text-gray-400"
-                                    aria-hidden="true"
+                  
+                  <div className="mt-6 pt-4 border-t border-gray-200">
+                    <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2" style={{ overflow: 'visible', isolation: 'isolate', perspective: 'none' }}>
+                      <div>
+                        <label id="clientLabel" className="block text-sm font-medium text-gray-700 mb-1">
+                          Client <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <div className="relative flex-grow">
+                            <Combobox value={clients.find(c => c.id === clientId) || null} onChange={(client: Client | null) => {
+                              if (client) {
+                                setClientId(client.id)
+                                handleClientChange({ target: { value: client.id } } as React.ChangeEvent<HTMLSelectElement>)
+                              } else {
+                                setClientId('')
+                                setClientContacts([])
+                                setContactId(null)
+                              }
+                            }}>
+                              <div className="relative" style={{ position: "relative", zIndex: 50, overflow: "visible", transform: "translate3d(0,0,0)" }}>
+                                <div className="relative w-full cursor-default overflow-visible rounded-md border border-gray-300 bg-white text-left shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+                                  <Combobox.Input
+                                    className="w-full border-none h-[34px] py-1.5 pl-3 pr-10 text-sm text-gray-900 focus:ring-0"
+                                    onChange={(event) => setClientQuery(event.target.value)}
+                                    displayValue={(client: Client | null) => client?.name || ''}
+                                    placeholder="Select a client"
                                   />
-                                </Combobox.Button>
-                              </div>
-                              <Transition
-                                as={Fragment}
-                                leave="transition ease-in duration-100"
-                                leaveFrom="opacity-100"
-                                leaveTo="opacity-0"
-                                afterLeave={() => setClientQuery('')}
-                              >
-                                <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                                  {filteredClients.length === 0 && clientQuery !== '' ? (
-                                    <div className="relative cursor-default select-none py-2 px-4 text-gray-700">
-                                      No client found.
-                                    </div>
-                                  ) : (
-                                    filteredClients.map((client) => (
-                                      <Combobox.Option
-                                        key={client.id}
-                                        className={({ active }) =>
-                                          `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                            active ? 'bg-blue-600 text-white' : 'text-gray-900'
-                                          }`
-                                        }
-                                        value={client}
-                                      >
-                                        {({ selected, active }) => (
-                                          <>
-                                            <span
-                                              className={`block truncate ${
-                                                selected ? 'font-medium' : 'font-normal'
-                                              }`}
-                                            >
-                                              {client.name}
-                                            </span>
-                                            {selected ? (
+                                  <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                                    <ChevronUpDownIcon
+                                      className="h-4 w-4 text-gray-400"
+                                      aria-hidden="true"
+                                    />
+                                  </Combobox.Button>
+                                </div>
+                                <Transition
+                                  as={Fragment}
+                                  leave="transition ease-in duration-100"
+                                  leaveFrom="opacity-100"
+                                  leaveTo="opacity-0"
+                                  afterLeave={() => setClientQuery('')}
+                                >
+                                  <Combobox.Options className="fixed z-[999] mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm" style={{ position: 'fixed', top: 'auto', left: 'auto', width: 'auto', maxWidth: '300px', overflowY: 'auto' }}>
+                                    {filteredClients.length === 0 && clientQuery !== '' ? (
+                                      <div className="relative cursor-default select-none py-2 px-4 text-gray-700">
+                                        No client found.
+                                      </div>
+                                    ) : (
+                                      filteredClients.map((client) => (
+                                        <Combobox.Option
+                                          key={client.id}
+                                          className={({ active }) =>
+                                            `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                              active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                                            }`
+                                          }
+                                          value={client}
+                                        >
+                                          {({ selected, active }) => (
+                                            <>
                                               <span
-                                                className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                                                  active ? 'text-white' : 'text-blue-600'
+                                                className={`block truncate ${
+                                                  selected ? 'font-medium' : 'font-normal'
                                                 }`}
                                               >
-                                                <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                                {client.name}
                                               </span>
-                                            ) : null}
-                                          </>
-                                        )}
-                                      </Combobox.Option>
-                                    ))
-                                  )}
-                                </Combobox.Options>
-                              </Transition>
-                            </div>
-                          </Combobox>
-                        </div>
-                        
-                        <div className="ml-2 relative" style={{ overflow: 'visible' }}>
-                          <button
-                            id="client-menu-button"
-                            type="button"
-                            className="inline-flex items-center px-2 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 h-[38px]"
-                            onClick={toggleClientMenu}
-                          >
-                            <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
-                          </button>
+                                              {selected ? (
+                                                <span
+                                                  className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                                                    active ? 'text-white' : 'text-blue-600'
+                                                  }`}
+                                                >
+                                                  <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                                </span>
+                                              ) : null}
+                                            </>
+                                          )}
+                                        </Combobox.Option>
+                                      ))
+                                    )}
+                                  </Combobox.Options>
+                                </Transition>
+                              </div>
+                            </Combobox>
+                          </div>
                           
-                          <div id="client-menu" className="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10" style={{ overflow: 'visible' }}>
-                            <div className="py-1">
-                              <button
-                                onClick={openAddClientModal}
-                                type="button"
-                                className="group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                              >
-                                <PlusIcon className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" aria-hidden="true" />
-                                Add New Client
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  openEditClientModal();
-                                }}
-                                type="button"
-                                disabled={!clientId}
-                                className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!clientId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              >
-                                <PencilSquareIcon className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" aria-hidden="true" />
-                                Edit Client
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleDeleteClient();
-                                }}
-                                type="button"
-                                disabled={!clientId}
-                                className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!clientId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              >
-                                <TrashIcon className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" aria-hidden="true" />
-                                Delete Client
-                              </button>
+                          <div className="relative">
+                            <button
+                              id="client-menu-button"
+                              type="button"
+                              className="inline-flex items-center justify-center px-1.5 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 h-[34px] w-[34px]"
+                              onClick={toggleClientMenu}
+                            >
+                              <EllipsisVerticalIcon className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            
+                            <div id="client-menu" className="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                              <div className="py-1">
+                                <button
+                                  onClick={openAddClientModal}
+                                  type="button"
+                                  className="group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                >
+                                  <PlusIcon className="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" aria-hidden="true" />
+                                  Add New Client
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    openEditClientModal();
+                                  }}
+                                  type="button"
+                                  disabled={!clientId}
+                                  className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!clientId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <PencilSquareIcon className="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" aria-hidden="true" />
+                                  Edit Client
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDeleteClient();
+                                  }}
+                                  type="button"
+                                  disabled={!clientId}
+                                  className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!clientId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <TrashIcon className="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" aria-hidden="true" />
+                                  Delete Client
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label id="contactLabel" className="block text-sm font-medium text-gray-700 mb-1">
+                          Contact Person
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <div className="relative flex-grow">
+                            <select
+                              id="contact"
+                              value={contactId || ''}
+                              onChange={(e) => setContactId(e.target.value || null)}
+                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-[34px] py-1.5 pl-3 pr-10 text-sm"
+                              disabled={!clientId || clientContacts.length === 0}
+                            >
+                              <option value="">Select a contact</option>
+                              {clientContacts.map((contact) => (
+                                <option key={contact.id} value={contact.id}>
+                                  {contact.full_name} {contact.position ? `(${contact.position})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="relative">
+                            <button
+                              id="contact-menu-button"
+                              type="button"
+                              className="inline-flex items-center justify-center px-1.5 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 h-[34px] w-[34px]"
+                              onClick={toggleContactMenu}
+                              disabled={!clientId}
+                            >
+                              <EllipsisVerticalIcon className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            
+                            <div id="contact-menu" className="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                              <div className="py-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    openAddContactModal();
+                                  }}
+                                  type="button"
+                                  disabled={!clientId}
+                                  className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!clientId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <PlusIcon className="mr-3 h-4 w-4 text-blue-500" aria-hidden="true" />
+                                  Add New Contact
+                                </button>
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    openEditContactModal();
+                                  }}
+                                  type="button"
+                                  disabled={!contactId}
+                                  className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!contactId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <PencilSquareIcon className="mr-3 h-4 w-4 text-gray-500" aria-hidden="true" />
+                                  Edit Contact
+                                </button>
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDeleteContact();
+                                  }}
+                                  type="button"
+                                  disabled={!contactId}
+                                  className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!contactId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <TrashIcon className="mr-3 h-4 w-4 text-red-500" aria-hidden="true" />
+                                  Delete Contact
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
                     
-                    <div>
-                      <label id="contactLabel" className="block text-sm font-medium text-gray-700 mb-1">
-                        Contact Person
-                      </label>
-                      <div className="flex">
-                        <select
-                          id="contact"
-                          value={contactId || ''}
-                          onChange={(e) => setContactId(e.target.value || null)}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-[38px]"
-                          disabled={!clientId || clientContacts.length === 0}
-                        >
-                          <option value="">Select a contact</option>
-                          {clientContacts.map((contact) => (
-                            <option key={contact.id} value={contact.id}>
-                              {contact.full_name} {contact.position ? `(${contact.position})` : ''}
-                            </option>
-                          ))}
-                        </select>
-                        
-                        <div className="ml-2 relative" style={{ overflow: 'visible' }}>
-                          <button
-                            id="contact-menu-button"
-                            type="button"
-                            className="inline-flex items-center px-2 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 h-[38px]"
-                            onClick={toggleContactMenu}
-                            disabled={!clientId}
-                          >
-                            <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
-                          </button>
+                    <div className="mt-6 grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-5" style={{ overflow: 'visible', isolation: 'isolate', perspective: 'none' }}>
+                      <div>
+                        <label id="shipperLabel" className="block text-sm font-medium text-gray-700 mb-1">
+                          Shipper (Optional)
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <div className="relative flex-grow">
+                            <Combobox value={shippers.find(s => s.id === shipperId) || null} onChange={(shipper: Shipper | null) => {
+                              setShipperId(shipper?.id || null);
+                            }}>
+                              <div className="relative" style={{ position: "relative", zIndex: 30, overflow: "visible", transform: "translate3d(0,0,0)" }}>
+                                <div className="relative w-full cursor-default overflow-visible rounded-md border border-gray-300 bg-white text-left shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+                                  <Combobox.Input
+                                    className="w-full border-none h-[34px] py-1.5 pl-3 pr-10 text-sm text-gray-900 focus:ring-0"
+                                    onChange={(event) => setShipperQuery(event.target.value)}
+                                    displayValue={(shipper: Shipper | null) => shipper?.name || ''}
+                                    placeholder="Select a shipper"
+                                  />
+                                  <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                                    <ChevronUpDownIcon
+                                      className="h-4 w-4 text-gray-400"
+                                      aria-hidden="true"
+                                    />
+                                  </Combobox.Button>
+                                </div>
+                                <Transition
+                                  as={Fragment}
+                                  leave="transition ease-in duration-100"
+                                  leaveFrom="opacity-100"
+                                  leaveTo="opacity-0"
+                                  afterLeave={() => setShipperQuery('')}
+                                >
+                                  <Combobox.Options className="fixed z-[999] mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm" style={{ position: 'fixed', top: 'auto', left: 'auto', width: 'auto', maxWidth: '300px', overflowY: 'auto' }}>
+                                    {filteredShippers.length === 0 && shipperQuery !== '' ? (
+                                      <div className="relative cursor-default select-none py-2 px-4 text-gray-700">
+                                        No shipper found.
+                                      </div>
+                                    ) : (
+                                      filteredShippers.map((shipper) => (
+                                        <Combobox.Option
+                                          key={shipper.id}
+                                          className={({ active }) =>
+                                            `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                              active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                                            }`
+                                          }
+                                          value={shipper}
+                                        >
+                                          {({ selected, active }) => (
+                                            <>
+                                              <span
+                                                className={`block truncate ${
+                                                  selected ? 'font-medium' : 'font-normal'
+                                                }`}
+                                              >
+                                                {shipper.name}
+                                              </span>
+                                              {selected ? (
+                                                <span
+                                                  className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                                                    active ? 'text-white' : 'text-blue-600'
+                                                  }`}
+                                                >
+                                                  <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                                </span>
+                                              ) : null}
+                                            </>
+                                          )}
+                                        </Combobox.Option>
+                                      ))
+                                    )}
+                                  </Combobox.Options>
+                                </Transition>
+                              </div>
+                            </Combobox>
+                          </div>
                           
-                          <div id="contact-menu" className="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10" style={{ overflow: 'visible' }}>
-                            <div className="py-1">
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  openAddContactModal();
-                                }}
-                                type="button"
-                                disabled={!clientId}
-                                className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!clientId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              >
-                                <PlusIcon className="mr-3 h-5 w-5 text-blue-500" aria-hidden="true" />
-                                Add New Contact
-                              </button>
-                              
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  openEditContactModal();
-                                }}
-                                type="button"
-                                disabled={!contactId}
-                                className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!contactId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              >
-                                <PencilSquareIcon className="mr-3 h-5 w-5 text-gray-500" aria-hidden="true" />
-                                Edit Contact
-                              </button>
-                              
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleDeleteContact();
-                                }}
-                                type="button"
-                                disabled={!contactId}
-                                className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!contactId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              >
-                                <TrashIcon className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
-                                Delete Contact
-                              </button>
+                          <div className="relative">
+                            <button
+                              id="shipper-menu-button"
+                              type="button"
+                              className="inline-flex items-center justify-center px-1.5 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 h-[34px] w-[34px]"
+                              onClick={toggleShipperMenu}
+                            >
+                              <EllipsisVerticalIcon className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            
+                            <div id="shipper-menu" className="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                              <div className="py-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    openAddShipperModal();
+                                  }}
+                                  type="button"
+                                  className="group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                >
+                                  <PlusIcon className="mr-3 h-4 w-4 text-blue-500" aria-hidden="true" />
+                                  Add New Shipper
+                                </button>
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    openEditShipperModal();
+                                  }}
+                                  type="button"
+                                  disabled={!shipperId}
+                                  className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!shipperId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <PencilSquareIcon className="mr-3 h-4 w-4 text-gray-500" aria-hidden="true" />
+                                  Edit Shipper
+                                </button>
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDeleteShipper();
+                                  }}
+                                  type="button"
+                                  disabled={!shipperId}
+                                  className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!shipperId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <TrashIcon className="mr-3 h-4 w-4 text-red-500" aria-hidden="true" />
+                                  Delete Shipper
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
+                      </div>
+                      
+                      <div>
+                        <label id="buyerLabel" className="block text-sm font-medium text-gray-700 mb-1">
+                          Buyer (Optional)
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <div className="relative flex-grow">
+                            <Combobox value={buyers.find(b => b.id === buyerId) || null} onChange={(buyer: Buyer | null) => {
+                              setBuyerId(buyer?.id || null);
+                            }}>
+                              <div className="relative" style={{ position: "relative", zIndex: 20, overflow: "visible", transform: "translate3d(0,0,0)" }}>
+                                <div className="relative w-full cursor-default overflow-visible rounded-md border border-gray-300 bg-white text-left shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+                                  <Combobox.Input
+                                    className="w-full border-none h-[34px] py-1.5 pl-3 pr-10 text-sm text-gray-900 focus:ring-0"
+                                    onChange={(event) => setBuyerQuery(event.target.value)}
+                                    displayValue={(buyer: Buyer | null) => buyer?.name || ''}
+                                    placeholder="Select a buyer"
+                                  />
+                                  <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                                    <ChevronUpDownIcon
+                                      className="h-4 w-4 text-gray-400"
+                                      aria-hidden="true"
+                                    />
+                                  </Combobox.Button>
+                                </div>
+                                <Transition
+                                  as={Fragment}
+                                  leave="transition ease-in duration-100"
+                                  leaveFrom="opacity-100"
+                                  leaveTo="opacity-0"
+                                  afterLeave={() => setBuyerQuery('')}
+                                >
+                                  <Combobox.Options className="fixed z-[999] mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm" style={{ position: 'fixed', top: 'auto', left: 'auto', width: 'auto', maxWidth: '300px', overflowY: 'auto' }}>
+                                    {filteredBuyers.length === 0 && buyerQuery !== '' ? (
+                                      <div className="relative cursor-default select-none py-2 px-4 text-gray-700">
+                                        No buyer found.
+                                      </div>
+                                    ) : (
+                                      filteredBuyers.map((buyer) => (
+                                        <Combobox.Option
+                                          key={buyer.id}
+                                          className={({ active }) =>
+                                            `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                              active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                                            }`
+                                          }
+                                          value={buyer}
+                                        >
+                                          {({ selected, active }) => (
+                                            <>
+                                              <span
+                                                className={`block truncate ${
+                                                  selected ? 'font-medium' : 'font-normal'
+                                                }`}
+                                              >
+                                                {buyer.name}
+                                              </span>
+                                              {selected ? (
+                                                <span
+                                                  className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                                                    active ? 'text-white' : 'text-blue-600'
+                                                  }`}
+                                                >
+                                                  <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                                </span>
+                                              ) : null}
+                                            </>
+                                          )}
+                                        </Combobox.Option>
+                                      ))
+                                    )}
+                                  </Combobox.Options>
+                                </Transition>
+                              </div>
+                            </Combobox>
+                          </div>
+                          
+                          <div className="relative">
+                            <button
+                              id="buyer-menu-button"
+                              type="button"
+                              className="inline-flex items-center justify-center px-1.5 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 h-[34px] w-[34px]"
+                              onClick={toggleBuyerMenu}
+                            >
+                              <EllipsisVerticalIcon className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            
+                            <div id="buyer-menu" className="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                              <div className="py-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    openAddBuyerModal();
+                                  }}
+                                  type="button"
+                                  className="group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                >
+                                  <PlusIcon className="mr-3 h-4 w-4 text-blue-500" aria-hidden="true" />
+                                  Add New Buyer
+                                </button>
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    openEditBuyerModal();
+                                  }}
+                                  type="button"
+                                  disabled={!buyerId}
+                                  className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!buyerId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <PencilSquareIcon className="mr-3 h-4 w-4 text-gray-500" aria-hidden="true" />
+                                  Edit Buyer
+                                </button>
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDeleteBuyer();
+                                  }}
+                                  type="button"
+                                  disabled={!buyerId}
+                                  className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!buyerId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <TrashIcon className="mr-3 h-4 w-4 text-red-500" aria-hidden="true" />
+                                  Delete Buyer
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label id="vesselLabel" htmlFor="vessel" className="block text-sm font-medium text-gray-700 mb-1">
+                          Vessel/Carrier (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          id="vessel"
+                          value={vessel}
+                          onChange={(e) => setVessel(e.target.value)}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-1.5 pl-3 pr-10 text-sm h-[34px]"
+                          placeholder="Enter vessel or carrier name"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label id="billOfLadingLabel" htmlFor="billOfLading" className="block text-sm font-medium text-gray-700 mb-1">
+                          Bill of Lading (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          id="billOfLading"
+                          value={billOfLading}
+                          onChange={(e) => setBillOfLading(e.target.value)}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-1.5 pl-3 pr-10 text-sm h-[34px]"
+                          placeholder="Enter bill of lading number"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label id="billOfLadingDateLabel" htmlFor="billOfLadingDate" className="block text-sm font-medium text-gray-700 mb-1">
+                          Bill of Lading Date (Optional)
+                        </label>
+                        <input
+                          type="date"
+                          id="billOfLadingDate"
+                          value={billOfLadingDate}
+                          onChange={(e) => setBillOfLadingDate(e.target.value)}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-1.5 pl-3 pr-10 text-sm h-[34px]"
+                        />
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
               
-              {/* Shipping Information Section */}
-              <div className="bg-white shadow sm:rounded-lg overflow-visible" style={{ minHeight: 'auto', height: 'auto', maxHeight: 'none', position: 'relative' }}>
-                <div className="px-4 py-5 sm:px-6">
-                  <h2 className="text-lg font-medium leading-6 text-gray-900">
-                    Shipping Information
-                  </h2>
-                </div>
-                
-                <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
-                  <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
-                    <div>
-                      <label id="shipperLabel" className="block text-sm font-medium text-gray-700 mb-1">
-                        Shipper (Optional)
-                      </label>
-                      <div className="flex">
-                        <div className="relative flex-grow" style={{ overflow: 'visible' }}>
-                          <Combobox value={shippers.find(s => s.id === shipperId) || null} onChange={(shipper: Shipper | null) => {
-                            setShipperId(shipper?.id || null);
-                          }}>
-                            <div className="relative mt-1" style={{ overflow: 'visible' }}>
-                              <div className="relative w-full cursor-default overflow-hidden rounded-lg bg-white text-left border border-gray-300 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
-                                <Combobox.Input
-                                  className="w-full border-none h-[38px] py-2 pl-3 pr-10 text-sm text-gray-900 focus:ring-0"
-                                  onChange={(event) => setShipperQuery(event.target.value)}
-                                  displayValue={(shipper: Shipper | null) => shipper?.name || ''}
-                                  placeholder="Select a shipper"
-                                />
-                                <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
-                                  <ChevronUpDownIcon
-                                    className="h-5 w-5 text-gray-400"
-                                    aria-hidden="true"
-                                  />
-                                </Combobox.Button>
-                              </div>
-                              <Transition
-                                as={Fragment}
-                                leave="transition ease-in duration-100"
-                                leaveFrom="opacity-100"
-                                leaveTo="opacity-0"
-                                afterLeave={() => setShipperQuery('')}
-                              >
-                                <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                                  {filteredShippers.length === 0 && shipperQuery !== '' ? (
-                                    <div className="relative cursor-default select-none py-2 px-4 text-gray-700">
-                                      No shipper found.
-                                    </div>
-                                  ) : (
-                                    filteredShippers.map((shipper) => (
-                                      <Combobox.Option
-                                        key={shipper.id}
-                                        className={({ active }) =>
-                                          `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                            active ? 'bg-blue-600 text-white' : 'text-gray-900'
-                                          }`
-                                        }
-                                        value={shipper}
-                                      >
-                                        {({ selected, active }) => (
-                                          <>
-                                            <span
-                                              className={`block truncate ${
-                                                selected ? 'font-medium' : 'font-normal'
-                                              }`}
-                                            >
-                                              {shipper.name}
-                                            </span>
-                                            {selected ? (
-                                              <span
-                                                className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                                                  active ? 'text-white' : 'text-blue-600'
-                                                }`}
-                                              >
-                                                <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                                              </span>
-                                            ) : null}
-                                          </>
-                                        )}
-                                      </Combobox.Option>
-                                    ))
-                                  )}
-                                </Combobox.Options>
-                              </Transition>
-                            </div>
-                          </Combobox>
-                        </div>
-                        
-                        <div className="ml-2 relative" style={{ overflow: 'visible' }}>
-                          <button
-                            id="shipper-menu-button"
-                            type="button"
-                            className="inline-flex items-center px-2 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 h-[38px]"
-                            onClick={toggleShipperMenu}
-                          >
-                            <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
-                          </button>
-                          
-                          <div id="shipper-menu" className="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10" style={{ overflow: 'visible' }}>
-                            <div className="py-1">
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  openAddShipperModal();
-                                }}
-                                type="button"
-                                className="group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                              >
-                                <PlusIcon className="mr-3 h-5 w-5 text-blue-500" aria-hidden="true" />
-                                Add New Shipper
-                              </button>
-                              
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  openEditShipperModal();
-                                }}
-                                type="button"
-                                disabled={!shipperId}
-                                className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!shipperId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              >
-                                <PencilSquareIcon className="mr-3 h-5 w-5 text-gray-500" aria-hidden="true" />
-                                Edit Shipper
-                              </button>
-                              
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleDeleteShipper();
-                                }}
-                                type="button"
-                                disabled={!shipperId}
-                                className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!shipperId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              >
-                                <TrashIcon className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
-                                Delete Shipper
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label id="buyerLabel" className="block text-sm font-medium text-gray-700 mb-1">
-                        Buyer (Optional)
-                      </label>
-                      <div className="flex">
-                        <div className="relative flex-grow" style={{ overflow: 'visible' }}>
-                          <Combobox value={buyers.find(b => b.id === buyerId) || null} onChange={(buyer: Buyer | null) => {
-                            setBuyerId(buyer?.id || null);
-                          }}>
-                            <div className="relative mt-1" style={{ overflow: 'visible' }}>
-                              <div className="relative w-full cursor-default overflow-hidden rounded-lg bg-white text-left border border-gray-300 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
-                                <Combobox.Input
-                                  className="w-full border-none h-[38px] py-2 pl-3 pr-10 text-sm text-gray-900 focus:ring-0"
-                                  onChange={(event) => setBuyerQuery(event.target.value)}
-                                  displayValue={(buyer: Buyer | null) => buyer?.name || ''}
-                                  placeholder="Select a buyer"
-                                />
-                                <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
-                                  <ChevronUpDownIcon
-                                    className="h-5 w-5 text-gray-400"
-                                    aria-hidden="true"
-                                  />
-                                </Combobox.Button>
-                              </div>
-                              <Transition
-                                as={Fragment}
-                                leave="transition ease-in duration-100"
-                                leaveFrom="opacity-100"
-                                leaveTo="opacity-0"
-                                afterLeave={() => setBuyerQuery('')}
-                              >
-                                <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                                  {filteredBuyers.length === 0 && buyerQuery !== '' ? (
-                                    <div className="relative cursor-default select-none py-2 px-4 text-gray-700">
-                                      No buyer found.
-                                    </div>
-                                  ) : (
-                                    filteredBuyers.map((buyer) => (
-                                      <Combobox.Option
-                                        key={buyer.id}
-                                        className={({ active }) =>
-                                          `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                            active ? 'bg-blue-600 text-white' : 'text-gray-900'
-                                          }`
-                                        }
-                                        value={buyer}
-                                      >
-                                        {({ selected, active }) => (
-                                          <>
-                                            <span
-                                              className={`block truncate ${
-                                                selected ? 'font-medium' : 'font-normal'
-                                              }`}
-                                            >
-                                              {buyer.name}
-                                            </span>
-                                            {selected ? (
-                                              <span
-                                                className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                                                  active ? 'text-white' : 'text-blue-600'
-                                                }`}
-                                              >
-                                                <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                                              </span>
-                                            ) : null}
-                                          </>
-                                        )}
-                                      </Combobox.Option>
-                                    ))
-                                  )}
-                                </Combobox.Options>
-                              </Transition>
-                            </div>
-                          </Combobox>
-                        </div>
-                        
-                        <div className="ml-2 relative" style={{ overflow: 'visible' }}>
-                          <button
-                            id="buyer-menu-button"
-                            type="button"
-                            className="inline-flex items-center px-2 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 h-[38px]"
-                            onClick={toggleBuyerMenu}
-                          >
-                            <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
-                          </button>
-                          
-                          <div id="buyer-menu" className="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10" style={{ overflow: 'visible' }}>
-                            <div className="py-1">
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  openAddBuyerModal();
-                                }}
-                                type="button"
-                                className="group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                              >
-                                <PlusIcon className="mr-3 h-5 w-5 text-blue-500" aria-hidden="true" />
-                                Add New Buyer
-                              </button>
-                              
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  openEditBuyerModal();
-                                }}
-                                type="button"
-                                disabled={!buyerId}
-                                className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!buyerId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              >
-                                <PencilSquareIcon className="mr-3 h-5 w-5 text-gray-500" aria-hidden="true" />
-                                Edit Buyer
-                              </button>
-                              
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleDeleteBuyer();
-                                }}
-                                type="button"
-                                disabled={!buyerId}
-                                className={`group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${!buyerId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              >
-                                <TrashIcon className="mr-3 h-5 w-5 text-red-500" aria-hidden="true" />
-                                Delete Buyer
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Additional Information Section */}
+              {/* Order Details Section */}
               <div className="bg-white shadow sm:rounded-lg">
-                <div className="px-4 py-5 sm:px-6">
+                <div className="px-4 py-3 sm:px-5">
                   <h2 className="text-lg font-medium leading-6 text-gray-900">
-                    Additional Information
+                    Order Details
                   </h2>
                 </div>
                 
-                <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
-                  <div>
-                    <label id="notesLabel" htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-                      Notes (Optional)
-                    </label>
-                    <textarea
-                      id="notes"
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Enter any additional notes about this order"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      rows={4}
-                    ></textarea>
+                <div className="border-t border-gray-200 px-4 py-3 sm:p-4">
+                  <div className="rounded-md bg-blue-50 p-3">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3 flex-1 md:flex md:justify-between">
+                        <p className="text-sm text-blue-700">
+                          Phần này sẽ hiển thị chi tiết đơn hàng như danh sách sản phẩm, số lượng, giá cả và các tính toán tổng số.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Placeholder for future order details table/form */}
+                  <div className="mt-4 border border-dashed border-gray-300 rounded-md p-6 text-center">
+                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">Chưa có dữ liệu chi tiết</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Chi tiết đơn hàng sẽ được hiển thị tại đây
+                    </p>
                   </div>
                 </div>
               </div>
               
-              <div className="flex justify-end">
+              <div className="flex justify-end mt-6" style={{ position: 'relative', zIndex: 10 }}>
                 <button
                   type="submit"
                   disabled={saving}
