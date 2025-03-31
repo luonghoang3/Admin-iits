@@ -3,6 +3,10 @@
 import { createClient } from '@/utils/supabase/client'
 import { redirect } from 'next/navigation'
 import { ReactNode, useEffect, useState } from 'react'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { ReloadIcon } from '@radix-ui/react-icons'
 
 export default function AuthCheck({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
@@ -47,7 +51,8 @@ export default function AuthCheck({ children }: { children: ReactNode }) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <p className="text-gray-500">Đang kiểm tra xác thực...</p>
+          <ReloadIcon className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Đang kiểm tra xác thực...</p>
         </div>
       </div>
     )
@@ -56,17 +61,23 @@ export default function AuthCheck({ children }: { children: ReactNode }) {
   if (error) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold text-red-600 mb-3">Lỗi kết nối</h2>
-          <p className="text-gray-700 mb-4">{error}</p>
-          <p className="text-gray-600 mb-4">Vui lòng kiểm tra kết nối mạng và cấu hình Supabase của bạn.</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Thử lại
-          </button>
-        </div>
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle className="text-destructive">Lỗi kết nối</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>Lỗi</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            <p className="text-muted-foreground mb-4">Vui lòng kiểm tra kết nối mạng và cấu hình Supabase của bạn.</p>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={() => window.location.reload()}>
+              Thử lại
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     )
   }

@@ -713,16 +713,30 @@ export async function createOrder(data: {
   vessel_carrier?: string | null
   bill_of_lading?: string | null
   bill_of_lading_date?: string | null
+  order_number?: string | null
 }) {
   const supabase = createClient()
   
   try {
-    // Generate an order number based on the department and a random number
-    const prefix = data.department === 'marine' ? 'MR' : 
-                  data.department === 'agri' ? 'AG' : 'CG';
-    const typePrefix = data.type === 'international' ? 'I' : 'L';
-    const randomNum = Math.floor(1000 + Math.random() * 9000); // 4-digit random number
-    const orderNumber = `${typePrefix}${prefix}${randomNum}`;
+    // Use provided order number if available, otherwise generate a new one
+    let orderNumber = data.order_number;
+    
+    // Generate an order number only if not provided
+    if (!orderNumber) {
+      const prefix = data.department === 'marine' ? 'MR' : 
+                    data.department === 'agri' ? 'AG' : 'CG';
+      const typePrefix = data.type === 'international' ? 'I' : 'L';
+      const currentYear = new Date().getFullYear().toString().substring(2); // Get last 2 digits of year
+      
+      // Get next sequence number
+      const { nextSequence, formattedOrderNumber } = await fetchNextOrderSequence(
+        typePrefix, 
+        prefix, 
+        currentYear
+      );
+      
+      orderNumber = formattedOrderNumber;
+    }
     
     // Insert new order
     const { data: order, error } = await supabase
@@ -849,9 +863,17 @@ export async function fetchNextOrderSequence(
       }
     }
     
-    return { nextSequence, error: null }
+    // Format sequence number with leading zeros
+    const sequenceFormatted = String(nextSequence).padStart(3, '0')
+    
+    // Create the full formatted order number
+    const formattedOrderNumber = `${typePrefix}${departmentCode}${yearCode}-${sequenceFormatted}`
+    
+    return { nextSequence, formattedOrderNumber, error: null }
   } catch (error: any) {
     console.error('Error getting next sequence:', error)
-    return { nextSequence: 1, error: error.message }
+    const sequenceFormatted = String(1).padStart(3, '0')
+    const formattedOrderNumber = `${typePrefix}${departmentCode}${yearCode}-${sequenceFormatted}`
+    return { nextSequence: 1, formattedOrderNumber, error: error.message }
   }
 } 

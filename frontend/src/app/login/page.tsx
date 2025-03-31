@@ -4,6 +4,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ReloadIcon } from '@radix-ui/react-icons'
 
 export default function Login() {
   const router = useRouter()
@@ -94,76 +100,78 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
-        <div className="rounded-lg bg-white p-8 shadow-md">
-          <h1 className="mb-6 text-center text-2xl font-bold">Đăng nhập</h1>
+        <Card>
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl text-center">Đăng nhập</CardTitle>
+            <CardDescription className="text-center">
+              Nhập thông tin đăng nhập của bạn
+            </CardDescription>
+          </CardHeader>
           
-          {error && (
-            <div className="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-600">
-              {error}
-            </div>
-          )}
-          
-          {message && (
-            <div className="mb-4 rounded-md bg-blue-50 p-4 text-sm text-blue-600">
-              {message}
-            </div>
-          )}
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-              />
-            </div>
+          <CardContent className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
             
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Mật khẩu
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-              />
-            </div>
+            {message && (
+              <Alert>
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            )}
             
-            <div>
-              <button
-                type="submit"
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="password">Mật khẩu</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full" 
                 disabled={loading}
-                className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-300"
               >
+                {loading && <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? 'Đang xử lý...' : 'Đăng nhập'}
-              </button>
-            </div>
-          </form>
+              </Button>
+            </form>
+          </CardContent>
           
-          <div className="mt-4 text-center text-sm text-gray-600">
-            <Link href="/" className="text-blue-600 hover:text-blue-800">
-              Quay lại trang chủ
-            </Link>
-            <button 
-              onClick={createAdminUser}
-              className="ml-4 text-green-600 hover:text-green-800"
-              disabled={loading}
-            >
-              Tạo tài khoản Admin
-            </button>
-          </div>
-        </div>
+          <CardFooter className="flex flex-col space-y-4">
+            <div className="flex justify-between w-full">
+              <Button variant="link" asChild>
+                <Link href="/">Quay lại trang chủ</Link>
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={createAdminUser}
+                disabled={loading}
+              >
+                Tạo tài khoản Admin
+              </Button>
+            </div>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   )

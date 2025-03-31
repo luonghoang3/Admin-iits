@@ -4,36 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient, fetchClients, deleteClient, fetchTeams } from '@/utils/supabase/client'
-
-interface Contact {
-  id: string
-  client_id: string
-  full_name: string
-  position: string | null
-  phone: string | null
-  email: string | null
-  created_at: string
-  updated_at: string
-}
-
-interface Client {
-  id: string
-  name: string
-  address: string | null
-  email: string | null
-  phone: string | null
-  tax_id: string | null
-  team_ids?: string[]
-  created_at: string
-  updated_at: string
-  contacts: Contact[]
-}
-
-interface Team {
-  id: string
-  name: string
-  description: string | null
-}
+import { DataTable } from './data-table'
+import { columns, Client, Team } from './columns'
 
 // Function to generate a consistent color for each team based on id
 function getTeamColor(id: string): string {
@@ -79,22 +51,37 @@ export default function ClientsPage() {
           return
         }
         
-        // Fetch clients data
-        const { clients: clientData, error: clientsError } = await fetchClients()
-        
-        if (clientsError) {
-          setError(`Could not load clients: ${clientsError}`)
-        } else {
-          setClients(clientData)
-        }
-        
-        // Fetch teams data to display team names
+        // Fetch teams data first to ensure we have team data available
         const { teams: teamsData, error: teamsError } = await fetchTeams()
         
         if (teamsError) {
           console.error('Error loading teams:', teamsError)
         } else if (teamsData) {
           setTeams(teamsData)
+        }
+        
+        // Fetch clients data
+        const { clients: clientData, error: clientsError } = await fetchClients()
+        
+        if (clientsError) {
+          setError(`Could not load clients: ${clientsError}`)
+        } else {
+          // Xử lý dữ liệu client để có được định dạng đúng cho DataTable
+          // Chuyển team_ids thành danh sách tên team
+          const processedClients = clientData.map(client => {
+            // Filter out null values and only keep strings
+            const teamNames = client.team_ids?.map((teamId: string) => {
+              const team = teamsData.find(t => t.id === teamId);
+              return team ? team.name : "";
+            }).filter((name: string) => name !== "") || [];
+            
+            return {
+              ...client,
+              team_names: teamNames
+            } as Client;
+          });
+          
+          setClients(processedClients);
         }
       } catch (err: any) {
         console.error('Error:', err)
@@ -106,6 +93,25 @@ export default function ClientsPage() {
     
     loadData()
   }, [])
+
+  // Lắng nghe sự thay đổi của teams và cập nhật lại danh sách clients với team_names
+  useEffect(() => {
+    if (clients.length > 0 && teams.length > 0) {
+      const processedClients = clients.map(client => {
+        const teamNames = client.team_ids?.map((teamId: string) => {
+          const team = teams.find(t => t.id === teamId);
+          return team ? team.name : "";
+        }).filter((name: string) => name !== "") || [];
+        
+        return {
+          ...client,
+          team_names: teamNames
+        } as Client;
+      });
+      
+      setClients(processedClients);
+    }
+  }, [teams]);
   
   async function handleDeleteClient(clientId: string) {
     if (!confirm('Are you sure you want to delete this client?')) {
@@ -187,118 +193,13 @@ export default function ClientsPage() {
           <p className="text-gray-500">Loading data...</p>
         </div>
       ) : (
-        <div className="bg-white overflow-hidden shadow-md rounded-lg">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Company Name
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contact Info
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tax ID
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Teams
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contacts
-                </th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {clients.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                    No clients found.
-                  </td>
-                </tr>
-              ) : (
-                clients.map((client) => (
-                  <tr key={client.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500">
-                            {client.name.charAt(0).toUpperCase()}
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {client.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {client.address || '-'}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">
-                        {client.email || '-'}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {formatPhone(client.phone)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {client.tax_id || '-'}
-                    </td>
-                    <td className="px-6 py-4">
-                      {renderClientTeams(client.team_ids)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col space-y-1">
-                        {client.contacts && client.contacts.length > 0 ? (
-                          client.contacts.map((contact, index) => (
-                            <div key={contact.id} className="text-sm">
-                              <span className="font-medium">{contact.full_name}</span>
-                              {contact.position && <span className="text-gray-500"> ({contact.position})</span>}
-                            </div>
-                          ))
-                        ) : (
-                          <span className="text-sm text-gray-500">No contacts</span>
-                        )}
-                        {client.contacts && client.contacts.length > 2 && (
-                          <Link 
-                            href={`/dashboard/clients/${client.id}`}
-                            className="text-sm text-blue-500 hover:text-blue-700"
-                          >
-                            View all contacts
-                          </Link>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        href={`/dashboard/clients/${client.id}`}
-                        className="text-indigo-600 hover:text-indigo-900 mr-4"
-                      >
-                        View
-                      </Link>
-                      <Link
-                        href={`/dashboard/clients/edit/${client.id}`}
-                        className="text-blue-600 hover:text-blue-900 mr-4"
-                      >
-                        Edit
-                      </Link>
-                      <button
-                        onClick={() => handleDeleteClient(client.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="bg-white overflow-hidden shadow-md rounded-lg p-6">
+          <DataTable 
+            columns={columns} 
+            data={clients} 
+            teams={teams}
+            onDeleteClient={handleDeleteClient}
+          />
         </div>
       )}
     </div>

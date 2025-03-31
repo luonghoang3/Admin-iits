@@ -235,7 +235,8 @@ export default function AddOrderPage() {
         buyer_id: buyerId || null,
         vessel_carrier: vessel || null,
         bill_of_lading: billOfLading || null,
-        bill_of_lading_date: billOfLadingDate || null
+        bill_of_lading_date: billOfLadingDate || null,
+        order_number: previewOrderNumber
       })
       
       if (createError) throw new Error(createError)
