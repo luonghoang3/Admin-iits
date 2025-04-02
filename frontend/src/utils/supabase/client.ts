@@ -448,7 +448,11 @@ export async function fetchClient(clientId: string) {
     }
   } catch (error: any) {
     console.error('Error fetching client details:', error)
-    return { client: null, error: error.message }
+    // Check if error is an empty object or undefined
+    const errorMessage = (error && Object.keys(error).length > 0) 
+      ? error.message || error.toString() 
+      : 'Failed to fetch client details. Please try again.'
+    return { client: null, error: errorMessage }
   }
 }
 
@@ -696,7 +700,11 @@ export async function fetchOrder(orderId: string) {
     }
   } catch (error: any) {
     console.error('Error fetching order:', error)
-    return { order: null, error: error.message }
+    // Check if error is an empty object or undefined
+    const errorMessage = (error && Object.keys(error).length > 0) 
+      ? error.message || error.toString() 
+      : 'Failed to fetch order details. Please try again.'
+    return { order: null, error: errorMessage }
   }
 }
 
@@ -875,5 +883,206 @@ export async function fetchNextOrderSequence(
     const sequenceFormatted = String(1).padStart(3, '0')
     const formattedOrderNumber = `${typePrefix}${departmentCode}${yearCode}-${sequenceFormatted}`
     return { nextSequence: 1, formattedOrderNumber, error: error.message }
+  }
+}
+
+// Hàm lấy các order items của một order
+export async function fetchOrderItems(orderId: string) {
+  const supabase = createClient()
+  
+  try {
+    // Lấy danh sách order items
+    const { data: orderItems, error: orderItemsError } = await supabase
+      .from('order_items')
+      .select(`
+        *,
+        commodities:commodity_id(id, name, description),
+        units:unit_id(id, name)
+      `)
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: true })
+    
+    if (orderItemsError) throw orderItemsError
+    
+    return { orderItems, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi lấy danh sách order items:', error)
+    return { orderItems: [], error: error.message }
+  }
+}
+
+// Hàm tạo order item mới
+export async function createOrderItem(data: {
+  order_id: string
+  commodity_id: string
+  quantity: number
+  unit_id: string
+  commodity_description?: string
+}) {
+  const supabase = createClient()
+  
+  try {
+    // Tạo order item mới
+    const { data: orderItem, error: orderItemError } = await supabase
+      .from('order_items')
+      .insert([data])
+      .select()
+      .single()
+    
+    if (orderItemError) throw orderItemError
+    
+    return { orderItem, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi tạo order item:', error)
+    return { orderItem: null, error: error.message }
+  }
+}
+
+// Hàm cập nhật order item
+export async function updateOrderItem(
+  orderItemId: string,
+  data: {
+    commodity_id?: string
+    quantity?: number
+    unit_id?: string
+    commodity_description?: string
+  }
+) {
+  const supabase = createClient()
+  
+  try {
+    // Cập nhật order item
+    const { data: orderItem, error: orderItemError } = await supabase
+      .from('order_items')
+      .update(data)
+      .eq('id', orderItemId)
+      .select()
+      .single()
+    
+    if (orderItemError) throw orderItemError
+    
+    return { orderItem, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi cập nhật order item:', error)
+    return { orderItem: null, error: error.message }
+  }
+}
+
+// Hàm xóa order item
+export async function deleteOrderItem(orderItemId: string) {
+  const supabase = createClient()
+  
+  try {
+    // Xóa order item
+    const { error: orderItemError } = await supabase
+      .from('order_items')
+      .delete()
+      .eq('id', orderItemId)
+    
+    if (orderItemError) throw orderItemError
+    
+    return { success: true, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi xóa order item:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+// Hàm lấy danh sách hàng hóa
+export async function fetchCommodities() {
+  const supabase = createClient()
+  
+  try {
+    // Lấy danh sách commodities
+    const { data: commodities, error: commoditiesError } = await supabase
+      .from('commodities')
+      .select('*')
+      .order('name')
+    
+    if (commoditiesError) throw commoditiesError
+    
+    return { commodities, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi lấy danh sách hàng hóa:', error)
+    return { commodities: [], error: error.message }
+  }
+}
+
+// Hàm lấy chi tiết một hàng hóa
+export async function fetchCommodity(commodityId: string) {
+  const supabase = createClient()
+  
+  try {
+    // Lấy thông tin hàng hóa
+    const { data: commodity, error: commodityError } = await supabase
+      .from('commodities')
+      .select(`
+        *,
+        teams:commodities_teams(team_id)
+      `)
+      .eq('id', commodityId)
+      .single()
+    
+    if (commodityError) throw commodityError
+    
+    // Lấy thông tin chi tiết về các team
+    if (commodity && commodity.teams && commodity.teams.length > 0) {
+      const teamIds = commodity.teams.map((t: any) => t.team_id)
+      
+      const { data: teamDetails, error: teamError } = await supabase
+        .from('teams')
+        .select('*')
+        .in('id', teamIds)
+      
+      if (!teamError && teamDetails) {
+        commodity.team_details = teamDetails
+      }
+    }
+    
+    return { commodity, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi lấy thông tin hàng hóa:', error)
+    return { commodity: null, error: error.message }
+  }
+}
+
+// Hàm lấy danh sách đơn vị tính
+export async function fetchUnits() {
+  const supabase = createClient()
+  
+  try {
+    // Lấy danh sách units
+    const { data: units, error: unitsError } = await supabase
+      .from('units')
+      .select('*')
+      .order('name')
+    
+    if (unitsError) throw unitsError
+    
+    return { units, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi lấy danh sách đơn vị tính:', error)
+    return { units: [], error: error.message }
+  }
+}
+
+// Hàm lấy chi tiết một đơn vị tính
+export async function fetchUnit(unitId: string) {
+  const supabase = createClient()
+  
+  try {
+    // Lấy thông tin đơn vị tính
+    const { data: unit, error: unitError } = await supabase
+      .from('units')
+      .select('*')
+      .eq('id', unitId)
+      .single()
+    
+    if (unitError) throw unitError
+    
+    return { unit, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi lấy thông tin đơn vị tính:', error)
+    return { unit: null, error: error.message }
   }
 } 

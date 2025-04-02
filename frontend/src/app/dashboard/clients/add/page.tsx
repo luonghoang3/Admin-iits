@@ -3,7 +3,19 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient, createClientRecord, fetchTeams } from '@/utils/supabase/client'
+import { createClientRecord, fetchTeams } from '@/utils/supabase/client'
+
+// ShadCN components
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+
+// Add some icons
+import { ArrowLeft, Building2, Plus, Save, Users, X } from "lucide-react"
 
 interface Team {
   id: string
@@ -124,166 +136,196 @@ export default function AddClientPage() {
   }
   
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Add New Client</h1>
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" asChild className="h-8 w-8">
+            <Link href="/dashboard/clients">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Back</span>
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Building2 className="h-6 w-6" />
+            Add New Client
+          </h1>
+        </div>
+        <Button variant="outline" asChild>
+          <Link href="/dashboard/clients">Cancel</Link>
+        </Button>
       </div>
       
       {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-md mb-6">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
       
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="col-span-2">
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Company Name *
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            
-            <div className="col-span-2">
-              <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                Address
-              </label>
-              <textarea
-                id="address"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="tax_id" className="block text-sm font-medium text-gray-700 mb-1">
-                Tax ID
-              </label>
-              <input
-                type="text"
-                id="tax_id"
-                name="tax_id"
-                value={formData.tax_id}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Assign Teams
-              </label>
-              <div className="mt-1 p-2 border border-gray-300 rounded-md min-h-12">
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {selectedTeams.length > 0 ? (
-                    selectedTeams.map(teamId => {
-                      const team = teams.find(t => t.id === teamId);
-                      if (!team) return null;
-                      
-                      return (
-                        <span 
-                          key={teamId}
-                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-gray-800"
-                          style={{ backgroundColor: getTeamColor(teamId) }}
-                        >
-                          {team.name}
-                          <button
-                            type="button"
-                            onClick={() => toggleTeam(teamId)}
-                            className="ml-1.5 text-gray-600 hover:text-gray-900 focus:outline-none"
-                          >
-                            &times;
-                          </button>
-                        </span>
-                      );
-                    })
-                  ) : (
-                    <span className="text-gray-500 text-sm">No teams assigned</span>
-                  )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Client Information</CardTitle>
+          <CardDescription>
+            Enter the details for the new client. Fields marked with * are required.
+          </CardDescription>
+        </CardHeader>
+        
+        <CardContent>
+          <form id="clientForm" onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="col-span-2">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-base">Company Name *</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="Enter company name"
+                    required
+                  />
                 </div>
-                <div className="mt-2">
-                  <p className="text-sm text-gray-500 mb-1">Select teams:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {teams.map(team => (
-                      <button
-                        key={team.id}
-                        type="button"
-                        onClick={() => toggleTeam(team.id)}
-                        disabled={selectedTeams.includes(team.id)}
-                        className={`px-2 py-1 text-xs rounded focus:outline-none ${
-                          selectedTeams.includes(team.id)
-                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            : 'hover:bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {team.name}
-                      </button>
-                    ))}
+              </div>
+              
+              <div className="col-span-2">
+                <div className="space-y-2">
+                  <Label htmlFor="address" className="text-base">Address</Label>
+                  <Textarea
+                    id="address"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    placeholder="Enter company address"
+                    rows={3}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-base">Email</Label>
+                  <Input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="company@example.com"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="text-base">Phone Number</Label>
+                  <Input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="+1 (555) 123-4567"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <div className="space-y-2">
+                  <Label htmlFor="tax_id" className="text-base">Tax ID</Label>
+                  <Input
+                    type="text"
+                    id="tax_id"
+                    name="tax_id"
+                    value={formData.tax_id}
+                    onChange={handleChange}
+                    placeholder="Tax identification number"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <div className="space-y-2">
+                  <Label className="text-base">Assign Teams</Label>
+                  <div className="border rounded-md p-3 min-h-[100px]">
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {selectedTeams.length > 0 ? (
+                        selectedTeams.map(teamId => {
+                          const team = teams.find(t => t.id === teamId);
+                          if (!team) return null;
+                          
+                          return (
+                            <Badge 
+                              key={teamId}
+                              variant="outline"
+                              style={{ backgroundColor: getTeamColor(teamId) }}
+                              className="flex items-center gap-1 px-2 py-1 text-sm"
+                            >
+                              <Users className="h-3 w-3 mr-1 opacity-70" />
+                              {team.name}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleTeam(teamId)}
+                                className="h-4 w-4 p-0 rounded-full ml-1 hover:bg-black/10"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </Badge>
+                          );
+                        })
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No teams assigned</span>
+                      )}
+                    </div>
+                    <div className="mt-3">
+                      <p className="text-sm text-muted-foreground mb-2 flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />
+                        Select teams:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {teams.map(team => (
+                          <Button
+                            key={team.id}
+                            type="button"
+                            size="sm"
+                            variant={selectedTeams.includes(team.id) ? "secondary" : "outline"}
+                            onClick={() => toggleTeam(team.id)}
+                            className="text-xs"
+                            disabled={selectedTeams.includes(team.id)}
+                          >
+                            {team.name}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-          
-          <div className="mt-8 flex justify-end space-x-4">
-            <button
-              type="button"
-              onClick={() => router.push('/dashboard/clients')}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
-              disabled={loading}
-            >
-              {loading ? 'Saving...' : 'Add Client'}
-            </button>
-          </div>
-        </form>
-      </div>
+          </form>
+        </CardContent>
+        
+        <CardFooter className="flex justify-end space-x-2 border-t p-4">
+          <Button 
+            variant="outline" 
+            asChild
+          >
+            <Link href="/dashboard/clients">Cancel</Link>
+          </Button>
+          <Button 
+            type="submit" 
+            form="clientForm"
+            disabled={loading}
+            className="gap-2"
+          >
+            {loading ? "Saving..." : <>
+              <Save className="h-4 w-4" />
+              Create Client
+            </>}
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   )
 } 

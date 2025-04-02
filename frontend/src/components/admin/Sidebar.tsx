@@ -3,14 +3,23 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { 
-  HomeIcon, 
-  Users2Icon, 
-  UsersIcon, 
-  Building2Icon, 
-  ClipboardListIcon
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+// Import từng icon riêng lẻ
+// @ts-ignore - Bỏ qua lỗi TypeScript tạm thời
+import Home from 'lucide-react/dist/esm/icons/home';
+// @ts-ignore
+import Users2 from 'lucide-react/dist/esm/icons/users-2';
+// @ts-ignore
+import Users from 'lucide-react/dist/esm/icons/users';
+// @ts-ignore
+import Building2 from 'lucide-react/dist/esm/icons/building-2';
+// @ts-ignore
+import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
+// @ts-ignore
+import Ruler from 'lucide-react/dist/esm/icons/ruler';
+// @ts-ignore
+import Package2 from 'lucide-react/dist/esm/icons/package-2';
 
 const Sidebar = () => {
   const pathname = usePathname();
@@ -27,7 +36,7 @@ const Sidebar = () => {
           className="w-full justify-start"
         >
           <Link href="/dashboard" className="flex items-center">
-            <HomeIcon className="mr-3 h-5 w-5" />
+            <Home className="mr-3 h-5 w-5" />
             Dashboard
           </Link>
         </Button>
@@ -38,7 +47,7 @@ const Sidebar = () => {
           className="w-full justify-start"
         >
           <Link href="/dashboard/users" className="flex items-center">
-            <Users2Icon className="mr-3 h-5 w-5" />
+            <Users2 className="mr-3 h-5 w-5" />
             Quản lý người dùng
           </Link>
         </Button>
@@ -49,7 +58,7 @@ const Sidebar = () => {
           className="w-full justify-start"
         >
           <Link href="/dashboard/teams" className="flex items-center">
-            <UsersIcon className="mr-3 h-5 w-5" />
+            <Users className="mr-3 h-5 w-5" />
             Quản lý nhóm
           </Link>
         </Button>
@@ -60,7 +69,7 @@ const Sidebar = () => {
           className="w-full justify-start"
         >
           <Link href="/dashboard/clients" className="flex items-center">
-            <Building2Icon className="mr-3 h-5 w-5" />
+            <Building2 className="mr-3 h-5 w-5" />
             Quản lý khách hàng
           </Link>
         </Button>
@@ -71,8 +80,30 @@ const Sidebar = () => {
           className="w-full justify-start"
         >
           <Link href="/dashboard/orders" className="flex items-center">
-            <ClipboardListIcon className="mr-3 h-5 w-5" />
+            <ClipboardList className="mr-3 h-5 w-5" />
             Quản lý đơn hàng
+          </Link>
+        </Button>
+        
+        <Button
+          asChild
+          variant={pathname.includes('/dashboard/units') ? 'default' : 'ghost'}
+          className="w-full justify-start"
+        >
+          <Link href="/dashboard/units" className="flex items-center">
+            <Ruler className="mr-3 h-5 w-5" />
+            Quản lý đơn vị tính
+          </Link>
+        </Button>
+        
+        <Button
+          asChild
+          variant={pathname.includes('/dashboard/commodities') ? 'default' : 'ghost'}
+          className="w-full justify-start"
+        >
+          <Link href="/dashboard/commodities" className="flex items-center">
+            <Package2 className="mr-3 h-5 w-5" />
+            Quản lý hàng hóa
           </Link>
         </Button>
       </nav>

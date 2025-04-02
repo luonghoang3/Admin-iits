@@ -8,6 +8,7 @@ import { PlusIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outli
 import { createClient } from '@/utils/supabase/client'
 import { createOrder, fetchClients, fetchNextOrderSequence } from '@/utils/supabase/client'
 import { fetchShippers, fetchBuyers, fetchShipper, createShipper, updateShipper, deleteShipper, fetchBuyer, createBuyer, updateBuyer, deleteBuyer } from '@/utils/supabase/shipping'
+import { fetchCommodities, fetchUnits, createOrderItem } from '@/utils/supabase/client'
 
 interface Client {
   id: string
@@ -33,12 +34,37 @@ interface Buyer {
   name: string
 }
 
+interface Commodity {
+  id: string
+  name: string
+  description?: string | null
+}
+
+interface Unit {
+  id: string
+  name: string
+  description?: string | null
+}
+
+interface OrderItem {
+  id?: string
+  commodity_id: string
+  commodity?: Commodity
+  quantity: number
+  unit_id: string
+  unit?: Unit
+  commodity_description?: string
+  isNew?: boolean
+}
+
 export default function AddOrderPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
   const [shippers, setShippers] = useState<Shipper[]>([])
   const [buyers, setBuyers] = useState<Buyer[]>([])
+  const [commodities, setCommodities] = useState<Commodity[]>([])
+  const [units, setUnits] = useState<Unit[]>([])
   const [error, setError] = useState<string | null>(null)
   
   // Search queries for comboboxes
@@ -46,6 +72,8 @@ export default function AddOrderPage() {
   const [contactQuery, setContactQuery] = useState('')
   const [shipperQuery, setShipperQuery] = useState('')
   const [buyerQuery, setBuyerQuery] = useState('')
+  const [commodityQuery, setCommodityQuery] = useState('')
+  const [unitQuery, setUnitQuery] = useState('')
   
   // Form state
   const [clientId, setClientId] = useState('')
@@ -61,6 +89,18 @@ export default function AddOrderPage() {
   const [billOfLadingDate, setBillOfLadingDate] = useState('')
   const [notes, setNotes] = useState('')
   const [previewOrderNumber, setPreviewOrderNumber] = useState('')
+  
+  // Order items state
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([])
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null)
+  const [showItemModal, setShowItemModal] = useState(false)
+  const [itemMode, setItemMode] = useState<'add' | 'edit'>('add')
+  const [itemForm, setItemForm] = useState<OrderItem>({
+    commodity_id: '',
+    quantity: 1,
+    unit_id: '',
+    commodity_description: ''
+  })
   
   // Modal states
   const [showShipperModal, setShowShipperModal] = useState(false)
@@ -154,6 +194,24 @@ export default function AddOrderPage() {
           setBuyers(buyerData)
         }
         
+        // Fetch commodities for dropdown
+        const { commodities: commodityData, error: commoditiesError } = await fetchCommodities()
+        
+        if (commoditiesError) {
+          setError(`Could not load commodities: ${commoditiesError}`)
+        } else if (commodityData) {
+          setCommodities(commodityData)
+        }
+        
+        // Fetch units for dropdown
+        const { units: unitData, error: unitsError } = await fetchUnits()
+        
+        if (unitsError) {
+          setError(`Could not load units: ${unitsError}`)
+        } else if (unitData) {
+          setUnits(unitData)
+        }
+        
         // Generate preview order number
         updateOrderNumberPreview('international', 'marine')
       } catch (err: any) {
@@ -214,40 +272,59 @@ export default function AddOrderPage() {
   
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    
-    if (!clientId) {
-      setError('Please select a client')
-      return
-    }
+    setLoading(true)
+    setError(null)
     
     try {
-      setLoading(true)
-      setError(null)
+      if (!clientId) {
+        throw new Error('Client is required')
+      }
       
-      const { order, error: createError } = await createOrder({
+      // Step 1: Create the order
+      const { order, error: orderError } = await createOrder({
         client_id: clientId,
         contact_id: contactId || null,
+        shipper_id: shipperId || null,
+        buyer_id: buyerId || null,
         type,
         department,
         order_date: orderDate,
         client_ref_code: clientRefCode || null,
-        shipper_id: shipperId || null,
-        buyer_id: buyerId || null,
         vessel_carrier: vessel || null,
         bill_of_lading: billOfLading || null,
         bill_of_lading_date: billOfLadingDate || null,
-        order_number: previewOrderNumber
+        order_number: previewOrderNumber || null
       })
       
-      if (createError) throw new Error(createError)
+      if (orderError) throw new Error(orderError)
       
-      if (order) {
-        router.push('/dashboard/orders')
+      if (!order) throw new Error('Failed to create order')
+      
+      // Step 2: Create order items
+      const orderItemPromises = orderItems.map(item => 
+        createOrderItem({
+          order_id: order.id,
+          commodity_id: item.commodity_id,
+          quantity: item.quantity,
+          unit_id: item.unit_id,
+          commodity_description: item.commodity_description
+        })
+      )
+      
+      // Execute all promises
+      const orderItemResults = await Promise.all(orderItemPromises)
+      
+      // Check for any errors
+      const itemErrors = orderItemResults.filter(result => result.error)
+      if (itemErrors.length > 0) {
+        console.error('Some items failed to save:', itemErrors)
       }
+      
+      // Redirect to order detail or list page
+      router.push(`/dashboard/orders/${order.id}`)
     } catch (err: any) {
       console.error('Error creating order:', err)
-      setError(err.message || 'An error occurred while creating the order')
-    } finally {
+      setError(err.message || 'Error creating order')
       setLoading(false)
     }
   }
@@ -718,7 +795,7 @@ export default function AddOrderPage() {
     }
   }
   
-  // Filter clients based on search query
+  // Filter logic for comboboxes
   const filteredClients = clientQuery === ''
     ? clients
     : clients.filter((client) =>
@@ -728,7 +805,6 @@ export default function AddOrderPage() {
           .includes(clientQuery.toLowerCase().replace(/\s+/g, ''))
       )
       
-  // Filter contacts based on search query
   const filteredContacts = contactQuery === ''
     ? contacts
     : contacts.filter((contact) =>
@@ -738,7 +814,6 @@ export default function AddOrderPage() {
           .includes(contactQuery.toLowerCase().replace(/\s+/g, ''))
       )
       
-  // Filter shippers based on search query
   const filteredShippers = shipperQuery === ''
     ? shippers
     : shippers.filter((shipper) =>
@@ -748,7 +823,6 @@ export default function AddOrderPage() {
           .includes(shipperQuery.toLowerCase().replace(/\s+/g, ''))
       )
       
-  // Filter buyers based on search query
   const filteredBuyers = buyerQuery === ''
     ? buyers
     : buyers.filter((buyer) =>
@@ -756,6 +830,24 @@ export default function AddOrderPage() {
           .toLowerCase()
           .replace(/\s+/g, '')
           .includes(buyerQuery.toLowerCase().replace(/\s+/g, ''))
+      )
+      
+  const filteredCommodities = commodityQuery === ''
+    ? commodities
+    : commodities.filter((commodity) =>
+        commodity.name
+          .toLowerCase()
+          .replace(/\s+/g, '')
+          .includes(commodityQuery.toLowerCase().replace(/\s+/g, ''))
+      )
+      
+  const filteredUnits = unitQuery === ''
+    ? units
+    : units.filter((unit) =>
+        unit.name
+          .toLowerCase()
+          .replace(/\s+/g, '')
+          .includes(unitQuery.toLowerCase().replace(/\s+/g, ''))
       )
   
   // Contact management functions
@@ -887,8 +979,82 @@ export default function AddOrderPage() {
     }
   }
   
+  // Order item helpers
+  function openAddItemModal() {
+    setItemForm({
+      commodity_id: '',
+      quantity: 1,
+      unit_id: '',
+      commodity_description: ''
+    })
+    setItemMode('add')
+    setShowItemModal(true)
+  }
+  
+  function openEditItemModal(index: number) {
+    const item = orderItems[index]
+    setItemForm({ ...item })
+    setItemMode('edit')
+    setEditingItemIndex(index)
+    setShowItemModal(true)
+  }
+  
+  function handleSaveItem() {
+    try {
+      // Validate form
+      if (!itemForm.commodity_id) {
+        throw new Error('Please select a commodity')
+      }
+      if (!itemForm.unit_id) {
+        throw new Error('Please select a unit')
+      }
+      if (itemForm.quantity <= 0) {
+        throw new Error('Quantity must be greater than 0')
+      }
+      
+      // Find selected commodity and unit for display
+      const selectedCommodity = commodities.find(c => c.id === itemForm.commodity_id)
+      const selectedUnit = units.find(u => u.id === itemForm.unit_id)
+      
+      if (!selectedCommodity || !selectedUnit) {
+        throw new Error('Selected commodity or unit not found')
+      }
+      
+      const newItem: OrderItem = {
+        ...itemForm,
+        commodity: selectedCommodity,
+        unit: selectedUnit,
+        isNew: true
+      }
+      
+      if (itemMode === 'add') {
+        // Add new item
+        setOrderItems([...orderItems, newItem])
+      } else if (itemMode === 'edit' && editingItemIndex !== null) {
+        // Update existing item
+        const updatedItems = [...orderItems]
+        updatedItems[editingItemIndex] = newItem
+        setOrderItems(updatedItems)
+      }
+      
+      // Close modal
+      setShowItemModal(false)
+      setEditingItemIndex(null)
+    } catch (err: any) {
+      alert(err.message)
+    }
+  }
+  
+  function handleDeleteItem(index: number) {
+    if (confirm('Are you sure you want to delete this item?')) {
+      const updatedItems = [...orderItems]
+      updatedItems.splice(index, 1)
+      setOrderItems(updatedItems)
+    }
+  }
+  
   return (
-    <div className="max-w-7xl mx-auto p-6" style={{ overflow: 'visible' }}>
+    <div className="container mx-auto p-6">
       <div className="mb-8" style={{ overflow: 'visible' }}>
         <h1 className="text-2xl font-bold text-gray-900">Create New Order</h1>
       </div>
@@ -2194,6 +2360,302 @@ export default function AddOrderPage() {
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
               >
                 {contactMode === 'add' ? 'Add Contact' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* After the last form section, add this new section */}
+      <div className="mt-8 bg-white border rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold border-b pb-3 mb-4 flex justify-between items-center">
+          <span>Order Items</span>
+          <button
+            type="button"
+            onClick={openAddItemModal}
+            className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm flex items-center"
+          >
+            <PlusIcon className="h-4 w-4 mr-1" />
+            Add Item
+          </button>
+        </h2>
+        
+        {orderItems.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <p>No items added yet. Click "Add Item" to add products to this order.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commodity Description</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {orderItems.map((item, index) => (
+                  <tr key={index} className={item.isNew ? 'bg-blue-50' : ''}>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{item.commodity?.name}</div>
+                      {item.commodity?.description && (
+                        <div className="text-xs text-gray-500">{item.commodity.description}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      {item.quantity}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      {item.unit?.name}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {item.commodity_description || '—'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => openEditItemModal(index)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteItem(index)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      
+      {/* Submit button at the bottom */}
+      <div className="mt-8 flex justify-end">
+        <button
+          type="button" 
+          onClick={() => router.push('/dashboard/orders')}
+          className="mr-3 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={loading || orderItems.length === 0}
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Creating Order...' : 'Create Order'}
+        </button>
+      </div>
+      
+      {/* Order Item Modal */}
+      {showItemModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              {itemMode === 'add' ? 'Add New Item' : 'Edit Item'}
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Commodity <span className="text-red-500">*</span>
+                </label>
+                <Combobox value={commodities.find(c => c.id === itemForm.commodity_id) || null} onChange={(commodity: Commodity | null) => {
+                  setItemForm({...itemForm, commodity_id: commodity?.id || ''});
+                }}>
+                  <div className="relative">
+                    <div className="relative w-full cursor-default overflow-hidden rounded-md border border-gray-300 bg-white text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300">
+                      <Combobox.Input
+                        className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0"
+                        displayValue={(commodity: Commodity | null) => commodity?.name || ''}
+                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => setCommodityQuery(event.target.value)}
+                        placeholder="Select Commodity"
+                      />
+                      <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                        <ChevronUpDownIcon
+                          className="h-5 w-5 text-gray-400"
+                          aria-hidden="true"
+                        />
+                      </Combobox.Button>
+                    </div>
+                    <Transition
+                      as={Fragment}
+                      leave="transition ease-in duration-100"
+                      leaveFrom="opacity-100"
+                      leaveTo="opacity-0"
+                      afterLeave={() => setCommodityQuery('')}
+                    >
+                      <Combobox.Options className="absolute z-[999] mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                        {filteredCommodities.length === 0 && commodityQuery !== '' ? (
+                          <div className="relative cursor-default select-none px-4 py-2 text-gray-700">
+                            Nothing found.
+                          </div>
+                        ) : (
+                          filteredCommodities.map((commodity) => (
+                            <Combobox.Option
+                              key={commodity.id}
+                              className={({ active }: { active: boolean }) =>
+                                `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                  active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                                }`
+                              }
+                              value={commodity}
+                            >
+                              {({ selected, active }: { selected: boolean; active: boolean }) => (
+                                <>
+                                  <span
+                                    className={`block truncate ${
+                                      selected ? 'font-medium' : 'font-normal'
+                                    }`}
+                                  >
+                                    {commodity.name}
+                                  </span>
+                                  {selected ? (
+                                    <span
+                                      className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                                        active ? 'text-white' : 'text-blue-600'
+                                      }`}
+                                    >
+                                      <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                    </span>
+                                  ) : null}
+                                </>
+                              )}
+                            </Combobox.Option>
+                          ))
+                        )}
+                      </Combobox.Options>
+                    </Transition>
+                  </div>
+                </Combobox>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quantity <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={itemForm.quantity}
+                    onChange={(e) => setItemForm({...itemForm, quantity: parseFloat(e.target.value) || 0})}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Unit <span className="text-red-500">*</span>
+                  </label>
+                  <Combobox value={units.find(u => u.id === itemForm.unit_id) || null} onChange={(unit: Unit | null) => {
+                    setItemForm({...itemForm, unit_id: unit?.id || ''});
+                  }}>
+                    <div className="relative">
+                      <div className="relative w-full cursor-default overflow-hidden rounded-md border border-gray-300 bg-white text-left shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300">
+                        <Combobox.Input
+                          className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0"
+                          displayValue={(unit: Unit | null) => unit?.name || ''}
+                          onChange={(event: React.ChangeEvent<HTMLInputElement>) => setUnitQuery(event.target.value)}
+                          placeholder="Select Unit"
+                        />
+                        <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                          <ChevronUpDownIcon
+                            className="h-5 w-5 text-gray-400"
+                            aria-hidden="true"
+                          />
+                        </Combobox.Button>
+                      </div>
+                      <Transition
+                        as={Fragment}
+                        leave="transition ease-in duration-100"
+                        leaveFrom="opacity-100"
+                        leaveTo="opacity-0"
+                        afterLeave={() => setUnitQuery('')}
+                      >
+                        <Combobox.Options className="fixed z-[999] mt-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm" style={{ position: 'fixed', top: 'auto', left: 'auto', width: 'auto', maxWidth: '300px', overflowY: 'auto' }}>
+                          {filteredUnits.length === 0 && unitQuery !== '' ? (
+                            <div className="relative cursor-default select-none px-4 py-2 text-gray-700">
+                              Nothing found.
+                            </div>
+                          ) : (
+                            filteredUnits.map((unit) => (
+                              <Combobox.Option
+                                key={unit.id}
+                                className={({ active }: { active: boolean }) =>
+                                  `relative cursor-default select-none py-2 pl-10 pr-4 ${
+                                    active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                                  }`
+                                }
+                                value={unit}
+                              >
+                                {({ selected, active }: { selected: boolean; active: boolean }) => (
+                                  <>
+                                    <span
+                                      className={`block truncate ${
+                                        selected ? 'font-medium' : 'font-normal'
+                                      }`}
+                                    >
+                                      {unit.name}
+                                    </span>
+                                    {selected ? (
+                                      <span
+                                        className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                                          active ? 'text-white' : 'text-blue-600'
+                                        }`}
+                                      >
+                                        <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                      </span>
+                                    ) : null}
+                                  </>
+                                )}
+                              </Combobox.Option>
+                            ))
+                          )}
+                        </Combobox.Options>
+                      </Transition>
+                    </div>
+                  </Combobox>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Commodity Description
+                </label>
+                <textarea
+                  rows={3}
+                  value={itemForm.commodity_description || ''}
+                  onChange={(e) => setItemForm({...itemForm, commodity_description: e.target.value})}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => setShowItemModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveItem}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              >
+                {itemMode === 'add' ? 'Add Item' : 'Save Changes'}
               </button>
             </div>
           </div>
