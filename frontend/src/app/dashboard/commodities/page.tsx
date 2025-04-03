@@ -1,220 +1,170 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/utils/supabase/server'
-import { redirect } from 'next/navigation'
-import { revalidatePath } from 'next/cache'
-import DeleteButton from './components/DeleteButton'
+import { createClient } from '@/utils/supabase/client'
+import { DataTable } from './data-table'
+import { columns, Commodity } from './columns'
 
-// Định nghĩa interface cho đối tượng Team
-interface Team {
-  id: string;
-  name: string;
-}
-
-// Server action để xử lý xóa
-async function deleteCommodity(formData: FormData) {
-  'use server'
+export default function CommoditiesPage() {
+  const [commodities, setCommodities] = useState<Commodity[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
-  const id = formData.get('id') as string
-  
-  if (!id) {
-    console.error('ID không được cung cấp')
-    return
-  }
-  
-  try {
-    const supabase = await createClient()
-    
-    // Kiểm tra quyền
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      throw new Error('Chưa đăng nhập')
-    }
-    
-    // Kiểm tra quyền admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role, is_active')
-      .eq('id', user.id)
-      .single()
+  useEffect(() => {
+    async function loadData() {
+      const supabase = createClient()
       
-    if (!profile?.is_active) {
-      throw new Error('Tài khoản không hoạt động')
-    }
-    
-    if (profile?.role !== 'admin') {
-      throw new Error('Không có quyền thực hiện')
-    }
-    
-    // Xóa commodity trực tiếp qua Supabase (cascade sẽ xóa luôn các liên kết trong commodities_teams)
-    const { error } = await supabase
-      .from('commodities')
-      .delete()
-      .eq('id', id)
-    
-    if (error) {
-      throw error
-    }
-    
-    // Cập nhật cache
-    revalidatePath('/dashboard/commodities')
-  } catch (error) {
-    console.error('Lỗi khi xóa hàng hóa:', error)
-  }
-}
-
-export default async function CommoditiesPage() {
-  const supabase = await createClient()
-  
-  // Kiểm tra session
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    redirect('/login')
-  }
-  
-  // Kiểm tra quyền admin
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, is_active')
-    .eq('id', user.id)
-    .single()
-    
-  if (!profile?.is_active) {
-    redirect('/login?error=inactive')
-  }
-  
-  if (profile?.role !== 'admin') {
-    redirect('/dashboard')
-  }
-  
-  // Lấy dữ liệu commodities
-  const { data: commodities, error } = await supabase
-    .from('commodities')
-    .select('*')
-    .order('name')
-  
-  // Lấy thông tin teams cho mỗi commodity
-  const commoditiesWithTeams = []
-  
-  if (commodities) {
-    for (const commodity of commodities) {
-      // Lấy các team được liên kết với commodity
-      const { data: teamLinks } = await supabase
-        .from('commodities_teams')
-        .select('team_id')
-        .eq('commodity_id', commodity.id)
-      
-      // Lấy thông tin chi tiết của các team
-      const teamIds = teamLinks?.map(link => link.team_id) || []
-      let teams: Team[] = []
-      
-      if (teamIds.length > 0) {
-        const { data: teamsData } = await supabase
-          .from('teams')
-          .select('id, name')
-          .in('id', teamIds)
+      try {
+        // Kiểm tra xác thực
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
         
-        teams = teamsData || []
+        if (authError) {
+          setError(authError.message)
+          setLoading(false)
+          return
+        }
+        
+        if (!user) {
+          window.location.href = '/login'
+          return
+        }
+        
+        // Kiểm tra quyền admin
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role, is_active')
+          .eq('id', user.id)
+          .single()
+          
+        if (!profile?.is_active) {
+          window.location.href = '/login?error=inactive'
+          return
+        }
+        
+        if (profile?.role !== 'admin') {
+          window.location.href = '/dashboard'
+          return
+        }
+        
+        // Lấy dữ liệu commodities
+        const { data: commoditiesData, error: commoditiesError } = await supabase
+          .from('commodities')
+          .select('*, category:category_id(*)')
+          .order('name')
+        
+        if (commoditiesError) {
+          setError(`Không thể tải hàng hóa: ${commoditiesError.message}`)
+          setLoading(false)
+          return
+        }
+        
+        // Lấy thông tin teams cho mỗi commodity
+        const commoditiesWithTeams = []
+        
+        for (const commodity of commoditiesData || []) {
+          // Lấy các team được liên kết với commodity
+          const { data: teamLinks, error: teamLinksError } = await supabase
+            .from('commodities_teams')
+            .select('team_id')
+            .eq('commodity_id', commodity.id)
+          
+          if (teamLinksError) {
+            console.error('Error loading team links:', teamLinksError)
+            continue
+          }
+          
+          // Lấy thông tin chi tiết của các team
+          const teamIds = teamLinks?.map(link => link.team_id) || []
+          let teams: { id: string; name: string }[] = []
+          
+          if (teamIds.length > 0) {
+            const { data: teamsData, error: teamsError } = await supabase
+              .from('teams')
+              .select('id, name')
+              .in('id', teamIds)
+            
+            if (teamsError) {
+              console.error('Error loading teams:', teamsError)
+            } else {
+              teams = teamsData || []
+            }
+          }
+          
+          commoditiesWithTeams.push({
+            ...commodity,
+            teams
+          })
+        }
+        
+        setCommodities(commoditiesWithTeams)
+        setLoading(false)
+      } catch (err: any) {
+        console.error('Error:', err)
+        setError(err.message || 'Đã xảy ra lỗi')
+        setLoading(false)
       }
+    }
+    
+    loadData()
+  }, [])
+  
+  async function handleDeleteCommodity(commodityId: string) {
+    if (!confirm('Bạn có chắc chắn muốn xóa hàng hóa này?')) {
+      return
+    }
+    
+    try {
+      setLoading(true)
       
-      commoditiesWithTeams.push({
-        ...commodity,
-        teams
-      })
+      const supabase = createClient()
+      const { error: deleteError } = await supabase
+        .from('commodities')
+        .delete()
+        .eq('id', commodityId)
+      
+      if (deleteError) throw new Error(deleteError.message)
+      
+      // Cập nhật danh sách hàng hóa
+      setCommodities(commodities.filter(commodity => commodity.id !== commodityId))
+      alert('Xóa hàng hóa thành công')
+    } catch (err: any) {
+      console.error('Error deleting commodity:', err)
+      alert(`Lỗi khi xóa hàng hóa: ${err.message}`)
+    } finally {
+      setLoading(false)
     }
   }
   
   return (
-    <div className="p-6">
-      <div className="border-b pb-4 mb-6">
-        <h1 className="text-2xl font-bold mb-4">Quản lý hàng hóa</h1>
-        <div className="flex space-x-4">
-          <Link 
-            href="/dashboard/commodities" 
-            className="px-3 py-2 rounded-md bg-blue-500 text-white"
-          >
-            Danh sách
-          </Link>
-          <Link 
-            href="/dashboard/commodities/add" 
-            className="px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200"
-          >
-            Thêm hàng hóa mới
-          </Link>
-        </div>
+    <div className="p-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Quản lý hàng hóa</h1>
+        <Link
+          href="/dashboard/commodities/add"
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+        >
+          Thêm hàng hóa mới
+        </Link>
       </div>
       
-      {error ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded mb-4">
-          <p>Đã xảy ra lỗi khi tải dữ liệu</p>
+      {error && (
+        <div className="bg-red-50 text-red-600 p-4 rounded-md mb-6">
+          {error}
         </div>
-      ) : commoditiesWithTeams.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border px-4 py-2 text-left">Tên hàng hóa</th>
-                <th className="border px-4 py-2 text-left">Mô tả</th>
-                <th className="border px-4 py-2 text-left">Teams</th>
-                <th className="border px-4 py-2 text-left">Ngày tạo</th>
-                <th className="border px-4 py-2 text-center">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {commoditiesWithTeams.map((commodity: any) => (
-                <tr key={commodity.id} className="hover:bg-gray-50">
-                  <td className="border px-4 py-2">{commodity.name}</td>
-                  <td className="border px-4 py-2">
-                    {commodity.description ? (
-                      <span>{commodity.description}</span>
-                    ) : (
-                      <span className="text-gray-400 italic">Chưa có mô tả</span>
-                    )}
-                  </td>
-                  <td className="border px-4 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {commodity.teams && commodity.teams.length > 0 ? (
-                        commodity.teams.map((team: any) => (
-                          <span 
-                            key={team.id}
-                            className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
-                          >
-                            {team.name}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-gray-400 italic">Không có team</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="border px-4 py-2">
-                    {new Date(commodity.created_at).toLocaleDateString('vi-VN')}
-                  </td>
-                  <td className="border px-4 py-2 text-center">
-                    <Link
-                      href={`/dashboard/commodities/edit/${commodity.id}`}
-                      className="px-2 py-1 bg-gray-500 text-white rounded text-sm mr-2 hover:bg-gray-600"
-                    >
-                      Sửa
-                    </Link>
-                    <form id={`delete-commodity-${commodity.id}`} action={deleteCommodity} className="inline ml-2">
-                      <input type="hidden" name="id" value={commodity.id} />
-                      <DeleteButton commodityId={commodity.id} />
-                    </form>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      )}
+      
+      {loading ? (
+        <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-center h-64">
+          <p className="text-gray-500">Đang tải dữ liệu...</p>
         </div>
       ) : (
-        <div className="text-center py-12">
-          <p className="text-lg text-gray-500 mb-4">Chưa có hàng hóa nào được tạo</p>
-          <Link
-            href="/dashboard/commodities/add"
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Tạo hàng hóa mới
-          </Link>
+        <div className="bg-white overflow-hidden shadow-md rounded-lg p-6">
+          <DataTable 
+            columns={columns} 
+            data={commodities} 
+            onDeleteCommodity={handleDeleteCommodity}
+          />
         </div>
       )}
     </div>

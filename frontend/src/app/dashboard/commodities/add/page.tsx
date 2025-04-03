@@ -13,14 +13,23 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Thêm một số icon
 // @ts-ignore - Bỏ qua lỗi TypeScript tạm thời
 import Package2 from 'lucide-react/dist/esm/icons/package-2';
 // @ts-ignore
 import Users from 'lucide-react/dist/esm/icons/users';
+// @ts-ignore
+import FolderOpen from 'lucide-react/dist/esm/icons/folder-open';
 
 interface Team {
+  id: string
+  name: string
+  description: string | null
+}
+
+interface Category {
   id: string
   name: string
   description: string | null
@@ -47,42 +56,94 @@ function getTeamColor(id: string): string {
 
 export default function AddCommodityPage() {
   const router = useRouter()
+  const searchParams = new URLSearchParams(
+    typeof window !== 'undefined' ? window.location.search : ''
+  )
+  const categoryParam = searchParams.get('category')
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [selectedTeams, setSelectedTeams] = useState<string[]>([])
   
   const [formData, setFormData] = useState({
     name: '',
-    description: ''
+    description: '',
+    category_id: categoryParam || 'null'
   })
   
-  // Load available teams
+  // Load teams and categories
   useEffect(() => {
-    async function loadTeams() {
+    async function loadData() {
       try {
+        setLoading(true)
         const supabase = createClient()
-        const { data, error } = await supabase
+        
+        // Kiểm tra xác thực
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        
+        if (authError) {
+          setError(authError.message)
+          setLoading(false)
+          return
+        }
+        
+        if (!user) {
+          router.push('/login')
+          return
+        }
+
+        // Tải danh sách teams
+        const { data: teamsData, error: teamsError } = await supabase
           .from('teams')
           .select('*')
           .order('name')
         
-        if (error) throw error
+        if (teamsError) throw teamsError
+        setTeams(teamsData || [])
         
-        setTeams(data || [])
+        // Lấy danh sách tất cả categories
+        const { data: categoriesData, error: categoriesError } = await supabase
+          .from('categories')
+          .select('*')
+          .order('name')
+        
+        if (categoriesError) throw categoriesError
+        setCategories(categoriesData || [])
+        
+        // Cập nhật formData nếu có category từ query param
+        if (categoryParam) {
+          setFormData(prev => ({
+            ...prev,
+            category_id: categoryParam
+          }))
+        }
+        
+        setLoading(false)
+        
       } catch (err: any) {
-        console.error('Error loading teams:', err)
+        console.error('Error loading data:', err)
+        setError(err.message || 'Đã xảy ra lỗi khi tải dữ liệu')
+        setLoading(false)
       }
     }
     
-    loadTeams()
-  }, [])
+    loadData()
+  }, [router, categoryParam])
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }))
+  }
+  
+  const handleCategoryChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      category_id: value
     }))
   }
   
@@ -115,7 +176,8 @@ export default function AddCommodityPage() {
         .from('commodities')
         .insert([{ 
           name: formData.name.trim(),
-          description: formData.description.trim() || null
+          description: formData.description.trim() || null,
+          category_id: formData.category_id === 'null' ? null : formData.category_id
         }])
         .select()
         .single()
@@ -188,6 +250,29 @@ export default function AddCommodityPage() {
                   placeholder="Nhập tên hàng hóa"
                   required
                 />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="category_id" className="text-base flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4" />
+                  Danh mục
+                </Label>
+                <Select
+                  value={formData.category_id}
+                  onValueChange={handleCategoryChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn danh mục" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="null">Không có danh mục</SelectItem>
+                    {categories.map(category => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="space-y-2">

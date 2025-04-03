@@ -4,22 +4,32 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
+import { use } from 'react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 // ShadCN components
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // @ts-ignore - Bỏ qua lỗi TypeScript tạm thời
 import Package2 from 'lucide-react/dist/esm/icons/package-2';
 // @ts-ignore
 import Users from 'lucide-react/dist/esm/icons/users';
+// @ts-ignore
+import FolderOpen from 'lucide-react/dist/esm/icons/folder-open';
 
 interface Team {
+  id: string
+  name: string
+  description: string | null
+}
+
+interface Category {
   id: string
   name: string
   description: string | null
@@ -44,16 +54,22 @@ function getTeamColor(id: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-export default function EditCommodityPage({ params }: { params: { id: string } }) {
+export default function EditCommodityPage({ params }: { params: Promise<{ id: string }> }) {
+  // Unwrap params using React.use()
+  const unwrappedParams = use(params)
+  const commodityId = unwrappedParams.id
+
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [selectedTeams, setSelectedTeams] = useState<string[]>([])
   
   const [formData, setFormData] = useState({
     name: '',
-    description: ''
+    description: '',
+    category_id: ''
   })
   
   // Load commodity details and teams
@@ -66,7 +82,7 @@ export default function EditCommodityPage({ params }: { params: { id: string } }
         const { data: commodity, error: commodityError } = await supabase
           .from('commodities')
           .select('*')
-          .eq('id', params.id)
+          .eq('id', commodityId)
           .single()
         
         if (commodityError) throw commodityError
@@ -74,7 +90,8 @@ export default function EditCommodityPage({ params }: { params: { id: string } }
         if (commodity) {
           setFormData({
             name: commodity.name,
-            description: commodity.description || ''
+            description: commodity.description || '',
+            category_id: commodity.category_id || 'null'
           })
         } else {
           throw new Error('Không tìm thấy hàng hóa')
@@ -84,7 +101,7 @@ export default function EditCommodityPage({ params }: { params: { id: string } }
         const { data: teamLinks, error: teamLinksError } = await supabase
           .from('commodities_teams')
           .select('team_id')
-          .eq('commodity_id', params.id)
+          .eq('commodity_id', commodityId)
         
         if (teamLinksError) throw teamLinksError
         
@@ -99,8 +116,17 @@ export default function EditCommodityPage({ params }: { params: { id: string } }
           .order('name')
         
         if (teamsError) throw teamsError
-        
         setTeams(allTeams || [])
+
+        // Lấy danh sách tất cả categories
+        const { data: allCategories, error: categoriesError } = await supabase
+          .from('categories')
+          .select('*')
+          .order('name')
+        
+        if (categoriesError) throw categoriesError
+        setCategories(allCategories || [])
+        
         setLoading(false)
         
       } catch (err: any) {
@@ -111,13 +137,20 @@ export default function EditCommodityPage({ params }: { params: { id: string } }
     }
     
     loadData()
-  }, [params.id])
+  }, [commodityId])
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }))
+  }
+  
+  const handleCategoryChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      category_id: value
     }))
   }
   
@@ -151,9 +184,10 @@ export default function EditCommodityPage({ params }: { params: { id: string } }
         .update({ 
           name: formData.name.trim(),
           description: formData.description.trim() || null,
+          category_id: formData.category_id === 'null' ? null : formData.category_id,
           updated_at: new Date().toISOString()
         })
-        .eq('id', params.id)
+        .eq('id', commodityId)
       
       if (updateError) throw updateError
       
@@ -161,14 +195,14 @@ export default function EditCommodityPage({ params }: { params: { id: string } }
       const { error: deleteLinksError } = await supabase
         .from('commodities_teams')
         .delete()
-        .eq('commodity_id', params.id)
+        .eq('commodity_id', commodityId)
       
       if (deleteLinksError) throw deleteLinksError
       
       // Tạo các liên kết mới
       if (selectedTeams.length > 0) {
         const commodityTeamsData = selectedTeams.map(teamId => ({
-          commodity_id: params.id,
+          commodity_id: commodityId,
           team_id: teamId
         }))
         
@@ -207,7 +241,7 @@ export default function EditCommodityPage({ params }: { params: { id: string } }
           Chỉnh sửa hàng hóa
         </h1>
         <Button variant="outline" asChild>
-          <Link href="/dashboard/commodities">Hủy</Link>
+          <Link href="/dashboard/commodities">Quay lại</Link>
         </Button>
       </div>
       
@@ -222,7 +256,7 @@ export default function EditCommodityPage({ params }: { params: { id: string } }
         <CardHeader>
           <CardTitle>Thông tin hàng hóa</CardTitle>
           <CardDescription>
-            Chỉnh sửa thông tin hàng hóa. Các trường có dấu * là bắt buộc.
+            Cập nhật thông tin cho hàng hóa. Các trường có dấu * là bắt buộc.
           </CardDescription>
         </CardHeader>
         
@@ -239,6 +273,29 @@ export default function EditCommodityPage({ params }: { params: { id: string } }
                   placeholder="Nhập tên hàng hóa"
                   required
                 />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="category_id" className="text-base flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4" />
+                  Danh mục
+                </Label>
+                <Select
+                  value={formData.category_id}
+                  onValueChange={handleCategoryChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn danh mục" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="null">Không có danh mục</SelectItem>
+                    {categories.map(category => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="space-y-2">

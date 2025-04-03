@@ -20,6 +20,8 @@ import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
 import Ruler from 'lucide-react/dist/esm/icons/ruler';
 // @ts-ignore
 import Package2 from 'lucide-react/dist/esm/icons/package-2';
+// @ts-ignore
+import Layers from 'lucide-react/dist/esm/icons/layers';
 
 const Sidebar = () => {
   const pathname = usePathname();
@@ -82,6 +84,17 @@ const Sidebar = () => {
           <Link href="/dashboard/orders" className="flex items-center">
             <ClipboardList className="mr-3 h-5 w-5" />
             Quản lý đơn hàng
+          </Link>
+        </Button>
+        
+        <Button
+          asChild
+          variant={pathname.includes('/dashboard/categories') ? 'default' : 'ghost'}
+          className="w-full justify-start"
+        >
+          <Link href="/dashboard/categories" className="flex items-center">
+            <Layers className="mr-3 h-5 w-5" />
+            Quản lý danh mục
           </Link>
         </Button>
         

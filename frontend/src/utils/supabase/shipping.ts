@@ -2,15 +2,26 @@ import { createClient } from './client'
 
 // Shipper Management Functions
 
-// Fetch all shippers
-export async function fetchShippers() {
+// Fetch all shippers with pagination and search
+export async function fetchShippers(page = 1, limit = 50, searchQuery = '') {
   const supabase = createClient()
   
   try {
-    const { data: shippers, error } = await supabase
+    const offset = (page - 1) * limit
+    
+    let query = supabase
       .from('shippers')
       .select('*')
+    
+    // Apply search filter if provided
+    if (searchQuery) {
+      query = query.ilike('name', `%${searchQuery}%`)
+    }
+    
+    // Apply pagination
+    const { data: shippers, error } = await query
       .order('name', { ascending: true })
+      .range(offset, offset + limit - 1)
     
     if (error) throw error
     
@@ -137,15 +148,26 @@ export async function deleteShipper(shipperId: string) {
 
 // Buyer Management Functions
 
-// Fetch all buyers
-export async function fetchBuyers() {
+// Fetch all buyers with pagination and search
+export async function fetchBuyers(page = 1, limit = 50, searchQuery = '') {
   const supabase = createClient()
   
   try {
-    const { data: buyers, error } = await supabase
+    const offset = (page - 1) * limit
+    
+    let query = supabase
       .from('buyers')
       .select('*')
+    
+    // Apply search filter if provided
+    if (searchQuery) {
+      query = query.ilike('name', `%${searchQuery}%`)
+    }
+    
+    // Apply pagination
+    const { data: buyers, error } = await query
       .order('name', { ascending: true })
+      .range(offset, offset + limit - 1)
     
     if (error) throw error
     

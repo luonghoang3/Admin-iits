@@ -370,15 +370,30 @@ export async function updateTeam(
 // Client Management Functions
 
 // Fetch clients with their contacts
-export async function fetchClients() {
+export async function fetchClients(page = 1, limit = 50, searchQuery = '') {
   const supabase = createClient()
   
   try {
-    // Get all clients
-    const { data: clients, error: clientsError } = await supabase
+    // Calculate offset based on page and limit
+    const offset = (page - 1) * limit
+    
+    // Create base query
+    let query = supabase
       .from('clients')
       .select('*')
+    
+    // Add search filter if provided
+    if (searchQuery) {
+      query = query.ilike('name', `%${searchQuery}%`)
+    }
+    
+    // Add pagination
+    query = query
+      .range(offset, offset + limit - 1)
       .order('name', { ascending: true })
+    
+    // Execute query
+    const { data: clients, error: clientsError } = await query
     
     if (clientsError) throw clientsError
     
@@ -988,22 +1003,32 @@ export async function deleteOrderItem(orderItemId: string) {
   }
 }
 
-// Hàm lấy danh sách hàng hóa
-export async function fetchCommodities() {
+// Fetch all commodities with pagination and search
+export async function fetchCommodities(page = 1, limit = 50, searchQuery = '') {
   const supabase = createClient()
   
   try {
-    // Lấy danh sách commodities
-    const { data: commodities, error: commoditiesError } = await supabase
+    const offset = (page - 1) * limit
+    
+    let query = supabase
       .from('commodities')
       .select('*')
-      .order('name')
     
-    if (commoditiesError) throw commoditiesError
+    // Apply search filter if provided
+    if (searchQuery) {
+      query = query.ilike('name', `%${searchQuery}%`)
+    }
     
-    return { commodities, error: null }
+    // Apply pagination
+    const { data: commodities, error } = await query
+      .order('name', { ascending: true })
+      .range(offset, offset + limit - 1)
+    
+    if (error) throw error
+    
+    return { commodities: commodities || [], error: null }
   } catch (error: any) {
-    console.error('Lỗi khi lấy danh sách hàng hóa:', error)
+    console.error('Error fetching commodities:', error)
     return { commodities: [], error: error.message }
   }
 }
@@ -1047,19 +1072,30 @@ export async function fetchCommodity(commodityId: string) {
 }
 
 // Hàm lấy danh sách đơn vị tính
-export async function fetchUnits() {
+export async function fetchUnits(page = 1, limit = 50, searchQuery = '') {
   const supabase = createClient()
   
   try {
-    // Lấy danh sách units
-    const { data: units, error: unitsError } = await supabase
+    const offset = (page - 1) * limit
+    
+    // Tạo query cơ bản
+    let query = supabase
       .from('units')
       .select('*')
-      .order('name')
+    
+    // Áp dụng bộ lọc tìm kiếm nếu được cung cấp
+    if (searchQuery) {
+      query = query.ilike('name', `%${searchQuery}%`)
+    }
+    
+    // Áp dụng phân trang
+    const { data: units, error: unitsError } = await query
+      .order('name', { ascending: true })
+      .range(offset, offset + limit - 1)
     
     if (unitsError) throw unitsError
     
-    return { units, error: null }
+    return { units: units || [], error: null }
   } catch (error: any) {
     console.error('Lỗi khi lấy danh sách đơn vị tính:', error)
     return { units: [], error: error.message }
