@@ -17,6 +17,10 @@ import {
 } from '@/utils/supabase/client'
 import { fetchShippers, fetchBuyers } from '@/utils/supabase/shipping'
 import { Combobox, Transition } from '@headlessui/react'
+import { format } from 'date-fns'
+import { cn } from '@/lib/utils'
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
 
 // ShadCN components
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -62,9 +66,9 @@ interface Order {
   client_name?: string
   client_contacts?: Contact[]
   selected_contact?: Contact | null
-  type: 'international' | 'local'
-  department: 'marine' | 'agri' | 'consumer_goods'
-  status: 'draft' | 'confirmed' | 'completed' | 'cancelled'
+  type: string
+  department: string
+  status: string
   order_date: string
   client_ref_code: string | null
   notes: string | null
@@ -73,6 +77,8 @@ interface Order {
   vessel_carrier: string | null
   bill_of_lading: string | null
   bill_of_lading_date: string | null
+  inspection_date_started: string | null
+  inspection_date_completed: string | null
   created_at: string
   updated_at: string
 }
@@ -163,20 +169,24 @@ export default function EditOrderPage() {
   const [isEditingItem, setIsEditingItem] = useState(false)
   const [itemError, setItemError] = useState<string | null>(null)
   
-  const [formData, setFormData] = useState({
-    client_id: '',
+  const [formData, setFormData] = useState<Partial<Order>>({
+    id: '',
+    type: '',
+    department: '',
     contact_id: '',
-    type: 'international' as 'international' | 'local',
-    department: 'marine' as 'marine' | 'agri' | 'consumer_goods',
-    status: 'draft' as 'draft' | 'confirmed' | 'completed' | 'cancelled',
-    order_date: '',
-    client_ref_code: '',
-    notes: '',
+    client_id: '',
     shipper_id: '',
     buyer_id: '',
+    notes: '',
+    status: 'Draft',
+    client_ref_code: '',
     vessel_carrier: '',
     bill_of_lading: '',
-    bill_of_lading_date: ''
+    bill_of_lading_date: null,
+    inspection_date_started: null,
+    inspection_date_completed: null,
+    created_at: '',
+    order_date: ''
   })
   
   // Add state for unit search
@@ -220,6 +230,24 @@ export default function EditOrderPage() {
   const currentCommodityQueryRef = useRef("")
   const [showCommodityList, setShowCommodityList] = useState(false)
   
+  // Thêm hàm chuyển đổi từ giá trị API sang giá trị UI
+  const mapApiStatusToUiStatus = (apiStatus: string | undefined): string => {
+    if (!apiStatus) return 'Draft';
+    
+    switch(apiStatus.toLowerCase()) {
+      case 'draft':
+        return 'Draft';
+      case 'confirmed':
+        return 'In Progress';  // confirmed trong API là In Progress trong UI
+      case 'completed':
+        return 'Complete';
+      case 'cancelled':
+        return 'Cancel';
+      default:
+        return 'Draft';
+    }
+  };
+  
   useEffect(() => {
     async function loadOrder() {
       try {
@@ -231,22 +259,43 @@ export default function EditOrderPage() {
         }
         
         if (order) {
+          console.log('Loaded order:', order)
+          console.log('Order status from API:', order.status)
+          
+          // Chuyển đổi giá trị status từ API sang giá trị UI
+          const uiStatus = mapApiStatusToUiStatus(order.status);
+          console.log('Mapped UI status:', uiStatus);
+          
           setOrder(order)
           setFormData({
-            client_id: order.client_id || '',
+            id: order.id,
+            client_id: order.client_id,
             contact_id: order.contact_id || '',
-            type: order.type || 'international',
-            department: order.department || 'marine',
-            status: order.status || 'draft',
-            order_date: order.order_date || new Date().toISOString().split('T')[0],
-            client_ref_code: order.client_ref_code || '',
+            type: order.type,
+            department: order.department,
+            status: uiStatus,  // Sử dụng giá trị đã được chuyển đổi
             notes: order.notes || '',
-            shipper_id: order.shipper_id || '',
-            buyer_id: order.buyer_id || '',
+            client_ref_code: order.client_ref_code || '',
             vessel_carrier: order.vessel_carrier || '',
             bill_of_lading: order.bill_of_lading || '',
-            bill_of_lading_date: order.bill_of_lading_date || ''
+            bill_of_lading_date: order.bill_of_lading_date || '',
+            shipper_id: order.shipper_id || '',
+            buyer_id: order.buyer_id || '',
+            inspection_date_started: order.inspection_date_started || null,
+            inspection_date_completed: order.inspection_date_completed || null,
+            created_at: order.created_at || '',
+            order_date: order.order_date || ''
           })
+          
+          // Log form data after setting
+          console.log('Form data status after setting:', uiStatus)
+          
+          // Đặt giá trị cho Order Date
+          if (order.order_date) {
+            handleValueChange('created_at', order.order_date)
+          } else if (order.created_at) {
+            handleValueChange('created_at', order.created_at)
+          }
           
           // Load contacts for this client
           if (order.client_contacts) {
@@ -310,7 +359,7 @@ export default function EditOrderPage() {
   }
   
   // For direct value setting (used with ShadCN Select)
-  const handleValueChange = (name: string, value: string) => {
+  const handleValueChange = (name: string, value: string | null) => {
     setFormData(prev => ({
       ...prev,
       [name]: value === "none" ? null : value
@@ -572,7 +621,7 @@ export default function EditOrderPage() {
       return
     }
     
-    if (!formData.order_date) {
+    if (!formData.created_at) {
       setError('Order date is required')
       return
     }
@@ -581,22 +630,49 @@ export default function EditOrderPage() {
       setSaving(true)
       setError(null)
       
-      // Sử dụng biến order từ state thay vì từ kết quả trả về
+      // Chuyển đổi giá trị status để phù hợp với định nghĩa API
+      let apiStatus: 'draft' | 'confirmed' | 'completed' | 'cancelled' | undefined;
+      
+      // Ánh xạ từ giá trị status UI sang giá trị API
+      switch(formData.status) {
+        case 'Draft':
+          apiStatus = 'draft';
+          break;
+        case 'In Progress':
+          apiStatus = 'confirmed';
+          break;
+        case 'Complete':
+          apiStatus = 'completed';
+          break;
+        case 'Cancel':
+          apiStatus = 'cancelled';
+          break;
+        case 'Paying':
+          // Sử dụng 'confirmed' cho trạng thái Paying vì API không có trạng thái này
+          apiStatus = 'confirmed';
+          break;
+        default:
+          apiStatus = 'draft';
+      }
+      
+      console.log('Sending status to API:', apiStatus);
+      
       const orderData = {
         client_id: formData.client_id,
         contact_id: formData.contact_id || null,
-        type: order?.type || formData.type,
-        department: order?.department || formData.department,
-        status: formData.status,
-        order_date: formData.order_date,
-        client_ref_code: formData.client_ref_code || null,
+        status: apiStatus,
         notes: formData.notes || null,
+        client_ref_code: formData.client_ref_code || null,
         shipper_id: formData.shipper_id || null,
         buyer_id: formData.buyer_id || null,
         vessel_carrier: formData.vessel_carrier || null,
         bill_of_lading: formData.bill_of_lading || null,
-        bill_of_lading_date: formData.bill_of_lading_date || null
+        bill_of_lading_date: formData.bill_of_lading_date || null,
+        inspection_date_started: formData.inspection_date_started || null,
+        inspection_date_completed: formData.inspection_date_completed || null
       };
+      
+      console.log('Sending order data:', orderData);
       
       const { order: updatedOrder, error } = await updateOrder(orderId, orderData);
       
@@ -1055,7 +1131,24 @@ export default function EditOrderPage() {
           </Button>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <PackageIcon className="h-6 w-6" />
-            Edit Order {order?.order_number && <span className="text-lg text-muted-foreground font-normal">({order.order_number})</span>}
+            Edit Order 
+            {order && (
+              <div className="flex items-center gap-2 ml-2">
+                <span className="text-2xl font-bold">{order.order_number}</span>
+                <div className="flex flex-wrap gap-2">
+                  {getStatusBadge(order.status)}
+                  
+                  <Badge variant="outline" className="bg-slate-100">
+                    {order.type === 'international' ? 'International' : 'Local'}
+                  </Badge>
+                  
+                  <Badge variant="outline" className="bg-slate-100">
+                    {order.department === 'marine' ? 'Marine' : 
+                     order.department === 'agri' ? 'Agriculture' : 'Consumer Goods'}
+                  </Badge>
+                </div>
+              </div>
+            )}
           </h1>
         </div>
         <Button variant="outline" asChild>
@@ -1074,28 +1167,7 @@ export default function EditOrderPage() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle>Order Information</CardTitle>
-              <CardDescription>
-                Update the details for this order. Fields marked with * are required.
-              </CardDescription>
-              {order && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {getStatusBadge(order.status)}
-                  
-                  <Badge variant="outline" className="bg-slate-100">
-                    {order.type === 'international' ? 'International' : 'Local'}
-                  </Badge>
-                  
-                  <Badge variant="outline" className="bg-slate-100">
-                    {order.department === 'marine' ? 'Marine' : 
-                     order.department === 'agri' ? 'Agriculture' : 'Consumer Goods'}
-                  </Badge>
-                </div>
-              )}
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-medium">Order Number</p>
-              <p className="text-lg font-bold">{order?.order_number}</p>
+              <CardTitle className="text-2xl"></CardTitle>
             </div>
           </div>
         </CardHeader>
@@ -1103,66 +1175,131 @@ export default function EditOrderPage() {
         <CardContent>
           <form id="orderForm" onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Cột 1: Order Date, Client Ref Code, Status */}
+              {/* Cột 1: Status, Client Ref Code, Order Date, Inspection Dates */}
               <div className="space-y-4">
                 <div className="relative">
-                  <label htmlFor="order_date" className="absolute -top-2 left-2 inline-block bg-white px-1 text-xs font-medium text-gray-900 z-10">
-                    Order Date <span className="text-red-500">*</span>
+                  <label htmlFor="status" className="absolute -top-2 left-2 inline-block bg-white px-1 text-xs font-medium text-gray-900 z-10">
+                    Status <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <div className="flex items-center absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <CalendarIcon className="w-4 h-4 text-gray-400" />
-                    </div>
-                    <Input
-                      type="date"
-                      id="order_date"
-                      name="order_date"
-                      value={formData.order_date}
-                      onChange={handleChange}
-                      required
-                      className="h-10 pl-9"
-                    />
-                  </div>
+                  <Select 
+                    value={formData.status || ''} 
+                    onValueChange={(value) => handleValueChange('status', value)}
+                    defaultValue="Draft"
+                  >
+                    <SelectTrigger id="status" className="h-10">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Draft">Draft</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Paying">Paying</SelectItem>
+                      <SelectItem value="Complete">Complete</SelectItem>
+                      <SelectItem value="Cancel">Cancel</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 <div className="relative">
                   <label htmlFor="client_ref_code" className="absolute -top-2 left-2 inline-block bg-white px-1 text-xs font-medium text-gray-900 z-10">
                     Client Reference Code
                   </label>
-                  <div className="relative">
-                    <div className="flex items-center absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <FileSpreadsheetIcon className="w-4 h-4 text-gray-400" />
-                    </div>
-                    <Input
-                      type="text"
-                      id="client_ref_code"
-                      name="client_ref_code"
-                      value={formData.client_ref_code}
-                      onChange={handleChange}
-                      placeholder="Client's reference code"
-                      className="h-10 pl-9"
-                    />
+                  <Input
+                    id="client_ref_code"
+                    value={formData.client_ref_code || ''}
+                    onChange={(e) => handleValueChange('client_ref_code', e.target.value)}
+                    className="h-10"
+                    placeholder="Client's reference code"
+                  />
+                </div>
+                
+                <div className="relative">
+                  <label htmlFor="order_date" className="absolute -top-2 left-2 inline-block bg-white px-1 text-xs font-medium text-gray-900 z-10">
+                    Order Date <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "h-10 justify-start text-left font-normal w-full",
+                            !formData.created_at && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.created_at ? format(new Date(formData.created_at), 'PPP') : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={formData.created_at ? new Date(formData.created_at) : undefined}
+                          onSelect={(date: Date | undefined) => handleValueChange('created_at', date ? date.toISOString() : null)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 
                 <div className="relative">
-                  <label htmlFor="order_status" className="absolute -top-2 left-2 inline-block bg-white px-1 text-xs font-medium text-gray-900 z-10">
-                    Status
+                  <label htmlFor="inspection_date_started" className="absolute -top-2 left-2 inline-block bg-white px-1 text-xs font-medium text-gray-900 z-10">
+                    Inspection Date Started
                   </label>
-                  <Select 
-                    value={formData.status} 
-                    onValueChange={(value) => handleValueChange('status', value as 'draft' | 'confirmed' | 'completed' | 'cancelled')}
-                  >
-                    <SelectTrigger id="order_status" className="h-10">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="confirmed">Confirmed</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "h-10 justify-start text-left font-normal w-full",
+                            !formData.inspection_date_started && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.inspection_date_started ? format(new Date(formData.inspection_date_started), 'PPP') : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={formData.inspection_date_started ? new Date(formData.inspection_date_started) : undefined}
+                          onSelect={(date: Date | undefined) => handleValueChange('inspection_date_started', date ? date.toISOString() : null)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                
+                <div className="relative">
+                  <label htmlFor="inspection_date_completed" className="absolute -top-2 left-2 inline-block bg-white px-1 text-xs font-medium text-gray-900 z-10">
+                    Inspection Date Completed
+                  </label>
+                  <div className="flex">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "h-10 justify-start text-left font-normal w-full",
+                            !formData.inspection_date_completed && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.inspection_date_completed ? format(new Date(formData.inspection_date_completed), 'PPP') : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={formData.inspection_date_completed ? new Date(formData.inspection_date_completed) : undefined}
+                          onSelect={(date: Date | undefined) => handleValueChange('inspection_date_completed', date ? date.toISOString() : null)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
               </div>
 
@@ -1250,7 +1387,7 @@ export default function EditOrderPage() {
                   </label>
                   <div id="contact-field">
                     <Select 
-                      value={formData.contact_id} 
+                      value={formData.contact_id || ''}  
                       onValueChange={(value) => handleValueChange('contact_id', value)}
                       disabled={contacts.length === 0}
                     >
@@ -1275,7 +1412,7 @@ export default function EditOrderPage() {
                   <Textarea
                     id="notes"
                     name="notes"
-                    value={formData.notes}
+                    value={formData.notes || ''}
                     onChange={handleChange}
                     placeholder="Additional information"
                     className="min-h-[40px] resize-none pt-2 px-3"
@@ -1481,7 +1618,7 @@ export default function EditOrderPage() {
                       type="text"
                       id="vessel_carrier"
                       name="vessel_carrier"
-                      value={formData.vessel_carrier}
+                      value={formData.vessel_carrier || ''}
                       onChange={handleChange}
                       placeholder="Vessel name"
                       className="h-10 pl-9"
@@ -1501,7 +1638,7 @@ export default function EditOrderPage() {
                       type="text"
                       id="bill_of_lading"
                       name="bill_of_lading"
-                      value={formData.bill_of_lading}
+                      value={formData.bill_of_lading || ''}
                       onChange={handleChange}
                       placeholder="BoL number"
                       className="h-10 pl-9"
@@ -1521,7 +1658,7 @@ export default function EditOrderPage() {
                       type="date"
                       id="bill_of_lading_date"
                       name="bill_of_lading_date"
-                      value={formData.bill_of_lading_date}
+                      value={formData.bill_of_lading_date || ''}
                       onChange={handleChange}
                       className="h-10 pl-9"
                     />
@@ -1531,26 +1668,6 @@ export default function EditOrderPage() {
             </div>
           </form>
         </CardContent>
-        
-        <CardFooter className="flex justify-end space-x-2 border-t p-4">
-          <Button 
-            variant="outline" 
-            asChild
-          >
-            <Link href={`/dashboard/orders/${orderId}`}>Cancel</Link>
-          </Button>
-          <Button 
-            type="submit" 
-            form="orderForm"
-            disabled={saving}
-            className="gap-2"
-          >
-            {saving ? "Saving..." : <>
-              <SaveIcon className="h-4 w-4" />
-              Save Changes
-            </>}
-          </Button>
-        </CardFooter>
       </Card>
       
       {/* Order Items Section */}
@@ -1620,6 +1737,27 @@ export default function EditOrderPage() {
           )}
         </CardContent>
       </Card>
+      
+      {/* Thêm nút "Cancel" và "Save Changes" ở cuối trang */}
+      <div className="flex justify-end space-x-2 border-t p-4 mt-6">
+        <Button 
+          variant="outline" 
+          asChild
+        >
+          <Link href={`/dashboard/orders/${orderId}`}>Cancel</Link>
+        </Button>
+        <Button 
+          type="submit" 
+          form="orderForm"
+          disabled={saving}
+          className="gap-2"
+        >
+          {saving ? "Saving..." : <>
+            <SaveIcon className="h-4 w-4" />
+            Save Changes
+          </>}
+        </Button>
+      </div>
       
       {/* Item Form Dialog */}
       <Dialog open={itemFormOpen} onOpenChange={setItemFormOpen}>
@@ -1823,32 +1961,33 @@ export default function EditOrderPage() {
               </div>
             </div>
             
-            {/* Description field */}
+            {/* Commodity Description field */}
             <div className="relative">
-              <label htmlFor="item_commodity_description" className="absolute -top-2 left-2 inline-block bg-white px-1 text-xs font-medium text-gray-900 z-10">
+              <label htmlFor="commodity_description" className="absolute -top-2 left-2 inline-block bg-white px-1 text-xs font-medium text-gray-900 z-10">
                 Commodity Description
               </label>
               <Textarea
-                id="item_commodity_description"
+                id="commodity_description"
                 name="commodity_description"
                 value={currentItem.commodity_description}
                 onChange={handleItemChange}
-                placeholder="Detailed description of this commodity"
-                className="min-h-[40px] resize-none pt-2 px-3"
+                className="h-20 resize-none"
+                placeholder="Additional details about this commodity"
               />
             </div>
           </div>
           
-          <DialogFooter>
+          {/* Add the DialogFooter with buttons */}
+          <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setItemFormOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveItem}>
-              {isEditingItem ? 'Update Item' : 'Add Item'}
+            <Button onClick={handleSaveItem} className="gap-2">
+              {isEditingItem ? 'Update' : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
-} 
+}
