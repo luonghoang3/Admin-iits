@@ -2,13 +2,24 @@ import { createBrowserClient } from '@supabase/ssr'
 
 export const createClient = () => {
   try {
-    return createBrowserClient(
+    // Check if environment variables are defined
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      console.error('NEXT_PUBLIC_SUPABASE_URL is not defined')
+    }
+    
+    if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined')
+    }
+    
+    const client = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:8000',
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzQyODE5MjAyLCJleHAiOjIwNTgxNzkyMDJ9.U6ozj1UrQe2pTSmXy-8RVW84yBAhi10SviaO4Sy9w94'
     )
+    
+    return client
   } catch (error) {
-    console.error('Lỗi khi khởi tạo Supabase client:', error)
-    // Trả về client với URL và key backup để tránh lỗi ứng dụng
+    console.error('Error initializing Supabase client:', error)
+    // Return backup client to avoid application errors
     return createBrowserClient(
       'http://localhost:8000',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzQyODE5MjAyLCJleHAiOjIwNTgxNzkyMDJ9.U6ozj1UrQe2pTSmXy-8RVW84yBAhi10SviaO4Sy9w94'
@@ -371,9 +382,9 @@ export async function updateTeam(
 
 // Fetch clients with their contacts
 export async function fetchClients(page = 1, limit = 50, searchQuery = '') {
-  const supabase = createClient()
-  
   try {
+    const supabase = createClient()
+    
     // Calculate offset based on page and limit
     const offset = (page - 1) * limit
     
@@ -395,7 +406,10 @@ export async function fetchClients(page = 1, limit = 50, searchQuery = '') {
     // Execute query
     const { data: clients, error: clientsError } = await query
     
-    if (clientsError) throw clientsError
+    if (clientsError) {
+      console.error('Error in fetchClients query:', clientsError)
+      throw clientsError
+    }
     
     // If no clients, return empty array
     if (!clients || clients.length === 0) {
@@ -425,8 +439,8 @@ export async function fetchClients(page = 1, limit = 50, searchQuery = '') {
     
     return { clients: clientsWithContacts, error: null }
   } catch (error: any) {
-    console.error('Error fetching clients:', error)
-    return { clients: [], error: error.message }
+    console.error('Error in fetchClients:', error)
+    return { clients: [], error: error.message || 'Unknown error in fetchClients' }
   }
 }
 
@@ -906,7 +920,7 @@ export async function fetchOrderItems(orderId: string) {
   const supabase = createClient()
   
   try {
-    // Lấy danh sách order items
+    // Lấy danh sách order items với joins
     const { data: orderItems, error: orderItemsError } = await supabase
       .from('order_items')
       .select(`
@@ -917,11 +931,28 @@ export async function fetchOrderItems(orderId: string) {
       .eq('order_id', orderId)
       .order('created_at', { ascending: true })
     
-    if (orderItemsError) throw orderItemsError
+    if (orderItemsError) {
+      console.error("Error fetching order items:", orderItemsError);
+      throw orderItemsError;
+    }
     
-    return { orderItems, error: null }
+    if (!orderItems || orderItems.length === 0) {
+      return { orderItems: [], error: null };
+    }
+    
+    // Process the data to ensure consistency
+    const processedItems = orderItems.map(item => {
+      return {
+        ...item,
+        // Ensure the foreign key data is properly structured
+        commodities: item.commodities || null,
+        units: item.units || null
+      };
+    });
+    
+    return { orderItems: processedItems, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi lấy danh sách order items:', error)
+    console.error('Error fetching order items:', error)
     return { orderItems: [], error: error.message }
   }
 }

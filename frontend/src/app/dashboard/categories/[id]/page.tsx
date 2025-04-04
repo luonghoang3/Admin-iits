@@ -71,10 +71,9 @@ interface Category {
   updated_at: string | null
 }
 
-export default function CategoryDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  // Unwrap params
-  const unwrappedParams = use(params)
-  const categoryId = unwrappedParams.id
+export default function CategoryDetailPage({ params }: { params: { id: string } }) {
+  // Access params directly
+  const categoryId = params.id
   
   const router = useRouter()
   const [category, setCategory] = useState<Category | null>(null)

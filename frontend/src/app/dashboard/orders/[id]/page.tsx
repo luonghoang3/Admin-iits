@@ -1,304 +1,340 @@
-'use client'
+"use client"
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
-import { createClient } from '@/utils/supabase/client'
-import { fetchOrder, deleteOrder } from '@/utils/supabase/client'
+import { fetchOrder, fetchOrderItems } from '@/utils/supabase/client'
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { format } from 'date-fns'
 
-interface Order {
-  id: string
-  order_number: string
-  client_id: string
-  contact_id?: string | null
-  clients: {
+import { 
+  ArrowLeftIcon, 
+  PencilIcon,
+  DocumentDuplicateIcon,
+  TrashIcon,
+  ArchiveBoxIcon as PackageIcon
+} from "@heroicons/react/24/outline"
+
+import { Order, OrderItem } from '@/types/orders.d'
+
+interface OrderDetailPageProps {
+  params: {
     id: string
-    name: string
-    phone?: string
-    email?: string
   }
-  client_name?: string
-  client_contacts?: Contact[]
-  selected_contact?: Contact | null
-  type: 'international' | 'local'
-  department: 'marine' | 'agri' | 'consumer_goods'
-  status: 'draft' | 'confirmed' | 'completed' | 'cancelled'
-  order_date: string
-  client_ref_code: string | null
-  notes: string | null
-  created_at: string
-  updated_at: string
 }
 
-interface Contact {
-  id: string
-  client_id: string
-  full_name: string
-  position: string | null
-  phone: string | null
-  email: string | null
-  created_at: string
-  updated_at: string
-}
-
-export default function ViewOrderPage() {
-  const params = useParams()
+export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const router = useRouter()
-  const orderId = params.id as string
   
-  const [order, setOrder] = useState<Order | null>(null)
+  // Truy cập params trực tiếp thay vì sử dụng React.use()
+  const orderId = params.id
+  
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [order, setOrder] = useState<Order | null>(null)
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([])
   
+  // Fetch order data
   useEffect(() => {
     async function loadOrderData() {
-      if (!orderId) return
-      
       try {
-        const supabase = createClient()
-        
-        // Check authentication
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-        
-        if (authError) {
-          setError(authError.message)
-          setLoading(false)
-          return
-        }
-        
-        if (!user) {
-          router.push('/login')
-          return
-        }
+        setLoading(true)
         
         // Fetch order details
-        const { order: orderData, error: orderError } = await fetchOrder(orderId)
+        const { order, error: orderError } = await fetchOrder(orderId)
         
         if (orderError) {
-          setError(`Could not load order: ${orderError}`)
-        } else if (orderData) {
-          setOrder(orderData)
+          throw new Error(`Failed to load order: ${orderError}`)
+        }
+        
+        if (order) {
+          setOrder(order)
+          
+          // Load order items
+          const { orderItems, error: itemsError } = await fetchOrderItems(orderId)
+          
+          if (itemsError) {
+            console.error('Error loading order items:', itemsError)
+          } else {
+            setOrderItems(orderItems || [])
+          }
         } else {
-          setError('Order not found')
+          throw new Error('Order not found')
         }
       } catch (err: any) {
-        console.error('Error:', err)
-        setError(err.message || 'An error occurred')
+        console.error('Error loading order:', err)
+        setError(err.message || 'Failed to load order')
       } finally {
         setLoading(false)
       }
     }
     
-    loadOrderData()
-  }, [orderId, router])
+    if (orderId) {
+      loadOrderData()
+    }
+  }, [orderId])
   
+  // Helper function to render status badge
+  const getStatusBadge = (status: string) => {
+    let variant: "default" | "secondary" | "destructive" | "outline" = "outline";
+    
+    switch(status) {
+      case 'draft':
+        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Draft</Badge>
+      case 'confirmed':
+        return <Badge variant="outline" className="bg-blue-100 text-blue-800">In Progress</Badge>
+      case 'completed':
+        return <Badge variant="outline" className="bg-green-100 text-green-800">Completed</Badge>
+      case 'cancelled':
+        return <Badge variant="outline" className="bg-red-100 text-red-800">Cancelled</Badge>
+      default:
+        return <Badge variant="outline">Unknown</Badge>
+    }
+  }
+  
+  // Handle delete order
   const handleDeleteOrder = async () => {
-    if (!order) return
-    
-    if (!confirm('Are you sure you want to delete this order?')) {
-      return
-    }
-    
-    try {
-      setLoading(true)
-      
-      const { success, error: deleteError } = await deleteOrder(order.id)
-      
-      if (deleteError) throw new Error(deleteError)
-      
-      if (success) {
+    if (confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
+      try {
+        // Implement delete functionality
         router.push('/dashboard/orders')
+      } catch (err: any) {
+        console.error('Error deleting order:', err)
+        setError(err.message || 'Failed to delete order')
       }
-    } catch (err: any) {
-      console.error('Error deleting order:', err)
-      setError(err.message || 'An error occurred while deleting the order')
-    } finally {
-      setLoading(false)
     }
   }
   
-  // Format the department display
-  const formatDepartment = (dept: string) => {
-    const deptMap: Record<string, string> = {
-      'marine': 'Marine (MR)',
-      'agri': 'Agriculture (AG)',
-      'consumer_goods': 'Consumer Goods (CG)'
-    }
-    
-    return deptMap[dept] || dept
-  }
-  
-  // Format the type display
-  const formatType = (type: string) => {
-    return type === 'international' ? 'International (I)' : 'Local (L)'
-  }
-  
-  // Format status with appropriate styling
-  const formatStatus = (status: string) => {
-    const statusMap: Record<string, { label: string, color: string }> = {
-      'draft': { label: 'Draft', color: 'bg-gray-100 text-gray-800' },
-      'confirmed': { label: 'Confirmed', color: 'bg-blue-100 text-blue-800' },
-      'completed': { label: 'Completed', color: 'bg-green-100 text-green-800' },
-      'cancelled': { label: 'Cancelled', color: 'bg-red-100 text-red-800' }
-    }
-    
-    const { label, color } = statusMap[status] || { label: status, color: 'bg-gray-100 text-gray-800' }
-    
+  if (loading) {
     return (
-      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${color}`}>
-        {label}
-      </span>
+      <div className="p-6 flex items-center justify-center h-96">
+        <div className="text-center space-y-4">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <p className="text-muted-foreground">Loading order information...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  if (error || !order) {
+    return (
+      <div className="p-6 space-y-6">
+        <Alert variant="destructive">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error || 'Order not found'}</AlertDescription>
+        </Alert>
+        <div className="flex justify-center">
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/orders">Back to Orders</Link>
+          </Button>
+        </div>
+      </div>
     )
   }
   
   return (
-    <div className="p-8">
+    <div className="container mx-auto px-4 py-8">
+      {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Order Details</h1>
-        <div className="flex space-x-3">
-          <Link
-            href="/dashboard/orders"
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Back to Orders
-          </Link>
-          <Link
-            href={`/dashboard/orders/edit/${orderId}`}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
-          >
-            Edit Order
-          </Link>
-          <button
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" asChild className="h-8 w-8">
+            <Link href="/dashboard/orders">
+              <ArrowLeftIcon className="h-4 w-4" />
+              <span className="sr-only">Back</span>
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <PackageIcon className="h-6 w-6" />
+            Order {order.order_number}
+          </h1>
+          <div className="flex items-center ml-2 space-x-2">
+            {getStatusBadge(order.status || 'draft')}
+            
+            <Badge variant="outline" className="bg-slate-100">
+              {order.type === 'international' ? 'International' : 'Local'}
+            </Badge>
+            
+            <Badge variant="outline" className="bg-slate-100">
+              {order.department === 'marine' ? 'Marine' : 
+               order.department === 'agriculture' ? 'Agriculture' : 'Consumer Goods'}
+            </Badge>
+          </div>
+        </div>
+        <div className="flex space-x-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/orders/edit/${orderId}`} className="flex items-center gap-1">
+              <PencilIcon className="h-4 w-4" />
+              Edit
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="flex items-center gap-1">
+            <DocumentDuplicateIcon className="h-4 w-4" />
+            Duplicate
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex items-center gap-1 text-red-600 hover:text-red-700"
             onClick={handleDeleteOrder}
-            className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
           >
-            Delete Order
-          </button>
+            <TrashIcon className="h-4 w-4" />
+            Delete
+          </Button>
         </div>
       </div>
       
-      {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-md mb-6">
-          {error}
-        </div>
-      )}
+      {/* Order Details Section */}
+      <div className="flex flex-col md:flex-row gap-6 mb-6">
+        {/* Client Information (50%) */}
+        <Card className="md:w-[50%]">
+          <CardHeader>
+            <CardTitle>Client Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Client</p>
+              <p className="font-medium">{order.clients?.name || '-'}</p>
+            </div>
+            {order.clients && (
+              <>
+                <div>
+                  <p className="text-sm text-muted-foreground">Email</p>
+                  <p className="font-medium">{order.clients.email || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Phone</p>
+                  <p className="font-medium">{order.clients.phone || '-'}</p>
+                </div>
+              </>
+            )}
+            <div>
+              <p className="text-sm text-muted-foreground">Contact</p>
+              <p className="font-medium">{order.selected_contact?.full_name || '-'}</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Shipping Information (20%) */}
+        <Card className="md:w-[20%]">
+          <CardHeader>
+            <CardTitle>Shipping Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Shipper</p>
+              <p className="font-medium">{order.shipper?.name || '-'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Buyer</p>
+              <p className="font-medium">{order.buyer?.name || '-'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Vessel/Carrier</p>
+              <p className="font-medium">{order.vessel_carrier || '-'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Bill of Lading</p>
+              <p className="font-medium">{order.bill_of_lading || '-'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Bill of Lading Date</p>
+              <p className="font-medium">
+                {order.bill_of_lading_date ? format(new Date(order.bill_of_lading_date), 'MMM d, yyyy') : '-'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Order Information (30%) - right side */}
+        <Card className="md:w-[30%]">
+          <CardHeader>
+            <CardTitle>Order Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-sm text-muted-foreground">Order Number</p>
+                <p className="font-medium">{order.order_number || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Order Date</p>
+                <p className="font-medium">
+                  {order.order_date ? format(new Date(order.order_date), 'MMM d, yyyy') : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Type</p>
+                <p className="font-medium capitalize">{order.type || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Department</p>
+                <p className="font-medium capitalize">
+                  {order.department === 'marine' ? 'Marine' : 
+                   order.department === 'agriculture' ? 'Agriculture' : 'Consumer Goods'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Status</p>
+                <p className="font-medium capitalize">{order.status || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Client Ref Code</p>
+                <p className="font-medium">{order.client_ref_code || '-'}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
       
-      {loading ? (
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-center h-64">
-          <p className="text-gray-500">Loading order details...</p>
-        </div>
-      ) : order ? (
-        <div className="bg-white overflow-hidden shadow-md rounded-lg divide-y divide-gray-200">
-          <div className="px-6 py-5">
-            <div className="flex justify-between">
-              <h3 className="text-lg font-medium text-gray-900">Order Information</h3>
-              <div>
-                {formatStatus(order.status)}
-              </div>
+      {/* Order Items */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Order Items</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {orderItems.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">
+              No items added to this order.
             </div>
-          </div>
-          
-          <div className="px-6 py-5">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-y-4 gap-x-6 mb-6">
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Order Number</h4>
-                <p className="mt-1 text-sm font-semibold text-gray-900">{order.order_number}</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Order Date</h4>
-                <p className="mt-1 text-sm font-semibold text-gray-900">
-                  {new Date(order.order_date).toLocaleDateString()}
-                </p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Client Reference Code</h4>
-                <p className="mt-1 text-sm font-semibold text-gray-900">
-                  {order.client_ref_code || '-'}
-                </p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Client Information</h4>
-                <p className="mt-1 text-sm font-semibold text-gray-900">{order.client_name || 'N/A'}</p>
-                {order.selected_contact ? (
-                  <>
-                    <p className="mt-1 text-sm text-gray-900">
-                      {order.selected_contact.full_name || '-'}
-                    </p>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {order.selected_contact.phone || '-'}
-                    </p>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {order.selected_contact.email || '-'}
-                    </p>
-                  </>
-                ) : order.client_contacts && order.client_contacts.length > 0 ? (
-                  <>
-                    <p className="mt-1 text-sm text-gray-900">
-                      {order.client_contacts[0].full_name || '-'}
-                    </p>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {order.client_contacts[0].phone || '-'}
-                    </p>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {order.client_contacts[0].email || '-'}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="mt-1 text-sm text-gray-600">No contact available</p>
-                    <p className="mt-1 text-sm text-gray-600">-</p>
-                    <p className="mt-1 text-sm text-gray-600">-</p>
-                  </>
-                )}
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Order Details</h4>
-                <p className="mt-1 text-sm text-gray-900">
-                  <span className="font-medium">Type:</span> {formatType(order.type)}
-                </p>
-                <p className="mt-1 text-sm text-gray-900">
-                  <span className="font-medium">Department:</span> {formatDepartment(order.department)}
-                </p>
-                <p className="mt-1 text-sm text-gray-900">
-                  <span className="font-medium">Status:</span> {order.status}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
-            <div>
-              <h4 className="text-sm font-medium text-gray-500">Created At</h4>
-              <p className="mt-1 text-sm text-gray-900">
-                {new Date(order.created_at).toLocaleString()}
-              </p>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-gray-500">Last Updated</h4>
-              <p className="mt-1 text-sm text-gray-900">
-                {new Date(order.updated_at).toLocaleString()}
-              </p>
-            </div>
-          </div>
-          
-          {order.notes && (
-            <div className="px-6 py-5">
-              <h4 className="text-sm font-medium text-gray-500">Notes</h4>
-              <p className="mt-1 text-sm text-gray-900 whitespace-pre-line">{order.notes}</p>
-            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Commodity</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Unit</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orderItems.map(item => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.commodities?.name || 'Unknown'}</TableCell>
+                    <TableCell>{item.commodity_description || '-'}</TableCell>
+                    <TableCell>{item.quantity}</TableCell>
+                    <TableCell>{item.units?.name || 'Unknown'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
-        </div>
-      ) : (
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-center h-64">
-          <p className="text-gray-500">Order not found.</p>
-        </div>
+        </CardContent>
+      </Card>
+      
+      {/* Notes */}
+      {order.notes && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="whitespace-pre-wrap">{order.notes}</p>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

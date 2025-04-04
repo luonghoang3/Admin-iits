@@ -19,10 +19,9 @@ interface Category {
   updated_at: string | null
 }
 
-export default function EditCategoryPage({ params }: { params: Promise<{ id: string }> }) {
-  // Unwrap params using React.use()
-  const unwrappedParams = use(params)
-  const categoryId = unwrappedParams.id
+export default function EditCategoryPage({ params }: { params: { id: string } }) {
+  // Access params directly
+  const categoryId = params.id
   
   const router = useRouter()
   const [loading, setLoading] = useState(true)

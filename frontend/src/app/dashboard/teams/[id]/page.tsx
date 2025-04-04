@@ -16,9 +16,8 @@ export default async function TeamDetailPage({
   params: { id: string } 
 }) {
   try {
-    // Đảm bảo params đã được resolved bằng cách sử dụng Promise.resolve
-    const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams.id;
+    // Access params directly
+    const id = params.id;
     
     if (!id) {
       console.log('ID không hợp lệ: undefined');

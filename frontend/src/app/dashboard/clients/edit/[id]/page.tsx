@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { 
@@ -50,6 +50,8 @@ function getTeamColor(id: string): string {
 export default function EditClientPage() {
   const router = useRouter()
   const params = useParams()
+  
+  // Truy cập params trực tiếp thay vì sử dụng React.use()
   const clientId = params.id as string
   
   const [loading, setLoading] = useState(true)
