@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
+import { createClient as createServerClient } from './server';
 
 export const createClient = () => {
   try {
@@ -6,16 +7,16 @@ export const createClient = () => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
       console.error('NEXT_PUBLIC_SUPABASE_URL is not defined')
     }
-    
+
     if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined')
     }
-    
+
     const client = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:8000',
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzQyODE5MjAyLCJleHAiOjIwNTgxNzkyMDJ9.U6ozj1UrQe2pTSmXy-8RVW84yBAhi10SviaO4Sy9w94'
     )
-    
+
     return client
   } catch (error) {
     console.error('Error initializing Supabase client:', error)
@@ -30,39 +31,39 @@ export const createClient = () => {
 // Hàm lấy danh sách người dùng từ auth.users và profiles
 export async function fetchUsers() {
   const supabase = createClient()
-  
+
   try {
     // Lấy danh sách các profiles
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false })
-    
+
     if (profilesError) throw profilesError
-    
+
     // Kiểm tra xem có profiles không
     if (!profiles || profiles.length === 0) {
       return { users: [], error: null }
     }
-    
+
     // Lấy danh sách teams để có thông tin chi tiết về mỗi team
     const { data: teams, error: teamsError } = await supabase
       .from('teams')
       .select('*')
-    
+
     if (teamsError) {
       console.error('Lỗi khi lấy danh sách teams:', teamsError)
     }
-    
+
     // Map team IDs to team names for each user
     const users = profiles.map(profile => {
       // Tìm thông tin teams cho mỗi người dùng
-      const userTeams = teams && profile.team_ids ? 
+      const userTeams = teams && profile.team_ids ?
         profile.team_ids.map((teamId: string) => {
           const team = teams.find(t => t.id === teamId)
           return team ? team.name : null
         }).filter(Boolean) : []
-      
+
       return {
         ...profile,
         email: profile.username ? `${profile.username}@example.com` : 'Không có thông tin',
@@ -70,7 +71,7 @@ export async function fetchUsers() {
         team_names: userTeams.join(', ')
       }
     })
-    
+
     return { users, error: null }
   } catch (error: any) {
     console.error('Lỗi khi lấy danh sách người dùng:', error)
@@ -89,7 +90,7 @@ export async function createUser({ email, password, username, full_name, role, i
   team_ids?: string[]
 }) {
   const supabase = createClient()
-  
+
   try {
     // Tạo user mới với signUp và skipRedirect
     const { data: { user }, error: authError } = await supabase.auth.signUp({
@@ -105,11 +106,11 @@ export async function createUser({ email, password, username, full_name, role, i
         emailRedirectTo: `${window.location.origin}/auth/callback?skipRedirect=true`
       }
     })
-    
+
     if (authError) throw authError
-    
+
     if (!user) throw new Error('Không thể tạo người dùng')
-    
+
     // Tạo hoặc cập nhật profile trong public.profiles
     const { error: profileError } = await supabase
       .from('profiles')
@@ -123,12 +124,12 @@ export async function createUser({ email, password, username, full_name, role, i
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-    
+
     if (profileError) throw profileError
-    
+
     // Đăng xuất ngay lập tức để tránh chuyển hướng
     await supabase.auth.signOut()
-    
+
     return { user, error: null }
   } catch (error: any) {
     console.error('Lỗi khi tạo người dùng:', error)
@@ -147,27 +148,27 @@ export async function updateUser(userId: string, data: {
   team_ids?: string[]
 }) {
   const supabase = createClient()
-  
+
   try {
     // Không sử dụng admin API, chỉ cập nhật profile
     const profileData: any = {}
-    
+
     if (data.username !== undefined) profileData.username = data.username
     if (data.full_name !== undefined) profileData.full_name = data.full_name
     if (data.role !== undefined) profileData.role = data.role
     if (data.is_active !== undefined) profileData.is_active = data.is_active
     if (data.avatar_url !== undefined) profileData.avatar_url = data.avatar_url
     if (data.team_ids !== undefined) profileData.team_ids = data.team_ids
-    
+
     profileData.updated_at = new Date().toISOString()
-    
+
     const { error: profileError } = await supabase
       .from('profiles')
       .update(profileData)
       .eq('id', userId)
-    
+
     if (profileError) throw profileError
-    
+
     return { success: true, error: null }
   } catch (error: any) {
     console.error('Lỗi khi cập nhật người dùng:', error)
@@ -178,16 +179,16 @@ export async function updateUser(userId: string, data: {
 // Hàm xóa người dùng
 export async function deleteUser(userId: string) {
   const supabase = createClient()
-  
+
   try {
     // Xóa bản ghi trong bảng profiles
     const { error: profileError } = await supabase
       .from('profiles')
       .delete()
       .eq('id', userId)
-    
+
     if (profileError) throw profileError
-    
+
     return { success: true, error: null }
   } catch (error: any) {
     console.error('Lỗi khi xóa người dùng:', error)
@@ -198,21 +199,21 @@ export async function deleteUser(userId: string) {
 // Hàm lấy danh sách teams với cơ chế retry
 export async function fetchTeams(retryCount = 3, retryDelay = 1000) {
   let lastError = null;
-  
+
   for (let attempt = 0; attempt < retryCount; attempt++) {
     try {
       const supabase = createClient()
-      
+
       // Lấy danh sách các teams
       const { data: teams, error: teamsError } = await supabase
         .from('teams')
         .select('*')
         .order('name', { ascending: true })
-      
+
       if (teamsError) {
         console.warn(`Lỗi khi lấy danh sách teams (lần thử ${attempt + 1}/${retryCount}):`, teamsError);
         lastError = teamsError;
-        
+
         if (attempt < retryCount - 1) {
           console.log(`Thử lại sau ${retryDelay}ms...`);
           await new Promise(resolve => setTimeout(resolve, retryDelay));
@@ -220,21 +221,21 @@ export async function fetchTeams(retryCount = 3, retryDelay = 1000) {
         }
         throw teamsError;
       }
-      
+
       return { teams, error: null }
     } catch (error: any) {
       console.error(`Lỗi khi lấy danh sách teams (lần thử ${attempt + 1}/${retryCount}):`, error);
       lastError = error;
-      
+
       if (attempt < retryCount - 1) {
         console.log(`Thử lại sau ${retryDelay}ms...`);
         await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     }
   }
-  
-  return { 
-    teams: [], 
+
+  return {
+    teams: [],
     error: lastError ? `Lỗi kết nối sau ${retryCount} lần thử: ${lastError.message}` : 'Không thể kết nối đến cơ sở dữ liệu'
   };
 }
@@ -242,17 +243,17 @@ export async function fetchTeams(retryCount = 3, retryDelay = 1000) {
 // Hàm kiểm tra bảng teams tồn tại với cơ chế retry
 export async function checkTeamsTable(retryCount = 3, retryDelay = 1000) {
   let lastError = null;
-  
+
   for (let attempt = 0; attempt < retryCount; attempt++) {
     try {
       const supabase = createClient();
-      
+
       // Kiểm tra kết nối đến Supabase trước
       const { data: connectionTest, error: connectionError } = await supabase.from('profiles').select('id').limit(1);
       if (connectionError) {
         console.warn(`Lỗi kết nối đến Supabase (lần thử ${attempt + 1}/${retryCount}):`, connectionError);
         lastError = connectionError;
-        
+
         if (attempt < retryCount - 1) {
           console.log(`Thử lại sau ${retryDelay}ms...`);
           await new Promise(resolve => setTimeout(resolve, retryDelay));
@@ -260,37 +261,37 @@ export async function checkTeamsTable(retryCount = 3, retryDelay = 1000) {
         }
         return { exists: false, error: `Không thể kết nối đến Supabase: ${connectionError.message}` };
       }
-      
+
       // Nếu kết nối OK, kiểm tra bảng teams
       const { data, error } = await supabase.from('teams').select('id').limit(1);
-      
+
       // Nếu không có lỗi, bảng tồn tại
       if (!error) {
         return { exists: true, error: null };
       }
-      
+
       // Nếu có lỗi "relation does not exist", bảng không tồn tại
       if (error.message && error.message.includes('relation "teams" does not exist')) {
         return { exists: false, error: 'Bảng teams không tồn tại trong cơ sở dữ liệu' };
       }
-      
+
       // Lỗi khác (quyền truy cập, v.v.)
       console.error('Lỗi kiểm tra bảng teams:', error);
       return { exists: false, error: error.message };
-      
+
     } catch (error: any) {
       console.error(`Lỗi khi kiểm tra bảng teams (lần thử ${attempt + 1}/${retryCount}):`, error);
       lastError = error;
-      
+
       if (attempt < retryCount - 1) {
         console.log(`Thử lại sau ${retryDelay}ms...`);
         await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     }
   }
-  
-  return { 
-    exists: false, 
+
+  return {
+    exists: false,
     error: lastError ? `Lỗi kết nối sau ${retryCount} lần thử: ${lastError.message}` : 'Không thể kết nối đến cơ sở dữ liệu'
   };
 }
@@ -298,16 +299,16 @@ export async function checkTeamsTable(retryCount = 3, retryDelay = 1000) {
 // Hàm xóa team
 export async function deleteTeam(teamId: string) {
   const supabase = createClient()
-  
+
   try {
     // Xóa bản ghi trong bảng teams
     const { error } = await supabase
       .from('teams')
       .delete()
       .eq('id', teamId)
-    
+
     if (error) throw error
-    
+
     return { success: true, error: null }
   } catch (error: any) {
     console.error('Lỗi khi xóa team:', error)
@@ -316,18 +317,18 @@ export async function deleteTeam(teamId: string) {
 }
 
 // Hàm tạo team mới
-export async function createTeam({ name, description }: { 
-  name: string, 
-  description?: string 
+export async function createTeam({ name, description }: {
+  name: string,
+  description?: string
 }) {
   const supabase = createClient()
-  
+
   try {
     // Kiểm tra tên team
     if (!name.trim()) {
       throw new Error('Tên team không được để trống')
     }
-    
+
     // Thêm team mới vào bảng teams
     const { data: team, error } = await supabase
       .from('teams')
@@ -339,9 +340,9 @@ export async function createTeam({ name, description }: {
       })
       .select()
       .single()
-    
+
     if (error) throw error
-    
+
     return { team, error: null }
   } catch (error: any) {
     console.error('Lỗi khi tạo team:', error)
@@ -355,7 +356,7 @@ export async function updateTeam(
   { name, description }: { name?: string; description?: string }
 ) {
   const supabase = createClient()
-  
+
   try {
     // Cập nhật thông tin team
     const { data: team, error } = await supabase
@@ -368,9 +369,9 @@ export async function updateTeam(
       .eq('id', teamId)
       .select()
       .single()
-    
+
     if (error) throw error
-    
+
     return { success: true, error: null }
   } catch (error: any) {
     console.error('Lỗi khi cập nhật team:', error)
@@ -384,59 +385,59 @@ export async function updateTeam(
 export async function fetchClients(page = 1, limit = 50, searchQuery = '') {
   try {
     const supabase = createClient()
-    
+
     // Calculate offset based on page and limit
     const offset = (page - 1) * limit
-    
+
     // Create base query
     let query = supabase
       .from('clients')
       .select('*')
-    
+
     // Add search filter if provided
     if (searchQuery) {
       query = query.ilike('name', `%${searchQuery}%`)
     }
-    
+
     // Add pagination
     query = query
       .range(offset, offset + limit - 1)
       .order('name', { ascending: true })
-    
+
     // Execute query
     const { data: clients, error: clientsError } = await query
-    
+
     if (clientsError) {
       console.error('Error in fetchClients query:', clientsError)
       throw clientsError
     }
-    
+
     // If no clients, return empty array
     if (!clients || clients.length === 0) {
       return { clients: [], error: null }
     }
-    
+
     // Get all contacts to associate with clients
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')
       .select('*')
-    
+
     if (contactsError) {
       console.error('Error fetching contacts:', contactsError)
     }
-    
+
     // Associate contacts with clients
     const clientsWithContacts = clients.map(client => {
-      const clientContacts = contacts 
+      const clientContacts = contacts
         ? contacts.filter(contact => contact.client_id === client.id)
         : []
-      
+
       return {
         ...client,
         contacts: clientContacts
       }
     })
-    
+
     return { clients: clientsWithContacts, error: null }
   } catch (error: any) {
     console.error('Error in fetchClients:', error)
@@ -447,7 +448,7 @@ export async function fetchClients(page = 1, limit = 50, searchQuery = '') {
 // Fetch a single client with contacts
 export async function fetchClient(clientId: string) {
   const supabase = createClient()
-  
+
   try {
     // Get client details
     const { data: client, error: clientError } = await supabase
@@ -455,31 +456,31 @@ export async function fetchClient(clientId: string) {
       .select('*')
       .eq('id', clientId)
       .single()
-    
+
     if (clientError) throw clientError
-    
+
     // Get client contacts
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')
       .select('*')
       .eq('client_id', clientId)
-    
+
     if (contactsError) {
       console.error('Error fetching client contacts:', contactsError)
     }
-    
-    return { 
+
+    return {
       client: {
         ...client,
         contacts: contacts || []
-      }, 
-      error: null 
+      },
+      error: null
     }
   } catch (error: any) {
     console.error('Error fetching client details:', error)
     // Check if error is an empty object or undefined
-    const errorMessage = (error && Object.keys(error).length > 0) 
-      ? error.message || error.toString() 
+    const errorMessage = (error && Object.keys(error).length > 0)
+      ? error.message || error.toString()
       : 'Failed to fetch client details. Please try again.'
     return { client: null, error: errorMessage }
   }
@@ -495,7 +496,7 @@ export async function createClientRecord({ name, address, email, phone, tax_id, 
   team_ids?: string[]
 }) {
   const supabase = createClient()
-  
+
   try {
     const { data: client, error } = await supabase
       .from('clients')
@@ -511,9 +512,9 @@ export async function createClientRecord({ name, address, email, phone, tax_id, 
       })
       .select()
       .single()
-    
+
     if (error) throw error
-    
+
     return { client, error: null }
   } catch (error: any) {
     console.error('Error creating client:', error)
@@ -531,22 +532,22 @@ export async function updateClient(clientId: string, data: {
   team_ids?: string[]
 }) {
   const supabase = createClient()
-  
+
   try {
     const updateData = {
       ...data,
       updated_at: new Date().toISOString()
     }
-    
+
     const { data: client, error } = await supabase
       .from('clients')
       .update(updateData)
       .eq('id', clientId)
       .select()
       .single()
-    
+
     if (error) throw error
-    
+
     return { client, error: null }
   } catch (error: any) {
     console.error('Error updating client:', error)
@@ -557,16 +558,16 @@ export async function updateClient(clientId: string, data: {
 // Delete a client
 export async function deleteClient(clientId: string) {
   const supabase = createClient()
-  
+
   try {
     // Delete the client (contacts will be deleted via cascade)
     const { error } = await supabase
       .from('clients')
       .delete()
       .eq('id', clientId)
-    
+
     if (error) throw error
-    
+
     return { success: true, error: null }
   } catch (error: any) {
     console.error('Error deleting client:', error)
@@ -585,7 +586,7 @@ export async function createContact(data: {
   email?: string
 }) {
   const supabase = createClient()
-  
+
   try {
     const { data: contact, error } = await supabase
       .from('contacts')
@@ -596,9 +597,9 @@ export async function createContact(data: {
       })
       .select()
       .single()
-    
+
     if (error) throw error
-    
+
     return { contact, error: null }
   } catch (error: any) {
     console.error('Error creating contact:', error)
@@ -614,22 +615,22 @@ export async function updateContact(contactId: string, data: {
   email?: string
 }) {
   const supabase = createClient()
-  
+
   try {
     const updateData = {
       ...data,
       updated_at: new Date().toISOString()
     }
-    
+
     const { data: contact, error } = await supabase
       .from('contacts')
       .update(updateData)
       .eq('id', contactId)
       .select()
       .single()
-    
+
     if (error) throw error
-    
+
     return { contact, error: null }
   } catch (error: any) {
     console.error('Error updating contact:', error)
@@ -640,15 +641,15 @@ export async function updateContact(contactId: string, data: {
 // Delete a contact
 export async function deleteContact(contactId: string) {
   const supabase = createClient()
-  
+
   try {
     const { error } = await supabase
       .from('contacts')
       .delete()
       .eq('id', contactId)
-    
+
     if (error) throw error
-    
+
     return { success: true, error: null }
   } catch (error: any) {
     console.error('Error deleting contact:', error)
@@ -659,7 +660,7 @@ export async function deleteContact(contactId: string) {
 // Fetch orders with client information
 export async function fetchOrders() {
   const supabase = createClient()
-  
+
   try {
     // Fetch orders
     const { data: orders, error: ordersError } = await supabase
@@ -669,15 +670,15 @@ export async function fetchOrders() {
         clients:client_id (name)
       `)
       .order('created_at', { ascending: false })
-    
+
     if (ordersError) throw ordersError
-    
+
     // Format response with client names
     const formattedOrders = orders.map(order => ({
       ...order,
       client_name: order.clients?.name
     }))
-    
+
     return { orders: formattedOrders, error: null }
   } catch (error: any) {
     console.error('Error fetching orders:', error)
@@ -688,7 +689,7 @@ export async function fetchOrders() {
 // Fetch a single order by ID
 export async function fetchOrder(orderId: string) {
   const supabase = createClient()
-  
+
   try {
     const { data: order, error } = await supabase
       .from('orders')
@@ -698,40 +699,40 @@ export async function fetchOrder(orderId: string) {
       `)
       .eq('id', orderId)
       .single()
-    
+
     if (error) throw error
-    
+
     // Fetch contacts for this client
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')
       .select('*')
       .eq('client_id', order.client_id)
       .order('full_name', { ascending: true })
-    
+
     if (contactsError) {
       console.error('Error fetching client contacts:', contactsError)
     }
-    
+
     // Find the selected contact if contact_id is set
     let selectedContact = null
     if (order.contact_id && contacts) {
       selectedContact = contacts.find(contact => contact.id === order.contact_id) || null
     }
-    
-    return { 
+
+    return {
       order: {
         ...order,
         client_name: order.clients?.name,
         client_contacts: contacts || [],
         selected_contact: selectedContact
-      }, 
-      error: null 
+      },
+      error: null
     }
   } catch (error: any) {
     console.error('Error fetching order:', error)
     // Check if error is an empty object or undefined
-    const errorMessage = (error && Object.keys(error).length > 0) 
-      ? error.message || error.toString() 
+    const errorMessage = (error && Object.keys(error).length > 0)
+      ? error.message || error.toString()
       : 'Failed to fetch order details. Please try again.'
     return { order: null, error: errorMessage }
   }
@@ -753,28 +754,28 @@ export async function createOrder(data: {
   order_number?: string | null
 }) {
   const supabase = createClient()
-  
+
   try {
     // Use provided order number if available, otherwise generate a new one
     let orderNumber = data.order_number;
-    
+
     // Generate an order number only if not provided
     if (!orderNumber) {
-      const prefix = data.department === 'marine' ? 'MR' : 
+      const prefix = data.department === 'marine' ? 'MR' :
                     data.department === 'agri' ? 'AG' : 'CG';
       const typePrefix = data.type === 'international' ? 'I' : 'L';
       const currentYear = new Date().getFullYear().toString().substring(2); // Get last 2 digits of year
-      
+
       // Get next sequence number
       const { nextSequence, formattedOrderNumber } = await fetchNextOrderSequence(
-        typePrefix, 
-        prefix, 
+        typePrefix,
+        prefix,
         currentYear
       );
-      
+
       orderNumber = formattedOrderNumber;
     }
-    
+
     // Insert new order
     const { data: order, error } = await supabase
       .from('orders')
@@ -796,9 +797,9 @@ export async function createOrder(data: {
       })
       .select()
       .single()
-    
+
     if (error) throw error
-    
+
     return { order, error: null }
   } catch (error: any) {
     console.error('Error creating order:', error)
@@ -823,44 +824,58 @@ export async function updateOrder(
     vessel_carrier?: string | null
     bill_of_lading?: string | null
     bill_of_lading_date?: string | null
+    order_number?: string
   }
 ) {
   const supabase = createClient()
-  
+
   try {
     const updateData = {
       ...data,
       updated_at: new Date().toISOString()
     }
-    
+
     const { data: order, error } = await supabase
       .from('orders')
       .update(updateData)
       .eq('id', orderId)
       .select()
-      .single()
-    
+      .single();
+
     if (error) throw error
-    
+
     return { order, error: null }
   } catch (error: any) {
     console.error('Error updating order:', error)
-    return { order: null, error: error.message }
+
+    // Improve error handling
+    let errorMessage: string;
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (typeof error === 'object' && error !== null) {
+      errorMessage = error.message || JSON.stringify(error);
+    } else {
+      errorMessage = 'Unknown error occurred while updating order';
+    }
+
+    return { order: null, error: errorMessage }
   }
 }
 
 // Delete an order
 export async function deleteOrder(orderId: string) {
   const supabase = createClient()
-  
+
   try {
     const { error } = await supabase
       .from('orders')
       .delete()
       .eq('id', orderId)
-    
+
     if (error) throw error
-    
+
     return { success: true, error: null }
   } catch (error: any) {
     console.error('Error deleting order:', error)
@@ -875,7 +890,7 @@ export async function fetchNextOrderSequence(
   yearCode: string
 ) {
   const supabase = createClient()
-  
+
   try {
     // Look for the highest existing sequence number for this prefix combination
     const { data: orders, error } = await supabase
@@ -883,29 +898,29 @@ export async function fetchNextOrderSequence(
       .select('order_number')
       .like('order_number', `${typePrefix}${departmentCode}${yearCode}-%`)
       .order('order_number', { ascending: false })
-    
+
     if (error) throw error
-    
+
     // Default to 1 if no orders found
     let nextSequence = 1
-    
+
     if (orders && orders.length > 0) {
       // Parse the sequence number from the latest order
       const latestOrder = orders[0]
       const sequencePart = latestOrder.order_number.split('-')[1]
-      
+
       // Convert to number and increment
       if (sequencePart) {
         nextSequence = parseInt(sequencePart, 10) + 1
       }
     }
-    
+
     // Format sequence number with leading zeros
     const sequenceFormatted = String(nextSequence).padStart(3, '0')
-    
+
     // Create the full formatted order number
     const formattedOrderNumber = `${typePrefix}${departmentCode}${yearCode}-${sequenceFormatted}`
-    
+
     return { nextSequence, formattedOrderNumber, error: null }
   } catch (error: any) {
     console.error('Error getting next sequence:', error)
@@ -915,47 +930,90 @@ export async function fetchNextOrderSequence(
   }
 }
 
+// Add OrderItemsResponse type definition
+interface OrderItemsResponse {
+  orderItems: Array<{
+    id: string;
+    order_id: string;
+    commodity_id: string;
+    commodity: any;
+    quantity: number;
+    unit_id: string;
+    unit: any;
+    commodity_description?: string;
+  }>;
+  error: string | null;
+}
+
 // Hàm lấy các order items của một order
-export async function fetchOrderItems(orderId: string) {
+export const fetchOrderItems = async (orderId: string): Promise<OrderItemsResponse> => {
   const supabase = createClient()
-  
   try {
-    // Lấy danh sách order items với joins
-    const { data: orderItems, error: orderItemsError } = await supabase
+    if (!orderId) {
+      return { orderItems: [], error: 'No orderId provided' };
+    }
+
+    // Validate that orderId is a valid UUID
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
+      return { orderItems: [], error: 'Invalid orderId format' };
+    }
+
+    const { data, error } = await supabase
       .from('order_items')
       .select(`
-        *,
-        commodities:commodity_id(id, name, description),
-        units:unit_id(id, name)
+        id,
+        order_id,
+        commodity_id,
+        commodities (
+          id,
+          name,
+          description
+        ),
+        quantity,
+        unit_id,
+        units (
+          id,
+          name
+        ),
+        commodity_description
       `)
-      .eq('order_id', orderId)
-      .order('created_at', { ascending: true })
-    
-    if (orderItemsError) {
-      console.error("Error fetching order items:", orderItemsError);
-      throw orderItemsError;
+      .eq('order_id', orderId);
+
+    if (error) {
+      return { orderItems: [], error: error.message };
     }
-    
-    if (!orderItems || orderItems.length === 0) {
+
+    if (!data) {
       return { orderItems: [], error: null };
     }
-    
-    // Process the data to ensure consistency
-    const processedItems = orderItems.map(item => {
+
+    // Process the items to transform the nested data structure
+    const processedItems = data.map((item: any) => {
+      // Extract nested objects
+      const commodity = item.commodities || null;
+      const unit = item.units || null;
+
+      // Return normalized item with both formats for compatibility
       return {
-        ...item,
-        // Ensure the foreign key data is properly structured
-        commodities: item.commodities || null,
-        units: item.units || null
+        id: item.id,
+        order_id: item.order_id,
+        commodity_id: item.commodity_id,
+        commodities: commodity, // Keep for backward compatibility
+        commodity: commodity,   // Add this format too
+        quantity: item.quantity,
+        unit_id: item.unit_id,
+        units: unit,           // Keep for backward compatibility
+        unit: unit,            // Add this format too
+        commodity_description: item.commodity_description
       };
     });
-    
-    return { orderItems: processedItems, error: null }
-  } catch (error: any) {
-    console.error('Error fetching order items:', error)
-    return { orderItems: [], error: error.message }
+
+    return { orderItems: processedItems, error: null };
+  } catch (err: any) {
+    const errorMessage = err.message || JSON.stringify(err) || 'Unknown error in fetchOrderItems';
+    return { orderItems: [], error: errorMessage };
   }
-}
+};
 
 // Hàm tạo order item mới
 export async function createOrderItem(data: {
@@ -966,21 +1024,56 @@ export async function createOrderItem(data: {
   commodity_description?: string
 }) {
   const supabase = createClient()
-  
+
   try {
+    // Extract only the fields that exist in the order_items table
+    const {
+      order_id,
+      commodity_id,
+      quantity,
+      unit_id,
+      commodity_description,
+      // Ignore any other fields
+      ...rest
+    } = data;
+
+    // Create a clean payload with only valid fields
+    const cleanPayload = {
+      order_id,
+      commodity_id,
+      quantity,
+      unit_id,
+      // Only include commodity_description if it's defined
+      ...(commodity_description ? { commodity_description } : {})
+    };
+
     // Tạo order item mới
-    const { data: orderItem, error: orderItemError } = await supabase
+    const response = await supabase
       .from('order_items')
-      .insert([data])
+      .insert([cleanPayload])
       .select()
       .single()
-    
+    const { data: orderItem, error: orderItemError } = response;
+
     if (orderItemError) throw orderItemError
-    
+
     return { orderItem, error: null }
   } catch (error: any) {
     console.error('Lỗi khi tạo order item:', error)
-    return { orderItem: null, error: error.message }
+
+    // Improve error handling
+    let errorMessage: string;
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (typeof error === 'object' && error !== null) {
+      errorMessage = error.message || JSON.stringify(error);
+    } else {
+      errorMessage = 'Unknown error occurred while creating order item';
+    }
+
+    return { orderItem: null, error: errorMessage }
   }
 }
 
@@ -995,79 +1088,189 @@ export async function updateOrderItem(
   }
 ) {
   const supabase = createClient()
-  
+
   try {
+    // Extract only the fields that exist in the order_items table
+    const {
+      commodity_id,
+      quantity,
+      unit_id,
+      commodity_description,
+      // Ignore any other fields
+      ...rest
+    } = data;
+
+    // Create a clean payload with only valid fields
+    const cleanPayload = {
+      ...(commodity_id ? { commodity_id } : {}),
+      ...(quantity !== undefined ? { quantity } : {}),
+      ...(unit_id ? { unit_id } : {}),
+      ...(commodity_description !== undefined ? { commodity_description } : {})
+    };
+
     // Cập nhật order item
     const { data: orderItem, error: orderItemError } = await supabase
       .from('order_items')
-      .update(data)
+      .update(cleanPayload)
       .eq('id', orderItemId)
       .select()
       .single()
-    
+
     if (orderItemError) throw orderItemError
-    
+
     return { orderItem, error: null }
   } catch (error: any) {
     console.error('Lỗi khi cập nhật order item:', error)
-    return { orderItem: null, error: error.message }
+
+    // Improve error handling
+    let errorMessage: string;
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (typeof error === 'object' && error !== null) {
+      errorMessage = error.message || JSON.stringify(error);
+    } else {
+      errorMessage = 'Unknown error occurred while updating order item';
+    }
+
+    return { orderItem: null, error: errorMessage }
   }
 }
 
 // Hàm xóa order item
 export async function deleteOrderItem(orderItemId: string) {
   const supabase = createClient()
-  
+
   try {
     // Xóa order item
     const { error: orderItemError } = await supabase
       .from('order_items')
       .delete()
       .eq('id', orderItemId)
-    
+
     if (orderItemError) throw orderItemError
-    
+
     return { success: true, error: null }
   } catch (error: any) {
     console.error('Lỗi khi xóa order item:', error)
-    return { success: false, error: error.message }
+
+    // Improve error handling
+    let errorMessage: string;
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (typeof error === 'object' && error !== null) {
+      errorMessage = error.message || JSON.stringify(error);
+    } else {
+      errorMessage = 'Unknown error occurred while deleting order item';
+    }
+
+    return { success: false, error: errorMessage }
   }
 }
 
-// Fetch all commodities with pagination and search
-export async function fetchCommodities(page = 1, limit = 50, searchQuery = '') {
+// Hàm xóa tất cả order items của một order
+export async function deleteOrderItemsByOrderId(orderId: string) {
   const supabase = createClient()
-  
+
   try {
-    const offset = (page - 1) * limit
-    
+    // Xóa tất cả order items của order
+    const { error } = await supabase
+      .from('order_items')
+      .delete()
+      .eq('order_id', orderId)
+
+    if (error) throw error
+
+    return { success: true, error: null }
+  } catch (error: any) {
+    console.error('Lỗi khi xóa order items:', error)
+
+    // Improve error handling
+    let errorMessage: string;
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (typeof error === 'object' && error !== null) {
+      errorMessage = error.message || JSON.stringify(error);
+    } else {
+      errorMessage = 'Unknown error occurred while deleting order items';
+    }
+
+    return { success: false, error: errorMessage }
+  }
+}
+
+// Fetch contacts by client ID
+export const fetchContactsByClientId = async (clientId: string) => {
+  const supabase = createClient()
+
+  try {
+    const { data: contacts, error } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false }) // Order by created_at descending to get newest first
+
+    if (error) {
+      throw error
+    }
+
+    return { contacts, error: null }
+  } catch (error: any) {
+    console.error('Error fetching contacts:', error)
+    return { contacts: [], error: error.message }
+  }
+}
+
+// Fetch all commodities with pagination
+export const fetchCommodities = async (page = 1, limit = 10, searchQuery = '') => {
+  const supabase = createClient()
+
+  try {
     let query = supabase
       .from('commodities')
-      .select('*')
-    
-    // Apply search filter if provided
+      .select('*', { count: 'exact' })
+
+    // Add search filter if provided
     if (searchQuery) {
-      query = query.ilike('name', `%${searchQuery}%`)
+      query = query.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
     }
-    
-    // Apply pagination
-    const { data: commodities, error } = await query
-      .order('name', { ascending: true })
-      .range(offset, offset + limit - 1)
-    
-    if (error) throw error
-    
-    return { commodities: commodities || [], error: null }
+
+    // Add pagination
+    const startIndex = (page - 1) * limit
+    query = query.range(startIndex, startIndex + limit - 1)
+
+    // Add sorting
+    query = query.order('name', { ascending: true })
+
+    const { data, error, count } = await query
+
+    if (error) {
+      return { commodities: [], total: 0, error: error.message }
+    }
+
+    return {
+      commodities: data || [],
+      total: count || 0,
+      error: null
+    }
   } catch (error: any) {
-    console.error('Error fetching commodities:', error)
-    return { commodities: [], error: error.message }
+    return {
+      commodities: [],
+      total: 0,
+      error: error.message || 'Unknown error'
+    }
   }
 }
 
 // Hàm lấy chi tiết một hàng hóa
 export async function fetchCommodity(commodityId: string) {
   const supabase = createClient()
-  
+
   try {
     // Lấy thông tin hàng hóa
     const { data: commodity, error: commodityError } = await supabase
@@ -1078,23 +1281,23 @@ export async function fetchCommodity(commodityId: string) {
       `)
       .eq('id', commodityId)
       .single()
-    
+
     if (commodityError) throw commodityError
-    
+
     // Lấy thông tin chi tiết về các team
     if (commodity && commodity.teams && commodity.teams.length > 0) {
       const teamIds = commodity.teams.map((t: any) => t.team_id)
-      
+
       const { data: teamDetails, error: teamError } = await supabase
         .from('teams')
         .select('*')
         .in('id', teamIds)
-      
+
       if (!teamError && teamDetails) {
         commodity.team_details = teamDetails
       }
     }
-    
+
     return { commodity, error: null }
   } catch (error: any) {
     console.error('Lỗi khi lấy thông tin hàng hóa:', error)
@@ -1102,54 +1305,61 @@ export async function fetchCommodity(commodityId: string) {
   }
 }
 
-// Hàm lấy danh sách đơn vị tính
+// Fetch units with optional pagination and search
 export async function fetchUnits(page = 1, limit = 50, searchQuery = '') {
   const supabase = createClient()
-  
+
   try {
-    const offset = (page - 1) * limit
-    
-    // Tạo query cơ bản
     let query = supabase
       .from('units')
-      .select('*')
-    
-    // Áp dụng bộ lọc tìm kiếm nếu được cung cấp
+      .select('*', { count: 'exact' })
+
+    // Add search filter if provided
     if (searchQuery) {
       query = query.ilike('name', `%${searchQuery}%`)
     }
-    
-    // Áp dụng phân trang
-    const { data: units, error: unitsError } = await query
-      .order('name', { ascending: true })
-      .range(offset, offset + limit - 1)
-    
-    if (unitsError) throw unitsError
-    
-    return { units: units || [], error: null }
+
+    // Add pagination
+    const startIndex = (page - 1) * limit
+    query = query.range(startIndex, startIndex + limit - 1)
+
+    // Add sorting
+    query = query.order('name', { ascending: true })
+
+    const { data, error, count } = await query
+
+    if (error) throw error
+
+    return {
+      units: data || [],
+      total: count || 0,
+      error: null
+    }
   } catch (error: any) {
-    console.error('Lỗi khi lấy danh sách đơn vị tính:', error)
-    return { units: [], error: error.message }
+    return {
+      units: [],
+      total: 0,
+      error: error.message
+    }
   }
 }
 
-// Hàm lấy chi tiết một đơn vị tính
+// Fetch a specific unit by ID
 export async function fetchUnit(unitId: string) {
   const supabase = createClient()
-  
+
   try {
-    // Lấy thông tin đơn vị tính
-    const { data: unit, error: unitError } = await supabase
+    const { data: unit, error } = await supabase
       .from('units')
       .select('*')
       .eq('id', unitId)
       .single()
-    
-    if (unitError) throw unitError
-    
+
+    if (error) throw error
+
     return { unit, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi lấy thông tin đơn vị tính:', error)
+    console.error('Error fetching unit:', error)
     return { unit: null, error: error.message }
   }
-} 
+}

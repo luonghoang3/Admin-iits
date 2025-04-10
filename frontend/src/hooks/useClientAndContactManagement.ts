@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { 
+import {
   createClientRecord,
   updateClient,
   deleteClient,
@@ -63,11 +63,52 @@ export function useClientAndContactManagement({
   const [clientPage, setClientPage] = useState(1)
   const [hasMoreClients, setHasMoreClients] = useState(true)
   const [isLoadingMoreClients, setIsLoadingMoreClients] = useState(false)
-  
+
+  // Function to set selected client and load its contacts
+  const selectClient = async (client: Client | null) => {
+    setSelectedClient(client);
+
+    // Clear contacts when no client is selected
+    if (!client) {
+      setContacts([]);
+      return;
+    }
+
+    try {
+      // Import the fetchContactsByClientId function
+      const { fetchContactsByClientId } = await import('@/utils/supabase/client');
+
+      // Fetch contacts for the selected client
+      const { contacts: clientContacts, error } = await fetchContactsByClientId(client.id);
+
+      if (error) {
+        console.error('Error fetching contacts:', error);
+        setContacts([]);
+      } else {
+        const contactsList = clientContacts || [];
+        setContacts(contactsList);
+
+        // Auto-select the most recent contact if available
+        if (contactsList.length > 0) {
+          // The contacts are already sorted by created_at desc, so the first one is the most recent
+          const mostRecentContact = contactsList[0];
+
+          // Update the form data with the selected contact
+          if (onContactUpdated) {
+            onContactUpdated(mostRecentContact);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading contacts:', error);
+      setContacts([]);
+    }
+  }
+
   // UI states
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
   // Client dialog states
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
   const [clientDialogMode, setClientDialogMode] = useState<'add' | 'edit'>('add')
@@ -80,10 +121,10 @@ export function useClientAndContactManagement({
   })
   const [clientError, setClientError] = useState<string | null>(null)
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false)
-  
+
   // Contact states
   const [contacts, setContacts] = useState<Contact[]>([])
-  
+
   // Contact dialog states
   const [contactDialogOpen, setContactDialogOpen] = useState(false)
   const [contactDialogMode, setContactDialogMode] = useState<'add' | 'edit'>('add')
@@ -100,11 +141,11 @@ export function useClientAndContactManagement({
   // Load reference data
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadInitialData = async () => {
       try {
         setLoading(true);
-        
+
         const { clients: clientsData, error: clientsError } = await fetchClients(1, 15)
 
         if (!isMounted) return;
@@ -124,12 +165,12 @@ export function useClientAndContactManagement({
         } else {
           if (isMounted) {
             setClients(clientsData);
-            
+
             // If initialClientId is provided, select that client
             if (initialClientId) {
               const selectedClient = clientsData.find(c => c.id === initialClientId);
               if (selectedClient) {
-                setSelectedClient(selectedClient);
+                selectClient(selectedClient);
               }
             }
             setLoading(false);
@@ -137,7 +178,7 @@ export function useClientAndContactManagement({
         }
       } catch (error) {
         if (!isMounted) return;
-        
+
         // In case of exception, set test data
         const testClients = [
           { id: 'test-1', name: 'Test Client 1', email: 'test1@example.com', phone: '123-456-7890', address: '123 Test St', contacts: [] },
@@ -152,7 +193,7 @@ export function useClientAndContactManagement({
     }
 
     loadInitialData();
-    
+
     return () => {
       isMounted = false;
     };
@@ -174,7 +215,7 @@ export function useClientAndContactManagement({
 
   const openEditClientDialog = async (clientId: string) => {
     const client = clients.find(c => c.id === clientId)
-    
+
     if (client) {
       setClientForm({
         id: client.id,
@@ -183,7 +224,7 @@ export function useClientAndContactManagement({
         phone: client.phone || '',
         address: client.address || ''
       })
-      
+
       setClientDialogMode('edit')
       setClientError(null)
       setClientDialogOpen(true)
@@ -204,13 +245,13 @@ export function useClientAndContactManagement({
   const handleSaveClient = async () => {
     try {
       setClientError(null)
-      
+
       // Validate form
       if (!clientForm.name) {
         setClientError('Client name is required')
         return
       }
-      
+
       if (clientDialogMode === 'add') {
         // Create new client
         const { client, error } = await createClientRecord({
@@ -219,15 +260,18 @@ export function useClientAndContactManagement({
           phone: clientForm.phone || undefined,
           address: clientForm.address || undefined
         })
-        
+
         if (error) {
           throw new Error(error)
         }
-        
+
         if (client) {
           // Add client to list and select it
           setClients(prev => [client, ...prev])
-          
+
+          // Select the client to load its contacts
+          selectClient(client)
+
           if (onClientUpdated) {
             onClientUpdated(client)
           }
@@ -243,21 +287,26 @@ export function useClientAndContactManagement({
             address: clientForm.address || undefined
           }
         )
-        
+
         if (error) {
           throw new Error(error)
         }
-        
+
         if (client) {
           // Update client in list
           setClients(prev => prev.map(c => c.id === client.id ? client : c))
-          
+
+          // If this is the currently selected client, update it and reload contacts
+          if (selectedClient && selectedClient.id === client.id) {
+            selectClient(client);
+          }
+
           if (onClientUpdated) {
             onClientUpdated(client)
           }
         }
       }
-      
+
       // Close dialog
       setClientDialogOpen(false)
     } catch (err: any) {
@@ -268,24 +317,24 @@ export function useClientAndContactManagement({
 
   const handleDeleteClient = async () => {
     if (!clientForm.id) return
-    
+
     try {
       const { success, error } = await deleteClient(clientForm.id)
-      
+
       if (error) {
         throw new Error(error)
       }
-      
+
       if (success) {
         // Remove client from list
         setClients(prev => prev.filter(c => c.id !== clientForm.id))
-        
+
         if (onClientUpdated) {
           // Signal that the client was deleted
           onClientUpdated({ id: '', name: '' })
         }
       }
-      
+
       setIsConfirmDeleteOpen(false)
       setClientDialogOpen(false)
     } catch (err: any) {
@@ -300,7 +349,7 @@ export function useClientAndContactManagement({
       setContactError('Please select a client first')
       return
     }
-    
+
     setContactForm({
       id: '',
       full_name: '',
@@ -308,7 +357,7 @@ export function useClientAndContactManagement({
       phone: '',
       email: ''
     })
-    
+
     setContactDialogMode('add')
     setContactError(null)
     setContactDialogOpen(true)
@@ -316,7 +365,7 @@ export function useClientAndContactManagement({
 
   const openEditContactDialog = async (contactId: string) => {
     const contact = contacts.find(c => c.id === contactId)
-    
+
     if (contact) {
       setContactForm({
         id: contact.id,
@@ -325,7 +374,7 @@ export function useClientAndContactManagement({
         phone: contact.phone || '',
         email: contact.email || ''
       })
-      
+
       setContactDialogMode('edit')
       setContactError(null)
       setContactDialogOpen(true)
@@ -348,16 +397,16 @@ export function useClientAndContactManagement({
       setContactError('No client selected')
       return
     }
-    
+
     try {
       setContactError(null)
-      
+
       // Validate form
       if (!contactForm.full_name) {
         setContactError('Contact name is required')
         return
       }
-      
+
       if (contactDialogMode === 'add') {
         // Create new contact
         const { contact, error } = await createContact({
@@ -367,15 +416,15 @@ export function useClientAndContactManagement({
           phone: contactForm.phone || undefined,
           email: contactForm.email || undefined
         })
-        
+
         if (error) {
           throw new Error(error)
         }
-        
+
         if (contact) {
           // Add contact to list
           setContacts(prev => [contact, ...prev])
-          
+
           if (onContactUpdated) {
             onContactUpdated(contact)
           }
@@ -391,21 +440,21 @@ export function useClientAndContactManagement({
             email: contactForm.email || undefined
           }
         )
-        
+
         if (error) {
           throw new Error(error)
         }
-        
+
         if (contact) {
           // Update contact in list
           setContacts(prev => prev.map(c => c.id === contact.id ? contact : c))
-          
+
           if (onContactUpdated) {
             onContactUpdated(contact)
           }
         }
       }
-      
+
       // Close dialog
       setContactDialogOpen(false)
     } catch (err: any) {
@@ -416,24 +465,24 @@ export function useClientAndContactManagement({
 
   const handleDeleteContact = async () => {
     if (!contactForm.id) return
-    
+
     try {
       const { success, error } = await deleteContact(contactForm.id)
-      
+
       if (error) {
         throw new Error(error)
       }
-      
+
       if (success) {
         // Remove contact from list
         setContacts(prev => prev.filter(c => c.id !== contactForm.id))
-        
+
         if (onContactUpdated) {
           // Signal that the contact was deleted
           onContactUpdated({ id: '', client_id: '', full_name: '' })
         }
       }
-      
+
       setIsConfirmDeleteContactOpen(false)
       setContactDialogOpen(false)
     } catch (err: any) {
@@ -445,21 +494,21 @@ export function useClientAndContactManagement({
   // Load more clients for pagination
   const handleLoadMoreClients = async () => {
     if (!hasMoreClients || isLoadingMoreClients) return
-    
+
     let isMounted = true;
-    
+
     try {
       setIsLoadingMoreClients(true)
       const nextPage = clientPage + 1
-      
+
       const { clients: moreClients, error } = await fetchClients(nextPage, 15, clientQuery)
-      
+
       if (!isMounted) return;
-      
+
       if (error) {
         throw new Error(error)
       }
-      
+
       if (moreClients && moreClients.length > 0) {
         setClients(prev => [...prev, ...moreClients])
         setClientPage(nextPage)
@@ -483,12 +532,12 @@ export function useClientAndContactManagement({
     setClientQuery(query)
     if (query.length > 1) {
       let isMounted = true;
-      
+
       try {
         const { clients: searchResults, error } = await fetchClients(1, 15, query)
-        
+
         if (!isMounted) return;
-        
+
         if (!error && searchResults) {
           setClients(searchResults)
         }
@@ -518,26 +567,27 @@ export function useClientAndContactManagement({
     setClients,
     selectedClient,
     setSelectedClient,
+    selectClient,
     clientQuery,
     clientPage,
     hasMoreClients,
     isLoadingMoreClients,
     loading,
     error,
-    
+
     // Client dialog states
     clientDialogOpen,
     setClientDialogOpen,
     clientDialogMode,
-    clientForm, 
+    clientForm,
     clientError,
     isConfirmDeleteOpen,
     setIsConfirmDeleteOpen,
-    
+
     // Contact states
     contacts,
     setContacts,
-    
+
     // Contact dialog states
     contactDialogOpen,
     setContactDialogOpen,
@@ -546,7 +596,7 @@ export function useClientAndContactManagement({
     contactError,
     isConfirmDeleteContactOpen,
     setIsConfirmDeleteContactOpen,
-    
+
     // Client handlers
     openAddClientDialog,
     openEditClientDialog,
@@ -554,7 +604,7 @@ export function useClientAndContactManagement({
     handleClientFormChange,
     handleSaveClient,
     handleDeleteClient,
-    
+
     // Contact handlers
     openAddContactDialog,
     openEditContactDialog,
@@ -562,10 +612,10 @@ export function useClientAndContactManagement({
     handleContactFormChange,
     handleSaveContact,
     handleDeleteContact,
-    
+
     // Pagination handlers
     handleLoadMoreClients,
     handleClientSearch,
     getFilteredClients
   }
-} 
+}

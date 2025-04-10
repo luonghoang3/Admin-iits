@@ -1,6 +1,6 @@
 import React, { Fragment } from 'react'
 import { Combobox, Transition, Menu } from '@headlessui/react'
-import { 
+import {
   UsersIcon,
   PlusIcon,
   PencilIcon,
@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 
 // Types
-import { OrderFormData } from '@/types/orders.d'
+import { OrderFormData } from '@/types/orders'
 import { Client, Contact } from '@/types/clients.d'
 
 interface ClientInformationSectionProps {
@@ -25,7 +25,7 @@ interface ClientInformationSectionProps {
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   handleValueChange: (name: string, value: any) => void;
   handleClientChange: (clientId: string) => Promise<void>;
-  
+
   // Client states and handlers
   clients: Client[];
   contacts: Contact[];
@@ -35,7 +35,7 @@ interface ClientInformationSectionProps {
   isLoadingMoreClients: boolean;
   loadMoreClients: () => void;
   handleClientSearch: (query: string) => void;
-  
+
   // Dialog handlers
   openAddClientDialog: () => void;
   openEditClientDialog: (clientId: string) => void;
@@ -94,7 +94,7 @@ const ClientInformationSection: React.FC<ClientInformationSectionProps> = ({
                     <div className="relative w-full cursor-default overflow-hidden rounded-lg bg-white text-left border border-input shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-300 sm:text-sm">
                       <Combobox.Input
                         className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0 focus:outline-none"
-                        displayValue={(clientId: string) => 
+                        displayValue={(clientId: string) =>
                           clients.find(c => c.id === clientId)?.name || ''
                         }
                         onChange={(event) => handleClientSearch(event.target.value)}
@@ -157,7 +157,7 @@ const ClientInformationSection: React.FC<ClientInformationSectionProps> = ({
                               </Combobox.Option>
                             ))}
                             {hasMoreClients && (
-                              <div 
+                              <div
                                 className="relative cursor-pointer select-none py-2 px-4 text-center text-gray-700 hover:bg-gray-100"
                                 onClick={loadMoreClients}
                               >
@@ -171,14 +171,14 @@ const ClientInformationSection: React.FC<ClientInformationSectionProps> = ({
                   </div>
                 </Combobox>
               </div>
-              
+
               <div>
                 <Menu as="div" className="relative">
                   <Menu.Button className="h-10 w-10 inline-flex items-center justify-center rounded-md border border-input bg-transparent hover:bg-accent hover:text-accent-foreground">
                     <span className="sr-only">Open options</span>
                     <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
                   </Menu.Button>
-                  
+
                   <Transition
                     as={Fragment}
                     enter="transition ease-out duration-100"
@@ -241,7 +241,7 @@ const ClientInformationSection: React.FC<ClientInformationSectionProps> = ({
               </div>
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="contact_id">Contact Person</Label>
             <div className="flex gap-2 items-center">
@@ -262,14 +262,14 @@ const ClientInformationSection: React.FC<ClientInformationSectionProps> = ({
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div>
                 <Menu as="div" className="relative">
                   <Menu.Button className="h-10 w-10 inline-flex items-center justify-center rounded-md border border-input bg-transparent hover:bg-accent hover:text-accent-foreground">
                     <span className="sr-only">Open options</span>
                     <EllipsisVerticalIcon className="h-5 w-5" aria-hidden="true" />
                   </Menu.Button>
-                  
+
                   <Transition
                     as={Fragment}
                     enter="transition ease-out duration-100"
@@ -342,4 +342,4 @@ const ClientInformationSection: React.FC<ClientInformationSectionProps> = ({
   )
 }
 
-export default ClientInformationSection 
+export default ClientInformationSection
