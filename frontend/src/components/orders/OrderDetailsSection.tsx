@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 // Types
-import { OrderFormData } from '@/types/orders.d'
+import { OrderFormData } from '@/types/orders'
 
 interface OrderDetailsSectionProps {
   formData: OrderFormData;
@@ -87,7 +87,7 @@ const OrderDetailsSection: React.FC<OrderDetailsSectionProps> = ({
               </Select>
             )}
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="department">Department</Label>
             {isEditMode ? (
@@ -110,7 +110,7 @@ const OrderDetailsSection: React.FC<OrderDetailsSectionProps> = ({
               </Select>
             )}
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="order_date">Order Date</Label>
             <Popover>
@@ -136,7 +136,7 @@ const OrderDetailsSection: React.FC<OrderDetailsSectionProps> = ({
               </PopoverContent>
             </Popover>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="status">Status</Label>
             <Select
@@ -154,7 +154,7 @@ const OrderDetailsSection: React.FC<OrderDetailsSectionProps> = ({
               </SelectContent>
             </Select>
           </div>
-          
+
           <div className="space-y-2 col-span-2">
             <Label htmlFor="client_ref_code">Client Reference</Label>
             <Input
@@ -165,7 +165,7 @@ const OrderDetailsSection: React.FC<OrderDetailsSectionProps> = ({
               placeholder="Client reference code"
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="inspection_date_started">Inspection Start</Label>
             <Popover>
@@ -191,7 +191,7 @@ const OrderDetailsSection: React.FC<OrderDetailsSectionProps> = ({
               </PopoverContent>
             </Popover>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="inspection_date_completed">Inspection Completion</Label>
             <Popover>
@@ -223,4 +223,4 @@ const OrderDetailsSection: React.FC<OrderDetailsSectionProps> = ({
   )
 }
 
-export default OrderDetailsSection 
+export default OrderDetailsSection

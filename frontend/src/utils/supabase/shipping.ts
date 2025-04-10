@@ -3,32 +3,57 @@ import { createClient } from './client'
 // Shipper Management Functions
 
 // Fetch all shippers with pagination and search
-export async function fetchShippers(page = 1, limit = 50, searchQuery = '') {
+export async function fetchShippers({
+  page = 1,
+  limit = 20,
+  searchQuery = '',
+  essentialFieldsOnly = true
+}: {
+  page?: number;
+  limit?: number;
+  searchQuery?: string;
+  essentialFieldsOnly?: boolean;
+} = {}) {
   const supabase = createClient()
   
   try {
-    const offset = (page - 1) * limit
+    // Only select essential fields to improve performance
+    const fields = essentialFieldsOnly 
+      ? 'id, name, email, phone' 
+      : '*';
     
     let query = supabase
       .from('shippers')
-      .select('*')
+      .select(fields, { count: 'exact' })
     
-    // Apply search filter if provided
+    // Add search filter if provided
     if (searchQuery) {
-      query = query.ilike('name', `%${searchQuery}%`)
+      query = query.or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
     }
     
-    // Apply pagination
-    const { data: shippers, error } = await query
-      .order('name', { ascending: true })
-      .range(offset, offset + limit - 1)
+    // Add pagination
+    const startIndex = (page - 1) * limit
+    query = query.range(startIndex, startIndex + limit - 1)
+    
+    // Add sorting
+    query = query.order('name', { ascending: true })
+    
+    const { data, error, count } = await query
     
     if (error) throw error
     
-    return { shippers: shippers || [], error: null }
+    // Return data with proper typing for backward compatibility
+    return { 
+      data: data || [], 
+      hasMore: Boolean(count && count > startIndex + limit),
+      error: null 
+    }
   } catch (error: any) {
-    console.error('Error fetching shippers:', error)
-    return { shippers: [], error: error.message }
+    return { 
+      data: [], 
+      hasMore: false, 
+      error: error.message 
+    }
   }
 }
 
@@ -37,7 +62,7 @@ export async function fetchShipper(shipperId: string) {
   const supabase = createClient()
   
   try {
-    const { data: shipper, error } = await supabase
+    const { data, error } = await supabase
       .from('shippers')
       .select('*')
       .eq('id', shipperId)
@@ -45,10 +70,9 @@ export async function fetchShipper(shipperId: string) {
     
     if (error) throw error
     
-    return { shipper, error: null }
+    return { data, error: null }
   } catch (error: any) {
-    console.error('Error fetching shipper details:', error)
-    return { shipper: null, error: error.message }
+    return { data: null, error: error.message }
   }
 }
 
@@ -69,7 +93,7 @@ export async function createShipper({
   const supabase = createClient()
   
   try {
-    const { data: shipper, error } = await supabase
+    const { data, error } = await supabase
       .from('shippers')
       .insert({
         name,
@@ -85,10 +109,9 @@ export async function createShipper({
     
     if (error) throw error
     
-    return { shipper, error: null }
+    return { data, error: null }
   } catch (error: any) {
-    console.error('Error creating shipper:', error)
-    return { shipper: null, error: error.message }
+    return { data: null, error: error.message }
   }
 }
 
@@ -120,10 +143,9 @@ export async function updateShipper(
     
     if (error) throw error
     
-    return { shipper, error: null }
+    return { data: shipper, error: null }
   } catch (error: any) {
-    console.error('Error updating shipper:', error)
-    return { shipper: null, error: error.message }
+    return { data: null, error: error.message }
   }
 }
 
@@ -141,7 +163,6 @@ export async function deleteShipper(shipperId: string) {
     
     return { success: true, error: null }
   } catch (error: any) {
-    console.error('Error deleting shipper:', error)
     return { success: false, error: error.message }
   }
 }
@@ -149,32 +170,56 @@ export async function deleteShipper(shipperId: string) {
 // Buyer Management Functions
 
 // Fetch all buyers with pagination and search
-export async function fetchBuyers(page = 1, limit = 50, searchQuery = '') {
+export async function fetchBuyers({
+  page = 1,
+  limit = 20,
+  searchQuery = '',
+  essentialFieldsOnly = true
+}: {
+  page?: number;
+  limit?: number;
+  searchQuery?: string;
+  essentialFieldsOnly?: boolean;
+} = {}) {
   const supabase = createClient()
   
   try {
-    const offset = (page - 1) * limit
+    // Only select essential fields to improve performance
+    const fields = essentialFieldsOnly 
+      ? 'id, name, email, phone' 
+      : '*';
     
     let query = supabase
       .from('buyers')
-      .select('*')
+      .select(fields, { count: 'exact' })
     
-    // Apply search filter if provided
+    // Add search filter if provided
     if (searchQuery) {
-      query = query.ilike('name', `%${searchQuery}%`)
+      query = query.or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
     }
     
-    // Apply pagination
-    const { data: buyers, error } = await query
-      .order('name', { ascending: true })
-      .range(offset, offset + limit - 1)
+    // Add pagination
+    const startIndex = (page - 1) * limit
+    query = query.range(startIndex, startIndex + limit - 1)
+    
+    // Add sorting
+    query = query.order('name', { ascending: true })
+    
+    const { data, error, count } = await query
     
     if (error) throw error
     
-    return { buyers: buyers || [], error: null }
+    return { 
+      buyers: data || [], 
+      total: count || 0, 
+      error: null 
+    }
   } catch (error: any) {
-    console.error('Error fetching buyers:', error)
-    return { buyers: [], error: error.message }
+    return { 
+      buyers: [], 
+      total: 0, 
+      error: error.message 
+    }
   }
 }
 
@@ -193,7 +238,6 @@ export async function fetchBuyer(buyerId: string) {
     
     return { buyer, error: null }
   } catch (error: any) {
-    console.error('Error fetching buyer details:', error)
     return { buyer: null, error: error.message }
   }
 }
@@ -233,7 +277,6 @@ export async function createBuyer({
     
     return { buyer, error: null }
   } catch (error: any) {
-    console.error('Error creating buyer:', error)
     return { buyer: null, error: error.message }
   }
 }
@@ -268,7 +311,6 @@ export async function updateBuyer(
     
     return { buyer, error: null }
   } catch (error: any) {
-    console.error('Error updating buyer:', error)
     return { buyer: null, error: error.message }
   }
 }
@@ -287,7 +329,6 @@ export async function deleteBuyer(buyerId: string) {
     
     return { success: true, error: null }
   } catch (error: any) {
-    console.error('Error deleting buyer:', error)
     return { success: false, error: error.message }
   }
 }
@@ -321,7 +362,6 @@ export async function updateOrderShippingDetails(
     
     return { order, error: null }
   } catch (error: any) {
-    console.error('Error updating order shipping details:', error)
     return { order: null, error: error.message }
   }
 } 

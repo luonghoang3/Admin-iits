@@ -11,77 +11,84 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { format } from 'date-fns'
 
-import { 
-  ArrowLeftIcon, 
+import {
+  ArrowLeftIcon,
   PencilIcon,
   DocumentDuplicateIcon,
   TrashIcon,
   ArchiveBoxIcon as PackageIcon
 } from "@heroicons/react/24/outline"
 
-import { Order, OrderItem } from '@/types/orders.d'
+import { Order, OrderItem } from '@/types/orders'
 
 interface OrderDetailPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
-export default function OrderDetailPage({ params }: OrderDetailPageProps) {
+export default function OrderDetailPage({ params: paramsPromise }: OrderDetailPageProps) {
   const router = useRouter()
-  
-  // Truy cập params trực tiếp thay vì sử dụng React.use()
-  const orderId = params.id
-  
+
+  // Use React.use() to resolve the params promise
+  const params = React.use(paramsPromise);
+  const orderId = params.id;
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [order, setOrder] = useState<Order | null>(null)
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
-  
+
   // Fetch order data
   useEffect(() => {
     async function loadOrderData() {
       try {
         setLoading(true)
-        
+
         // Fetch order details
         const { order, error: orderError } = await fetchOrder(orderId)
-        
+
         if (orderError) {
           throw new Error(`Failed to load order: ${orderError}`)
         }
-        
+
         if (order) {
           setOrder(order)
-          
+
           // Load order items
           const { orderItems, error: itemsError } = await fetchOrderItems(orderId)
-          
+
           if (itemsError) {
-            console.error('Error loading order items:', itemsError)
+            // Error handling without console logging
           } else {
-            setOrderItems(orderItems || [])
+            // Transform data to ensure compatibility with OrderItem type
+            const transformedItems = orderItems?.map(item => ({
+              ...item,
+              // Convert undefined to null for commodity_description
+              commodity_description: item.commodity_description ?? null
+            })) || [];
+
+            setOrderItems(transformedItems)
           }
         } else {
           throw new Error('Order not found')
         }
       } catch (err: any) {
-        console.error('Error loading order:', err)
         setError(err.message || 'Failed to load order')
       } finally {
         setLoading(false)
       }
     }
-    
+
     if (orderId) {
       loadOrderData()
     }
   }, [orderId])
-  
+
   // Helper function to render status badge
   const getStatusBadge = (status: string) => {
     let variant: "default" | "secondary" | "destructive" | "outline" = "outline";
-    
+
     switch(status) {
       case 'draft':
         return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Draft</Badge>
@@ -95,7 +102,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         return <Badge variant="outline">Unknown</Badge>
     }
   }
-  
+
   // Handle delete order
   const handleDeleteOrder = async () => {
     if (confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
@@ -103,12 +110,11 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         // Implement delete functionality
         router.push('/dashboard/orders')
       } catch (err: any) {
-        console.error('Error deleting order:', err)
         setError(err.message || 'Failed to delete order')
       }
     }
   }
-  
+
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center h-96">
@@ -119,7 +125,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
       </div>
     )
   }
-  
+
   if (error || !order) {
     return (
       <div className="p-6 space-y-6">
@@ -135,7 +141,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
       </div>
     )
   }
-  
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
@@ -153,13 +159,13 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           </h1>
           <div className="flex items-center ml-2 space-x-2">
             {getStatusBadge(order.status || 'draft')}
-            
+
             <Badge variant="outline" className="bg-slate-100">
               {order.type === 'international' ? 'International' : 'Local'}
             </Badge>
-            
+
             <Badge variant="outline" className="bg-slate-100">
-              {order.department === 'marine' ? 'Marine' : 
+              {order.department === 'marine' ? 'Marine' :
                order.department === 'agriculture' ? 'Agriculture' : 'Consumer Goods'}
             </Badge>
           </div>
@@ -175,9 +181,9 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             <DocumentDuplicateIcon className="h-4 w-4" />
             Duplicate
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="flex items-center gap-1 text-red-600 hover:text-red-700"
             onClick={handleDeleteOrder}
           >
@@ -186,7 +192,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           </Button>
         </div>
       </div>
-      
+
       {/* Order Details Section */}
       <div className="flex flex-col md:flex-row gap-6 mb-6">
         {/* Client Information (50%) */}
@@ -217,7 +223,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             </div>
           </CardContent>
         </Card>
-        
+
         {/* Shipping Information (20%) */}
         <Card className="md:w-[20%]">
           <CardHeader>
@@ -248,7 +254,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             </div>
           </CardContent>
         </Card>
-        
+
         {/* Order Information (30%) - right side */}
         <Card className="md:w-[30%]">
           <CardHeader>
@@ -273,7 +279,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
               <div>
                 <p className="text-sm text-muted-foreground">Department</p>
                 <p className="font-medium capitalize">
-                  {order.department === 'marine' ? 'Marine' : 
+                  {order.department === 'marine' ? 'Marine' :
                    order.department === 'agriculture' ? 'Agriculture' : 'Consumer Goods'}
                 </p>
               </div>
@@ -289,7 +295,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           </CardContent>
         </Card>
       </div>
-      
+
       {/* Order Items */}
       <Card className="mb-6">
         <CardHeader>
@@ -324,7 +330,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           )}
         </CardContent>
       </Card>
-      
+
       {/* Notes */}
       {order.notes && (
         <Card className="mb-6">
@@ -338,4 +344,4 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
       )}
     </div>
   )
-} 
+}
