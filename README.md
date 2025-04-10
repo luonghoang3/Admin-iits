@@ -54,7 +54,7 @@
 
 ### 2.1. Yêu cầu hệ thống
 
-- Node.js 18.0+ 
+- Node.js 18.0+
 - npm hoặc pnpm
 - Supabase CLI (để phát triển local)
 - Git
@@ -172,7 +172,9 @@ Tính năng quản lý đơn hàng toàn diện, hỗ trợ nhiều loại đơn
   - Thông tin vận chuyển (vessel, bill of lading)
   - Danh sách hàng hóa với số lượng và đơn vị tính
   - Nhà vận chuyển và bên mua
-- **Auto-generate mã đơn hàng**: Tự động tạo mã đơn theo format
+- **Auto-generate mã đơn hàng**: Tự động tạo mã đơn theo format `[Loại][Phòng ban][Năm]-[Số thứ tự]`
+  - Hiển thị số thứ tự dự kiến dựa trên số thứ tự cao nhất hiện có
+  - Tự động tăng số thứ tự khi tạo đơn hàng mới
 - **Luồng xử lý đơn hàng**: Quản lý các bước từ draft đến completed
 
 #### 5.3.1. Form Đơn hàng
@@ -183,6 +185,8 @@ Form đơn hàng được chia thành nhiều phần:
    - Chọn khách hàng
    - Chọn người liên hệ
    - Tạo mới hoặc chỉnh sửa thông tin khách hàng và liên hệ
+   - Tự động chọn người liên hệ gần nhất khi chọn khách hàng
+   - Tự động gán khách hàng mới sau khi tạo
 
 2. **Chi tiết đơn hàng**:
    - Loại đơn hàng (international/local)
@@ -190,6 +194,7 @@ Form đơn hàng được chia thành nhiều phần:
    - Ngày đặt hàng
    - Trạng thái đơn hàng
    - Mã tham chiếu của khách hàng
+   - Hiển thị mã đơn hàng dự kiến với số thứ tự tiếp theo
 
 3. **Thông tin vận chuyển**:
    - Vessel/Carrier
@@ -203,6 +208,7 @@ Form đơn hàng được chia thành nhiều phần:
    - Chọn hàng hóa từ danh mục
    - Số lượng và đơn vị tính
    - Mô tả chi tiết hàng hóa
+   - Cập nhật đồng bộ khi chỉnh sửa đơn hàng
 
 ### 5.4. Quản lý hàng hóa
 
@@ -482,13 +488,13 @@ export async function fetchOrders() {
       clients:client_id (name)
     `)
     .order('created_at', { ascending: false })
-  
+
   // Format response with client names
   const formattedOrders = orders.map(order => ({
     ...order,
     client_name: order.clients?.name
   }))
-  
+
   return { orders: formattedOrders, error: null }
 }
 
@@ -502,7 +508,7 @@ export async function fetchOrder(orderId: string) {
     `)
     .eq('id', orderId)
     .single()
-  
+
   return { order, error }
 }
 ```
@@ -639,11 +645,11 @@ describe('ClientForm', () => {
   it('submits the form with correct data', async () => {
     const mockSubmit = jest.fn()
     render(<ClientForm onSubmit={mockSubmit} />)
-    
+
     await userEvent.type(screen.getByLabelText('Name'), 'Test Client')
     await userEvent.type(screen.getByLabelText('Email'), 'test@example.com')
     await userEvent.click(screen.getByText('Save'))
-    
+
     await waitFor(() => {
       expect(mockSubmit).toHaveBeenCalledWith({
         name: 'Test Client',
