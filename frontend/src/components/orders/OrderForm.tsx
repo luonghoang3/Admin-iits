@@ -84,6 +84,12 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
   // Client management (clients & contacts)
   const clientManagement = useClientAndContactManagement({
     initialClientId: formData?.client_id,
+    onClientUpdated: (client) => {
+      // When a client is selected or updated, update the form
+      if (client && client.id) {
+        setFieldValue('client_id', client.id);
+      }
+    },
     onContactUpdated: (contact) => {
       // When a contact is selected or updated, update the form
       if (contact && contact.id) {
