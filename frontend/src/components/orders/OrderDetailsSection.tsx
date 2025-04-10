@@ -57,9 +57,9 @@ const OrderDetailsSection: React.FC<OrderDetailsSectionProps> = ({
         <CardTitle className="flex items-center">
           <Building2Icon className="h-5 w-5 mr-2 text-gray-500" />
           Order Details
-          {previewOrderNumber && (
+          {(formData?.order_number || previewOrderNumber) && (
             <span className="ml-auto text-sm text-gray-500">
-              Order number: <span className="font-semibold">{previewOrderNumber}</span>
+              Order number: <span className="font-semibold">{formData?.order_number || previewOrderNumber}</span>
             </span>
           )}
         </CardTitle>

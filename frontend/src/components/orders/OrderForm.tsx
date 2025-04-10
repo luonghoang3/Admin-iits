@@ -45,6 +45,21 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
   // Preview order number
   const [previewOrderNumber, setPreviewOrderNumber] = useState<string>('')
 
+  // Generate preview order number based on form data
+  const generatePreviewOrderNumber = useCallback(() => {
+    if (formData?.order_number) {
+      // If order already has a number, use it
+      setPreviewOrderNumber(formData.order_number);
+    } else if (mode === 'add') {
+      // For new orders, generate a preview
+      const typePrefix = formData?.type === 'international' ? 'I' : 'L';
+      const deptCode = formData?.department === 'marine' ? 'MR' :
+                      formData?.department === 'agriculture' ? 'AG' : 'CG';
+      const yearCode = new Date().getFullYear().toString().substring(2);
+      setPreviewOrderNumber(`${typePrefix}${deptCode}${yearCode}-XXX`);
+    }
+  }, [formData?.type, formData?.department, formData?.order_number, mode])
+
   // Chuyển đổi mode của component sang mode của hook
   const hookMode = mode === 'add' ? 'create' : 'edit'
 
@@ -144,6 +159,11 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
       await clientManagement.selectClient(client);
     }
   };
+
+  // Update preview order number when form data changes
+  useEffect(() => {
+    generatePreviewOrderNumber();
+  }, [generatePreviewOrderNumber]);
 
   // Commodities with pagination and search
   const {
