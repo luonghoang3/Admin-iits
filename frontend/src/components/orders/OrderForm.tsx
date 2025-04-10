@@ -44,21 +44,7 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
 
   // Preview order number
   const [previewOrderNumber, setPreviewOrderNumber] = useState<string>('')
-
-  // Generate preview order number based on form data
-  const generatePreviewOrderNumber = useCallback(() => {
-    if (formData?.order_number) {
-      // If order already has a number, use it
-      setPreviewOrderNumber(formData.order_number);
-    } else if (mode === 'add') {
-      // For new orders, generate a preview
-      const typePrefix = formData?.type === 'international' ? 'I' : 'L';
-      const deptCode = formData?.department === 'marine' ? 'MR' :
-                      formData?.department === 'agriculture' ? 'AG' : 'CG';
-      const yearCode = new Date().getFullYear().toString().substring(2);
-      setPreviewOrderNumber(`${typePrefix}${deptCode}${yearCode}-XXX`);
-    }
-  }, [formData?.type, formData?.department, formData?.order_number, mode])
+  const [nextSequence, setNextSequence] = useState<number>(1)
 
   // Chuyển đổi mode của component sang mode của hook
   const hookMode = mode === 'add' ? 'create' : 'edit'
@@ -95,6 +81,48 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
     itemError,       // Pass down if needed by OrderItemsSection
     loadOrderDataAndItems
   } = orderFormData;
+
+  // Function to fetch the next sequence number from the database
+  const fetchNextSequenceFromDB = useCallback(async (typePrefix: string, deptCode: string, yearCode: string) => {
+    try {
+      const { fetchNextOrderSequence } = await import('@/utils/supabase/client');
+      const { nextSequence, formattedOrderNumber, error } = await fetchNextOrderSequence(typePrefix, deptCode, yearCode);
+
+      if (error) {
+        console.error('Error fetching next sequence:', error);
+        return 1; // Default to 1 if there's an error
+      }
+
+      return nextSequence;
+    } catch (error) {
+      console.error('Error in fetchNextSequenceFromDB:', error);
+      return 1; // Default to 1 if there's an error
+    }
+  }, []);
+
+  // Generate preview order number based on form data
+  const generatePreviewOrderNumber = useCallback(async () => {
+    if (formData?.order_number) {
+      // If order already has a number, use it
+      setPreviewOrderNumber(formData.order_number);
+    } else if (mode === 'add') {
+      // For new orders, generate a preview
+      const typePrefix = formData?.type === 'international' ? 'I' : 'L';
+      const deptCode = formData?.department === 'marine' ? 'MR' :
+                      formData?.department === 'agriculture' ? 'AG' : 'CG';
+      const yearCode = new Date().getFullYear().toString().substring(2);
+
+      // Fetch the next sequence number from the database
+      const sequence = await fetchNextSequenceFromDB(typePrefix, deptCode, yearCode);
+      setNextSequence(sequence);
+
+      // Format the sequence number with leading zeros
+      const sequenceFormatted = String(sequence).padStart(3, '0');
+
+      // Set the preview order number with the actual next sequence
+      setPreviewOrderNumber(`${typePrefix}${deptCode}${yearCode}-${sequenceFormatted}`);
+    }
+  }, [formData?.type, formData?.department, formData?.order_number, mode, fetchNextSequenceFromDB])
 
   // Client management (clients & contacts)
   const clientManagement = useClientAndContactManagement({
@@ -162,7 +190,11 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
 
   // Update preview order number when form data changes
   useEffect(() => {
-    generatePreviewOrderNumber();
+    const updatePreviewOrderNumber = async () => {
+      await generatePreviewOrderNumber();
+    };
+
+    updatePreviewOrderNumber();
   }, [generatePreviewOrderNumber]);
 
   // Commodities with pagination and search
