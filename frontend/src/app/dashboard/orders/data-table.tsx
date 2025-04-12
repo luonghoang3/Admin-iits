@@ -41,15 +41,18 @@ interface DataTableProps<TData, TValue> {
   statusOptions: Array<{value: string, label: string}>
   clientOptions: Array<{value: string, label: string}>
   onDeleteOrder?: (orderId: string) => void
+  pagination?: {
+    page: number
+    pageCount: number
+    onPageChange: (page: number) => void
+  }
 }
 
 // Tùy chỉnh hàm lọc
 const filterFn: FilterFn<any> = (row, columnId, filterValue) => {
   if (!filterValue || (filterValue as Set<string>).size === 0) return true
   
-  const value = row.getValue(columnId) as string
-  if (!value) return false
-  
+  const value = row.getValue(columnId)
   const filterSet = filterValue as Set<string>
   return filterSet.has(value)
 }
@@ -61,6 +64,7 @@ export function DataTable<TData, TValue>({
   statusOptions,
   clientOptions,
   onDeleteOrder,
+  pagination,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -87,8 +91,11 @@ export function DataTable<TData, TValue>({
     initialState: {
       pagination: {
         pageSize: 10,
+        pageIndex: pagination ? pagination.page - 1 : 0,
       },
     },
+    // Vô hiệu hóa phân trang tích hợp vì chúng ta đang sử dụng phân trang phía server
+    manualPagination: !!pagination,
   })
 
   // Thiết lập filterFn cho các cột department, status và client_name
@@ -134,204 +141,8 @@ export function DataTable<TData, TValue>({
     }
   }, [onDeleteOrder]);
 
-  // Cập nhật bộ lọc departments
-  useEffect(() => {
-    const departmentColumn = table.getColumn("department")
-    if (departmentColumn) {
-      if (selectedDepartments.size === 0) {
-        departmentColumn.setFilterValue(undefined)
-      } else {
-        departmentColumn.setFilterValue(selectedDepartments)
-      }
-    }
-  }, [selectedDepartments, table]);
-
-  // Cập nhật bộ lọc statuses
-  useEffect(() => {
-    const statusColumn = table.getColumn("status")
-    if (statusColumn) {
-      if (selectedStatuses.size === 0) {
-        statusColumn.setFilterValue(undefined)
-      } else {
-        statusColumn.setFilterValue(selectedStatuses)
-      }
-    }
-  }, [selectedStatuses, table]);
-  
-  // Cập nhật bộ lọc khách hàng
-  useEffect(() => {
-    const clientColumn = table.getColumn("client_name")
-    if (clientColumn) {
-      if (selectedClients.size === 0) {
-        clientColumn.setFilterValue(undefined)
-      } else {
-        clientColumn.setFilterValue(selectedClients)
-      }
-    }
-  }, [selectedClients, table]);
-
-  // Toggle department filter
-  function toggleDepartmentFilter(department: string) {
-    setSelectedDepartments(prev => {
-      const newSelected = new Set(prev)
-      if (newSelected.has(department)) {
-        newSelected.delete(department)
-      } else {
-        newSelected.add(department)
-      }
-      return newSelected
-    })
-  }
-
-  // Toggle status filter
-  function toggleStatusFilter(status: string) {
-    setSelectedStatuses(prev => {
-      const newSelected = new Set(prev)
-      if (newSelected.has(status)) {
-        newSelected.delete(status)
-      } else {
-        newSelected.add(status)
-      }
-      return newSelected
-    })
-  }
-  
-  // Toggle client filter
-  function toggleClientFilter(client: string) {
-    setSelectedClients(prev => {
-      const newSelected = new Set(prev)
-      if (newSelected.has(client)) {
-        newSelected.delete(client)
-      } else {
-        newSelected.add(client)
-      }
-      return newSelected
-    })
-  }
-
   return (
     <div>
-      <div className="flex items-center justify-between py-4 overflow-x-auto">
-        <div className="flex items-center gap-2 whitespace-nowrap">
-          <Input
-            placeholder="Tìm kiếm theo mã đơn hàng..."
-            value={(table.getColumn("order_number")?.getFilterValue() as string) ?? ""}
-            onChange={(event) =>
-              table.getColumn("order_number")?.setFilterValue(event.target.value)
-            }
-            className="w-60"
-          />
-          
-          {/* Lọc theo khách hàng */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                <span>
-                  Khách hàng {selectedClients.size > 0 && `(${selectedClients.size})`}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="max-h-[300px] overflow-y-auto">
-              {clientOptions.length === 0 ? (
-                <div className="px-2 py-1.5 text-sm">Không có dữ liệu</div>
-              ) : (
-                clientOptions.map((option) => (
-                  <DropdownMenuCheckboxItem
-                    key={option.value}
-                    checked={selectedClients.has(option.value)}
-                    onCheckedChange={() => toggleClientFilter(option.value)}
-                  >
-                    {option.label}
-                  </DropdownMenuCheckboxItem>
-                ))
-              )}
-              {selectedClients.size > 0 && (
-                <Button 
-                  variant="ghost" 
-                  className="w-full text-xs text-muted-foreground mt-2"
-                  onClick={() => setSelectedClients(new Set())}
-                >
-                  Xóa bộ lọc
-                </Button>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          {/* Lọc theo phòng ban */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                <span>
-                  Phòng ban {selectedDepartments.size > 0 && `(${selectedDepartments.size})`}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {departmentOptions.length === 0 ? (
-                <div className="px-2 py-1.5 text-sm">Không có dữ liệu</div>
-              ) : (
-                departmentOptions.map((option) => (
-                  <DropdownMenuCheckboxItem
-                    key={option.value}
-                    checked={selectedDepartments.has(option.value)}
-                    onCheckedChange={() => toggleDepartmentFilter(option.value)}
-                  >
-                    {option.label}
-                  </DropdownMenuCheckboxItem>
-                ))
-              )}
-              {selectedDepartments.size > 0 && (
-                <Button 
-                  variant="ghost" 
-                  className="w-full text-xs text-muted-foreground mt-2"
-                  onClick={() => setSelectedDepartments(new Set())}
-                >
-                  Xóa bộ lọc
-                </Button>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          {/* Lọc theo trạng thái */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                <span>
-                  Trạng thái {selectedStatuses.size > 0 && `(${selectedStatuses.size})`}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {statusOptions.length === 0 ? (
-                <div className="px-2 py-1.5 text-sm">Không có dữ liệu</div>
-              ) : (
-                statusOptions.map((option) => (
-                  <DropdownMenuCheckboxItem
-                    key={option.value}
-                    checked={selectedStatuses.has(option.value)}
-                    onCheckedChange={() => toggleStatusFilter(option.value)}
-                  >
-                    {option.label}
-                  </DropdownMenuCheckboxItem>
-                ))
-              )}
-              {selectedStatuses.size > 0 && (
-                <Button 
-                  variant="ghost" 
-                  className="w-full text-xs text-muted-foreground mt-2"
-                  onClick={() => setSelectedStatuses(new Set())}
-                >
-                  Xóa bộ lọc
-                </Button>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-      
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -380,24 +191,30 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
       
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Trước
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Sau
-        </Button>
-      </div>
+      {/* Hiển thị phân trang nếu có */}
+      {pagination && (
+        <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-gray-500">
+            Trang {pagination.page} / {Math.max(1, pagination.pageCount)}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => pagination.onPageChange(pagination.page - 1)}
+              disabled={pagination.page <= 1}
+            >
+              Trước
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => pagination.onPageChange(pagination.page + 1)}
+              disabled={pagination.page >= pagination.pageCount}
+            >
+              Sau
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
-} 
+}

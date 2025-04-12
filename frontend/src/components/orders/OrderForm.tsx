@@ -19,11 +19,41 @@ import { useClientAndContactManagement } from '@/hooks/useClientAndContactManage
 import { useUnits } from "@/hooks/useUnits"
 import { useCommodities } from "@/hooks/useCommodities"
 
-// Component sections
-import ClientInformationSection from './ClientInformationSection'
-import OrderDetailsSection from './OrderDetailsSection'
-import ShippingSection from './ShippingSection'
-import OrderItemsSection from './OrderItemsSection'
+// Component sections - lazy loaded
+import dynamic from 'next/dynamic'
+
+const ClientInformationSection = dynamic(() => import('./ClientInformationSection'), {
+  loading: () => <div className="h-[300px] w-full animate-pulse bg-muted rounded-md"></div>
+})
+
+const OrderDetailsSection = dynamic(() => import('./OrderDetailsSection'), {
+  loading: () => <div className="h-[300px] w-full animate-pulse bg-muted rounded-md"></div>
+})
+
+const ShippingSection = dynamic(() => import('./ShippingSection'), {
+  loading: () => <div className="h-[200px] w-full animate-pulse bg-muted rounded-md"></div>
+})
+
+const OrderItemsSection = dynamic(() => import('./OrderItemsSection'), {
+  loading: () => <div className="h-[300px] w-full animate-pulse bg-muted rounded-md"></div>
+})
+
+// Lazy load dialogs
+const ClientDialog = dynamic(() => import('./dialogs/ClientDialog'), {
+  loading: () => null
+})
+
+const ContactDialog = dynamic(() => import('./dialogs/ContactDialog'), {
+  loading: () => null
+})
+
+const DeleteContactDialog = dynamic(() => import('./dialogs/DeleteContactDialog'), {
+  loading: () => null
+})
+
+const DeleteEntityDialog = dynamic(() => import('./dialogs/DeleteEntityDialog'), {
+  loading: () => null
+})
 
 // Types
 import { OrderFormData, OrderItem } from '@/types/orders'
@@ -266,191 +296,43 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Client Dialog */}
-      <Dialog open={clientDialogOpen} onOpenChange={setClientDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{clientDialogMode === 'add' ? 'Add New Client' : 'Edit Client'}</DialogTitle>
-            <DialogDescription>
-              {clientDialogMode === 'add'
-                ? 'Add a new client to your order system.'
-                : 'Edit the selected client information.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {clientError && (
-              <div className="bg-red-50 text-red-500 p-3 rounded-md text-sm">{clientError}</div>
-            )}
-            <div className="grid gap-2">
-              <Label htmlFor="client-name">Company Name*</Label>
-              <Input
-                id="client-name"
-                name="name"
-                value={clientForm.name}
-                onChange={handleClientFormChange}
-                placeholder="Enter company name"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="client-email">Email</Label>
-              <Input
-                id="client-email"
-                name="email"
-                type="email"
-                value={clientForm.email}
-                onChange={handleClientFormChange}
-                placeholder="company@example.com"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="client-phone">Phone</Label>
-              <Input
-                id="client-phone"
-                name="phone"
-                value={clientForm.phone}
-                onChange={handleClientFormChange}
-                placeholder="Phone number"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="client-address">Address</Label>
-              <Input
-                id="client-address"
-                name="address"
-                value={clientForm.address}
-                onChange={handleClientFormChange}
-                placeholder="Company address"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setClientDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveClient}>
-              {clientDialogMode === 'add' ? 'Add Client' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Client Dialog - Lazy Loaded */}
+      <ClientDialog
+        open={clientDialogOpen}
+        onOpenChange={setClientDialogOpen}
+        mode={clientDialogMode}
+        clientForm={clientForm}
+        clientError={clientError}
+        handleClientFormChange={handleClientFormChange}
+        handleSaveClient={handleSaveClient}
+      />
 
-      {/* Delete Client Confirmation Dialog */}
-      <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Client</DialogTitle>
-            <DialogDescription>
-              This will permanently remove the client from your system.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-gray-500">
-              Are you sure you want to delete this client? This action cannot be undone.
-            </p>
-          </div>
-          <DialogFooter className="flex space-x-2 justify-end">
-            <Button variant="outline" onClick={() => setIsConfirmDeleteOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteClient}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Delete Client Confirmation Dialog - Lazy Loaded */}
+      <DeleteEntityDialog
+        open={isConfirmDeleteOpen}
+        onOpenChange={setIsConfirmDeleteOpen}
+        title="Delete Client"
+        description="This will permanently remove the client from your system. This action cannot be undone."
+        handleDelete={handleDeleteClient}
+      />
 
-      {/* Contact Person Dialog */}
-      <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{contactDialogMode === 'add' ? 'Add New Contact' : 'Edit Contact'}</DialogTitle>
-            <DialogDescription>
-              {contactDialogMode === 'add'
-                ? 'Add a new contact person for this client.'
-                : 'Edit the selected contact information.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {contactError && (
-              <div className="bg-red-50 text-red-500 p-3 rounded-md text-sm">{contactError}</div>
-            )}
-            <div className="grid gap-2">
-              <Label htmlFor="contact-fullname">Full Name*</Label>
-              <Input
-                id="contact-fullname"
-                name="full_name"
-                value={contactForm.full_name}
-                onChange={handleContactFormChange}
-                placeholder="Enter full name"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="contact-position">Position</Label>
-              <Input
-                id="contact-position"
-                name="position"
-                value={contactForm.position}
-                onChange={handleContactFormChange}
-                placeholder="Enter position"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="contact-email">Email</Label>
-              <Input
-                id="contact-email"
-                name="email"
-                type="email"
-                value={contactForm.email}
-                onChange={handleContactFormChange}
-                placeholder="contact@example.com"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="contact-phone">Phone</Label>
-              <Input
-                id="contact-phone"
-                name="phone"
-                value={contactForm.phone}
-                onChange={handleContactFormChange}
-                placeholder="Phone number"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setContactDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveContact}>
-              {contactDialogMode === 'add' ? 'Add Contact' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Contact Person Dialog - Lazy Loaded */}
+      <ContactDialog
+        open={contactDialogOpen}
+        onOpenChange={setContactDialogOpen}
+        mode={contactDialogMode}
+        contactForm={contactForm}
+        contactError={contactError}
+        handleContactFormChange={handleContactFormChange}
+        handleSaveContact={handleSaveContact}
+      />
 
-      {/* Delete Contact Person Confirmation Dialog */}
-      <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Contact</DialogTitle>
-            <DialogDescription>
-              This will permanently remove the contact from your system.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-gray-500">
-              Are you sure you want to delete this contact person? This action cannot be undone.
-            </p>
-          </div>
-          <DialogFooter className="flex space-x-2 justify-end">
-            <Button variant="outline" onClick={() => setIsConfirmDeleteOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteContact}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Delete Contact Person Confirmation Dialog - Lazy Loaded */}
+      <DeleteContactDialog
+        open={isConfirmDeleteOpen}
+        onOpenChange={setIsConfirmDeleteOpen}
+        handleDeleteContact={handleDeleteContact}
+      />
 
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center">

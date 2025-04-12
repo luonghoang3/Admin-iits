@@ -138,48 +138,29 @@ export function useClientAndContactManagement({
   const [contactError, setContactError] = useState<string | null>(null)
   const [isConfirmDeleteContactOpen, setIsConfirmDeleteContactOpen] = useState(false)
 
-  // Load reference data
-  useEffect(() => {
+  // Load initial data function
+  const loadInitialData = async () => {
     let isMounted = true;
 
-    const loadInitialData = async () => {
-      try {
-        setLoading(true);
+    try {
+      setLoading(true);
 
-        const { clients: clientsData, error: clientsError } = await fetchClients(1, 15)
-
-        if (!isMounted) return;
-
-        if (clientsError || !clientsData || clientsData.length === 0) {
-          // No clients in database or error, set test clients
-          const testClients = [
-            { id: 'test-1', name: 'Test Client 1', email: 'test1@example.com', phone: '123-456-7890', address: '123 Test St', contacts: [] },
-            { id: 'test-2', name: 'Test Client 2', email: 'test2@example.com', phone: '123-456-7891', address: '456 Test Ave', contacts: [] },
-            { id: 'test-3', name: 'Test Client 3', email: 'test3@example.com', phone: '123-456-7892', address: '789 Test Blvd', contacts: [] }
-          ]
-          if (isMounted) {
-            setClients(testClients);
-            setClientQuery('');
-            setLoading(false);
-          }
-        } else {
-          if (isMounted) {
-            setClients(clientsData);
-
-            // If initialClientId is provided, select that client
-            if (initialClientId) {
-              const selectedClient = clientsData.find(c => c.id === initialClientId);
-              if (selectedClient) {
-                selectClient(selectedClient);
-              }
-            }
-            setLoading(false);
-          }
+      // Nếu có initialClientId, tải client đó trước
+      let selectedClientData = null;
+      if (initialClientId) {
+        const { client, error: clientError } = await fetchClient(initialClientId);
+        if (!clientError && client) {
+          selectedClientData = client;
         }
-      } catch (error) {
-        if (!isMounted) return;
+      }
 
-        // In case of exception, set test data
+      // Tải số lượng client giới hạn để hỗ trợ phân trang
+      const { clients: clientsData, hasMore, error: clientsError } = await fetchClients(1, 15)
+
+      if (!isMounted) return;
+
+      if (clientsError || !clientsData || clientsData.length === 0) {
+        // No clients in database or error, set test clients
         const testClients = [
           { id: 'test-1', name: 'Test Client 1', email: 'test1@example.com', phone: '123-456-7890', address: '123 Test St', contacts: [] },
           { id: 'test-2', name: 'Test Client 2', email: 'test2@example.com', phone: '123-456-7891', address: '456 Test Ave', contacts: [] },
@@ -187,11 +168,59 @@ export function useClientAndContactManagement({
         ]
         if (isMounted) {
           setClients(testClients);
+          setClientPage(1);
+          setHasMoreClients(false);
+          setClientQuery('');
+          setLoading(false);
+        }
+      } else {
+        if (isMounted) {
+          // Kết hợp client đã được gán với danh sách client
+          let combinedClients = [...clientsData];
+
+          // Thêm selectedClientData vào đầu danh sách nếu có
+          if (selectedClientData && !combinedClients.some(c => c.id === selectedClientData.id)) {
+            combinedClients = [selectedClientData, ...combinedClients];
+          }
+
+          // Loại bỏ trùng lặp trước khi cập nhật danh sách
+          const uniqueClients = Array.from(
+            new Map(combinedClients.map(client => [client.id, client])).values()
+          );
+
+          setClients(uniqueClients);
+
+          // Cập nhật trạng thái phân trang
+          setClientPage(1);
+          // Luôn đặt hasMoreClients = true để cho phép người dùng cố gắng tải thêm dữ liệu
+          setHasMoreClients(true);
+
+          // If initialClientId is provided, select that client
+          if (initialClientId && selectedClientData) {
+            selectClient(selectedClientData);
+          }
+          setLoading(false);
+          }
+        }
+      } catch (error) {
+        if (!isMounted) return;
+
+        // In case of exception, set test data
+        console.error('Error loading clients:', error);
+        if (isMounted) {
+          setClients([]);
+          setClientPage(1);
+          setHasMoreClients(false);
           setLoading(false);
         }
       }
-    }
 
+      return { success: true };
+    };
+
+  // Load initial data on mount
+  useEffect(() => {
+    let isMounted = true;
     loadInitialData();
 
     return () => {
@@ -495,70 +524,171 @@ export function useClientAndContactManagement({
   const handleLoadMoreClients = async () => {
     if (!hasMoreClients || isLoadingMoreClients) return
 
-    let isMounted = true;
+    setIsLoadingMoreClients(true)
 
     try {
-      setIsLoadingMoreClients(true)
-      const nextPage = clientPage + 1
+      // Kiểm tra số lượng kết quả hiện tại trước khi tải thêm
+      const { clients: currentResults, hasMore: currentHasMore, error: checkError } =
+        await fetchClients(1, 15, clientQuery);
 
-      const { clients: moreClients, error } = await fetchClients(nextPage, 15, clientQuery)
+      if (checkError) {
+        console.error('Error checking current results:', checkError);
+        setIsLoadingMoreClients(false);
+        return;
+      }
 
-      if (!isMounted) return;
+      // Nếu số lượng kết quả hiện tại ít hơn 15, không cần tải thêm
+      if (currentResults.length < 15) {
+        console.log('Not enough results to load more:', currentResults.length);
+        setHasMoreClients(false);
+        setIsLoadingMoreClients(false);
+        return;
+      }
 
+      // Tính toán số trang dựa trên số lượng mục mỗi trang là 15
+      const itemsPerPage = 15;
+      const nextPage = Math.floor(clients.length / itemsPerPage) + 1
+
+      console.log(`Loading more clients: page=${nextPage}, query="${clientQuery}"`);
+      const { clients: moreClients, hasMore, error, total } = await fetchClients(nextPage, itemsPerPage, clientQuery)
+
+      // Kiểm tra xem có vượt quá số lượng kết quả có sẵn không
+      console.log('handleLoadMoreClients - Checking for error:', error);
       if (error) {
-        throw new Error(error)
+        // Nếu lỗi là "Requested Range Not Satisfiable", đặt hasMore = false và không hiển thị lỗi
+        const errorStr = JSON.stringify(error);
+        console.log('Error object:', errorStr);
+        console.log('Error code:', error.code);
+        console.log('Error message:', error.message);
+        console.log('Error details:', error.details);
+
+        // Kiểm tra các trường hợp lỗi khác nhau
+        const isPGRST103 = error.code === 'PGRST103';
+        const hasRangeMessage = error.message && error.message.includes('Requested range not satisfiable');
+        const hasRangeInStr = errorStr.includes('Requested range not satisfiable');
+        const isEmptyError = errorStr === '{}';
+
+        console.log('isPGRST103:', isPGRST103);
+        console.log('hasRangeMessage:', hasRangeMessage);
+        console.log('hasRangeInStr:', hasRangeInStr);
+        console.log('isEmptyError:', isEmptyError);
+
+        if (isEmptyError || hasRangeInStr || isPGRST103 || hasRangeMessage) {
+          console.log('Reached end of results, no more data to load');
+          setHasMoreClients(false);
+          setIsLoadingMoreClients(false);
+          return;
+        }
+
+        // Đặt hasMoreClients = false để ngăn người dùng cố gắng tải thêm dữ liệu
+        setHasMoreClients(false);
+        setIsLoadingMoreClients(false);
+        console.error(`Error loading more clients: ${error}`);
+        return;
       }
 
       if (moreClients && moreClients.length > 0) {
-        setClients(prev => [...prev, ...moreClients])
+        // Thêm các client mới và loại bỏ trùng lặp dựa trên ID
+        setClients(prev => {
+          // Kết hợp danh sách cũ và mới
+          const combined = [...prev, ...moreClients];
+
+          // Loại bỏ trùng lặp dựa trên ID
+          return Array.from(new Map(combined.map(client => [client.id, client])).values());
+        })
+
         setClientPage(nextPage)
-        setHasMoreClients(moreClients.length === 15)
+        setHasMoreClients(hasMore)
       } else {
         setHasMoreClients(false)
       }
-    } catch (err) {
-      if (isMounted) {
-        console.error('Error loading more clients:', err)
-      }
+    } catch (error) {
+      console.error('Error loading more clients:', error)
     } finally {
-      if (isMounted) {
-        setIsLoadingMoreClients(false)
-      }
+      setIsLoadingMoreClients(false)
     }
   }
 
   // Search clients
   const handleClientSearch = async (query: string) => {
     setClientQuery(query)
-    if (query.length > 1) {
-      let isMounted = true;
+    setLoading(true)
 
-      try {
-        const { clients: searchResults, error } = await fetchClients(1, 15, query)
+    // Đặt lại trang về 1 khi tìm kiếm
+    setClientPage(1)
 
-        if (!isMounted) return;
+    // Số lượng mục mỗi trang
+    const itemsPerPage = 15;
 
-        if (!error && searchResults) {
-          setClients(searchResults)
-        }
-      } catch (error) {
-        if (isMounted) {
-          console.error('Error searching clients:', error)
-        }
+    try {
+      // Gọi API với trang 1 và query mới
+      const { clients: searchResults, hasMore, error, total } = await fetchClients(1, itemsPerPage, query)
+
+      if (error) {
+        throw new Error(`Error searching clients: ${error}`)
       }
+
+      // Loại bỏ trùng lặp trước khi cập nhật danh sách
+      let updatedClients = searchResults || [];
+
+      // Đảm bảo client đang được chọn vẫn có trong danh sách
+      if (selectedClient && !updatedClients.some(c => c.id === selectedClient.id)) {
+        updatedClients = [selectedClient, ...updatedClients];
+      }
+
+      // Loại bỏ trùng lặp
+      const uniqueClients = Array.from(
+        new Map(updatedClients.map(client => [client.id, client])).values()
+      );
+
+      setClients(uniqueClients)
+      // Đặt lại trang và trạng thái có thêm dữ liệu
+      setClientPage(1)
+
+      // Luôn đặt hasMoreClients = true khi tìm kiếm để cho phép người dùng cố gắng tải thêm dữ liệu
+      // Nếu không có thêm dữ liệu, hàm handleLoadMoreClients sẽ xử lý lỗi và đặt hasMoreClients = false
+      setHasMoreClients(true);
+    } catch (error) {
+      console.error('Error searching clients:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
   // Get filtered clients based on search query
   const getFilteredClients = () => {
-    return clientQuery === ''
-      ? clients
-      : clients.filter(client =>
-          client.name
-            .toLowerCase()
-            .replace(/\s+/g, '')
-            .includes(clientQuery.toLowerCase().replace(/\s+/g, ''))
-        )
+    // Loại bỏ các client trùng lặp dựa trên ID
+    const uniqueClients = Array.from(
+      new Map(clients.map(client => [client.id, client])).values()
+    );
+
+    // Nếu không có query, trả về danh sách đã loại bỏ trùng lặp
+    if (clientQuery === '') {
+      return uniqueClients;
+    }
+
+    // Chuẩn hóa query để tìm kiếm
+    const normalizedQuery = clientQuery.toLowerCase().replace(/\s+/g, '');
+
+    // Lọc client dựa trên tên và email
+    return uniqueClients.filter(client => {
+      // Tìm trong tên
+      const nameMatch = client.name
+        ? client.name.toLowerCase().replace(/\s+/g, '').includes(normalizedQuery)
+        : false;
+
+      // Tìm trong email
+      const emailMatch = client.email
+        ? client.email.toLowerCase().replace(/\s+/g, '').includes(normalizedQuery)
+        : false;
+
+      // Tìm trong số điện thoại
+      const phoneMatch = client.phone
+        ? client.phone.replace(/\s+/g, '').includes(normalizedQuery)
+        : false;
+
+      return nameMatch || emailMatch || phoneMatch;
+    });
   }
 
   return {

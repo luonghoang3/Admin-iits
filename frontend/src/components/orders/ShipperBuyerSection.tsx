@@ -1,7 +1,6 @@
 'use client'
 
-import React, { useState, Fragment } from 'react'
-import { Combobox, Transition } from '@headlessui/react'
+import React, { useState } from 'react'
 
 // Import individual icons with ts-ignore to suppress type errors
 // @ts-ignore
@@ -21,18 +20,31 @@ import MoreHorizontal from "lucide-react/dist/esm/icons/more-horizontal"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Shipper, Buyer } from '@/types/orders'
 import useShipperBuyerManagement from '@/hooks/orders/useShipperBuyerManagement'
+
+// Lazy load dialogs
+import dynamic from 'next/dynamic'
+
+const ShipperDialog = dynamic(() => import('./dialogs/ShipperDialog'), {
+  loading: () => null
+})
+
+const BuyerDialog = dynamic(() => import('./dialogs/BuyerDialog'), {
+  loading: () => null
+})
+
+const DeleteEntityDialog = dynamic(() => import('./dialogs/DeleteEntityDialog'), {
+  loading: () => null
+})
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,9 +55,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from '@/components/ui/alert-dialog'
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Combobox as HeadlessuiCombobox } from '@/components/ui/combobox'
 
-export interface ShipperBuyerSectionProps {
+interface ShipperBuyerSectionProps {
   shipperId?: string
   buyerId?: string
   onChange: (type: 'shipper' | 'buyer', id: string) => void
@@ -71,7 +85,7 @@ export default function ShipperBuyerSection({
     isConfirmDeleteShipperOpen,
     shipperError,
     shipperForm,
-    
+
     // Buyer state
     buyer,
     buyers,
@@ -84,7 +98,7 @@ export default function ShipperBuyerSection({
     isConfirmDeleteBuyerOpen,
     buyerError,
     buyerForm,
-    
+
     // Shipper handlers
     onShipperChange,
     onShipperSearch,
@@ -97,7 +111,7 @@ export default function ShipperBuyerSection({
     handleDeleteShipper,
     setShipperDialogOpen,
     setIsConfirmDeleteShipperOpen,
-    
+
     // Buyer handlers
     onBuyerChange,
     onBuyerSearch,
@@ -124,13 +138,13 @@ export default function ShipperBuyerSection({
   })
 
   const filteredShippers = shipperSearch
-    ? shippers.filter(s => 
+    ? shippers.filter(s =>
         s.name.toLowerCase().includes(shipperSearch.toLowerCase()) ||
         (s.email && s.email.toLowerCase().includes(shipperSearch.toLowerCase())))
     : shippers
 
   const filteredBuyers = buyerSearch
-    ? buyers.filter(b => 
+    ? buyers.filter(b =>
         b.name.toLowerCase().includes(buyerSearch.toLowerCase()) ||
         (b.email && b.email.toLowerCase().includes(buyerSearch.toLowerCase())))
     : buyers
@@ -142,11 +156,13 @@ export default function ShipperBuyerSection({
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <HeadlessuiCombobox
-              items={shippers.map(s => ({
-                label: s.name,
-                description: s.email || '',
-                value: s.id
-              }))}
+              items={Array.from(new Map(shippers.map(s => [
+                s.id, {
+                  label: s.name,
+                  description: s.email || '',
+                  value: s.id
+                }
+              ])).values())}
               value={shipper?.id || ''}
               onChange={onShipperChange}
               placeholder="Select shipper..."
@@ -203,11 +219,13 @@ export default function ShipperBuyerSection({
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <HeadlessuiCombobox
-              items={buyers.map(b => ({
-                label: b.name,
-                description: b.email || '',
-                value: b.id
-              }))}
+              items={Array.from(new Map(buyers.map(b => [
+                b.id, {
+                  label: b.name,
+                  description: b.email || '',
+                  value: b.id
+                }
+              ])).values())}
               value={buyer?.id || ''}
               onChange={onBuyerChange}
               placeholder="Select buyer..."
@@ -259,199 +277,45 @@ export default function ShipperBuyerSection({
         </div>
       </div>
 
-      {/* Shipper Dialog */}
-      <Dialog open={shipperDialogOpen} onOpenChange={setShipperDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {shipperDialogMode === 'add' ? 'Add Shipper' : 'Edit Shipper'}
-            </DialogTitle>
-            <DialogDescription>
-              Enter the details for the shipper.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="shipper-name">Name *</Label>
-              <Input
-                id="shipper-name"
-                name="name"
-                value={shipperForm.name}
-                onChange={handleShipperFormChange}
-                placeholder="Enter shipper name"
-                autoComplete="organization"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="shipper-address">Address</Label>
-              <Input
-                id="shipper-address"
-                name="address"
-                value={shipperForm.address}
-                onChange={handleShipperFormChange}
-                placeholder="Enter address"
-                autoComplete="street-address"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="shipper-phone">Phone</Label>
-              <Input
-                id="shipper-phone"
-                name="phone"
-                type="tel"
-                value={shipperForm.phone}
-                onChange={handleShipperFormChange}
-                placeholder="Enter phone number"
-                autoComplete="tel"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="shipper-email">Email</Label>
-              <Input
-                id="shipper-email"
-                name="email"
-                type="email"
-                value={shipperForm.email}
-                onChange={handleShipperFormChange}
-                placeholder="Enter email"
-                autoComplete="email"
-              />
-            </div>
-            
-            {shipperError && (
-              <p className="text-sm text-destructive">{shipperError}</p>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShipperDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveShipper}>
-              {shipperDialogMode === 'add' ? 'Add' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Shipper Dialog - Lazy Loaded */}
+      <ShipperDialog
+        open={shipperDialogOpen}
+        onOpenChange={setShipperDialogOpen}
+        mode={shipperDialogMode}
+        shipperForm={shipperForm}
+        shipperError={shipperError}
+        handleShipperFormChange={handleShipperFormChange}
+        handleSaveShipper={handleSaveShipper}
+      />
 
-      {/* Buyer Dialog */}
-      <Dialog open={buyerDialogOpen} onOpenChange={setBuyerDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {buyerDialogMode === 'add' ? 'Add Buyer' : 'Edit Buyer'}
-            </DialogTitle>
-            <DialogDescription>
-              Enter the details for the buyer.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="buyer-name">Name *</Label>
-              <Input
-                id="buyer-name"
-                name="name"
-                value={buyerForm.name}
-                onChange={handleBuyerFormChange}
-                placeholder="Enter buyer name"
-                autoComplete="organization"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="buyer-address">Address</Label>
-              <Input
-                id="buyer-address"
-                name="address"
-                value={buyerForm.address}
-                onChange={handleBuyerFormChange}
-                placeholder="Enter address"
-                autoComplete="street-address"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="buyer-phone">Phone</Label>
-              <Input
-                id="buyer-phone"
-                name="phone"
-                type="tel"
-                value={buyerForm.phone}
-                onChange={handleBuyerFormChange}
-                placeholder="Enter phone number"
-                autoComplete="tel"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="buyer-email">Email</Label>
-              <Input
-                id="buyer-email"
-                name="email"
-                type="email"
-                value={buyerForm.email}
-                onChange={handleBuyerFormChange}
-                placeholder="Enter email"
-                autoComplete="email"
-              />
-            </div>
-            
-            {buyerError && (
-              <p className="text-sm text-destructive">{buyerError}</p>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBuyerDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveBuyer}>
-              {buyerDialogMode === 'add' ? 'Add' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Buyer Dialog - Lazy Loaded */}
+      <BuyerDialog
+        open={buyerDialogOpen}
+        onOpenChange={setBuyerDialogOpen}
+        mode={buyerDialogMode}
+        buyerForm={buyerForm}
+        buyerError={buyerError}
+        handleBuyerFormChange={handleBuyerFormChange}
+        handleSaveBuyer={handleSaveBuyer}
+      />
 
-      {/* Delete Shipper Confirmation */}
-      <AlertDialog open={isConfirmDeleteShipperOpen} onOpenChange={setIsConfirmDeleteShipperOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the shipper. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteShipper} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Delete Shipper Confirmation - Lazy Loaded */}
+      <DeleteEntityDialog
+        open={isConfirmDeleteShipperOpen}
+        onOpenChange={setIsConfirmDeleteShipperOpen}
+        title="Delete Shipper"
+        description="This will permanently delete the shipper. This action cannot be undone."
+        handleDelete={handleDeleteShipper}
+      />
 
-      {/* Delete Buyer Confirmation */}
-      <AlertDialog open={isConfirmDeleteBuyerOpen} onOpenChange={setIsConfirmDeleteBuyerOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the buyer. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteBuyer} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Delete Buyer Confirmation - Lazy Loaded */}
+      <DeleteEntityDialog
+        open={isConfirmDeleteBuyerOpen}
+        onOpenChange={setIsConfirmDeleteBuyerOpen}
+        title="Delete Buyer"
+        description="This will permanently delete the buyer. This action cannot be undone."
+        handleDelete={handleDeleteBuyer}
+      />
     </div>
   )
-} 
+}

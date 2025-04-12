@@ -382,8 +382,10 @@ export async function updateTeam(
 // Client Management Functions
 
 // Fetch clients with their contacts
-export async function fetchClients(page = 1, limit = 50, searchQuery = '') {
+export async function fetchClients(page = 1, limit = 15, searchQuery = '') {
   try {
+    console.log(`API call: fetchClients - page=${page}, limit=${limit}, searchQuery="${searchQuery}"`)
+
     const supabase = createClient()
 
     // Calculate offset based on page and limit
@@ -392,7 +394,7 @@ export async function fetchClients(page = 1, limit = 50, searchQuery = '') {
     // Create base query
     let query = supabase
       .from('clients')
-      .select('*')
+      .select('*', { count: 'exact' })
 
     // Add search filter if provided
     if (searchQuery) {
@@ -405,7 +407,7 @@ export async function fetchClients(page = 1, limit = 50, searchQuery = '') {
       .order('name', { ascending: true })
 
     // Execute query
-    const { data: clients, error: clientsError } = await query
+    const { data: clients, error: clientsError, count } = await query
 
     if (clientsError) {
       console.error('Error in fetchClients query:', clientsError)
@@ -414,7 +416,7 @@ export async function fetchClients(page = 1, limit = 50, searchQuery = '') {
 
     // If no clients, return empty array
     if (!clients || clients.length === 0) {
-      return { clients: [], error: null }
+      return { clients: [], hasMore: false, error: null }
     }
 
     // Get all contacts to associate with clients
@@ -438,10 +440,102 @@ export async function fetchClients(page = 1, limit = 50, searchQuery = '') {
       }
     })
 
-    return { clients: clientsWithContacts, error: null }
+    // Calculate if there are more results
+    const totalCount = count || 0
+    const currentPosition = offset + clients.length
+    const hasMore = totalCount > currentPosition
+
+    console.log(`fetchClients: offset=${offset}, limit=${limit}, returned=${clients.length}, total=${totalCount}, hasMore=${hasMore}`)
+
+    return { clients: clientsWithContacts, hasMore, error: null }
   } catch (error: any) {
     console.error('Error in fetchClients:', error)
-    return { clients: [], error: error.message || 'Unknown error in fetchClients' }
+    return { clients: [], hasMore: false, error: error.message || 'Unknown error in fetchClients' }
+  }
+}
+
+// Fetch clients for combobox with lazy loading support
+export async function fetchClientsForCombobox({
+  page = 1,
+  limit = 15, // Giảm số lượng mặc định để đảm bảo lazy loading hoạt động
+  searchQuery = ''
+}: {
+  page?: number;
+  limit?: number;
+  searchQuery?: string;
+} = {}) {
+  try {
+    console.log(`API call: fetchClientsForCombobox - page=${page}, limit=${limit}, searchQuery="${searchQuery}"`)
+
+    const supabase = createClient()
+
+    // Calculate offset based on page and limit
+    const offset = (page - 1) * limit
+
+    // Create query to get clients (only id and name for performance)
+    let query = supabase
+      .from('clients')
+      .select('id, name', { count: 'exact' })
+
+    // Add search filter if provided
+    if (searchQuery) {
+      query = query.ilike('name', `%${searchQuery}%`)
+    }
+
+    // Add pagination and sorting
+    query = query
+      .range(offset, offset + limit - 1)
+      .order('name', { ascending: true })
+
+    // Execute query
+    const { data, error, count } = await query
+
+    if (error) {
+      console.error('Error in fetchClientsForCombobox query:', error)
+      return {
+        clients: [],
+        hasMore: false,
+        total: 0,
+        error: error.message || 'Error fetching clients'
+      }
+    }
+
+    // Format clients for combobox
+    const clients = data ? data.map(client => ({
+      value: client.id,
+      label: client.name
+    })) : []
+
+    // Calculate if there are more results
+    // Đảm bảo rằng hasMore chỉ là false khi đã tải hết dữ liệu
+    // Nếu số lượng dữ liệu trả về ít hơn limit, chắc chắn không còn dữ liệu
+    const dataLength = data?.length || 0
+    const totalCount = count || 0
+    const currentPosition = offset + dataLength
+
+    // Debug log chi tiết
+    console.log(`API: offset=${offset}, limit=${limit}, returned=${dataLength}, total=${totalCount}`)
+    console.log(`API: currentPosition=${currentPosition}, hasMore check: ${totalCount > currentPosition} && ${dataLength === limit}`)
+
+    // Chỉ có thêm dữ liệu nếu tổng số > vị trí hiện tại và số lượng trả về = limit
+    const hasMore = totalCount > currentPosition && dataLength === limit
+
+    console.log(`API final hasMore: ${hasMore}`)
+
+    return {
+      clients,
+      hasMore,
+      total: count || 0,
+      error: null
+    }
+  } catch (error: any) {
+    console.error('Error in fetchClientsForCombobox:', error)
+    return {
+      clients: [],
+      hasMore: false,
+      total: 0,
+      error: error.message || 'Unknown error in fetchClientsForCombobox'
+    }
   }
 }
 
@@ -657,19 +751,59 @@ export async function deleteContact(contactId: string) {
   }
 }
 
-// Fetch orders with client information
-export async function fetchOrders() {
+// Fetch orders with client information and pagination
+export async function fetchOrders({
+  page = 1,
+  limit = 10,
+  filters = {}
+}: {
+  page?: number;
+  limit?: number;
+  filters?: {
+    department?: string;
+    status?: string;
+    client_id?: string;
+    search?: string;
+  };
+} = {}) {
   const supabase = createClient()
 
   try {
-    // Fetch orders
-    const { data: orders, error: ordersError } = await supabase
+    // Tính offset dựa trên page và limit
+    const offset = (page - 1) * limit
+
+    // Tạo query cơ bản
+    let query = supabase
       .from('orders')
       .select(`
         *,
         clients:client_id (name)
-      `)
+      `, { count: 'exact' })
+
+    // Thêm các bộ lọc nếu có
+    if (filters.department) {
+      query = query.eq('department', filters.department)
+    }
+
+    if (filters.status) {
+      query = query.eq('status', filters.status)
+    }
+
+    if (filters.client_id) {
+      query = query.eq('client_id', filters.client_id)
+    }
+
+    if (filters.search) {
+      query = query.or(`order_number.ilike.%${filters.search}%,client_ref_code.ilike.%${filters.search}%`)
+    }
+
+    // Thêm phân trang
+    query = query
+      .range(offset, offset + limit - 1)
       .order('created_at', { ascending: false })
+
+    // Thực thi query
+    const { data: orders, error: ordersError, count } = await query
 
     if (ordersError) throw ordersError
 
@@ -679,10 +813,14 @@ export async function fetchOrders() {
       client_name: order.clients?.name
     }))
 
-    return { orders: formattedOrders, error: null }
+    return {
+      orders: formattedOrders,
+      total: count || 0,
+      error: null
+    }
   } catch (error: any) {
     console.error('Error fetching orders:', error)
-    return { orders: [], error: error.message }
+    return { orders: [], total: 0, error: error.message }
   }
 }
 

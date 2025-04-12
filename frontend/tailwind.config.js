@@ -16,6 +16,9 @@ module.exports = {
         "2xl": "1400px",
       },
     },
+    fontFamily: {
+      sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+    },
     extend: {
       colors: {
         border: "var(--border)",
@@ -74,4 +77,4 @@ module.exports = {
     },
   },
   plugins: [require("tailwindcss-animate")],
-} 
+}

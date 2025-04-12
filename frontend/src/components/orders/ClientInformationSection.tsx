@@ -1,14 +1,15 @@
 import React, { Fragment } from 'react'
-import { Combobox, Transition, Menu } from '@headlessui/react'
+import { Menu, Transition } from '@headlessui/react'
 import {
   UsersIcon,
   PlusIcon,
   PencilIcon,
   TrashIcon,
-  CheckIcon,
   EllipsisVerticalIcon
 } from "@heroicons/react/24/outline"
-import { ChevronUpDownIcon } from "@heroicons/react/20/solid"
+
+// Import custom combobox component
+import { Combobox as HeadlessuiCombobox } from "@/components/ui/combobox"
 
 // ShadCN components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -83,93 +84,42 @@ const ClientInformationSection: React.FC<ClientInformationSectionProps> = ({
             <Label htmlFor="client_id">Client</Label>
             <div className="flex gap-2 items-center">
               <div className="flex-1">
-                <Combobox
+                <HeadlessuiCombobox
+                  items={clients.map(client => ({
+                    label: client.name,
+                    description: client.email || '',
+                    value: client.id
+                  }))}
                   value={client_id}
                   onChange={(value: string) => {
                     handleValueChange('client_id', value)
                     handleClientChange(value)
                   }}
-                >
-                  <div className="relative">
-                    <div className="relative w-full cursor-default overflow-hidden rounded-lg bg-white text-left border border-input shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-300 sm:text-sm">
-                      <Combobox.Input
-                        className="w-full border-none py-2 pl-3 pr-10 text-sm leading-5 text-gray-900 focus:ring-0 focus:outline-none"
-                        displayValue={(clientId: string) =>
-                          clients.find(c => c.id === clientId)?.name || ''
-                        }
-                        onChange={(event) => handleClientSearch(event.target.value)}
-                        placeholder="Search client..."
-                      />
-                      <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
-                        <ChevronUpDownIcon
-                          className="h-5 w-5 text-gray-400"
-                          aria-hidden="true"
-                        />
-                      </Combobox.Button>
+                  placeholder="Select client..."
+                  onSearch={handleClientSearch}
+                  loading={loading}
+                  emptyContent={
+                    <div className="relative cursor-default select-none px-4 py-2 text-muted-foreground">
+                      {loading ? "Loading clients..." : "No clients found"}
                     </div>
-                    <Transition
-                      as={Fragment}
-                      leave="transition ease-in duration-100"
-                      leaveFrom="opacity-100"
-                      leaveTo="opacity-0"
-                    >
-                      <Combobox.Options className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                        {loading ? (
-                          <div className="relative cursor-default select-none py-2 px-4 text-gray-700">
-                            Loading clients...
-                          </div>
-                        ) : getFilteredClients().length === 0 ? (
-                          <div className="relative cursor-default select-none py-2 px-4 text-gray-700">
-                            No clients found.
-                          </div>
-                        ) : (
-                          <>
-                            {getFilteredClients().map((client) => (
-                              <Combobox.Option
-                                key={client.id}
-                                className={({ active }) =>
-                                  `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                                    active ? 'bg-primary text-white' : 'text-gray-900'
-                                  }`
-                                }
-                                value={client.id}
-                              >
-                                {({ selected, active }) => (
-                                  <>
-                                    <span
-                                      className={`block truncate ${
-                                        selected ? 'font-medium' : 'font-normal'
-                                      }`}
-                                    >
-                                      {client.name}
-                                    </span>
-                                    {selected ? (
-                                      <span
-                                        className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                                          active ? 'text-white' : 'text-primary'
-                                        }`}
-                                      >
-                                        <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                                      </span>
-                                    ) : null}
-                                  </>
-                                )}
-                              </Combobox.Option>
-                            ))}
-                            {hasMoreClients && (
-                              <div
-                                className="relative cursor-pointer select-none py-2 px-4 text-center text-gray-700 hover:bg-gray-100"
-                                onClick={loadMoreClients}
-                              >
-                                {isLoadingMoreClients ? 'Loading more...' : 'Load more clients'}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </Combobox.Options>
-                    </Transition>
-                  </div>
-                </Combobox>
+                  }
+                  loadingContent={
+                    <div className="relative cursor-default select-none px-4 py-2 text-muted-foreground">
+                      Loading...
+                    </div>
+                  }
+                  showSelected
+                  onLoadMore={loadMoreClients}
+                  hasMore={hasMoreClients}
+                  isLoadingMore={isLoadingMoreClients}
+                  selectedItemData={
+                    client_id ? {
+                      value: client_id,
+                      label: clients.find(c => c.id === client_id)?.name || '',
+                      description: clients.find(c => c.id === client_id)?.email || ''
+                    } : null
+                  }
+                />
               </div>
 
               <div>
