@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { createClient } from '@/utils/supabase/client'
 // Removed unused imports
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -113,10 +114,10 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
   } = orderFormData;
 
   // Function to fetch the next sequence number from the database
-  const fetchNextSequenceFromDB = useCallback(async (typePrefix: string, deptCode: string, yearCode: string) => {
+  const fetchNextSequenceFromDB = useCallback(async (typePrefix: string, teamCode: string, yearCode: string) => {
     try {
       const { fetchNextOrderSequence } = await import('@/utils/supabase/client');
-      const { nextSequence, formattedOrderNumber, error } = await fetchNextOrderSequence(typePrefix, deptCode, yearCode);
+      const { nextSequence, formattedOrderNumber, error } = await fetchNextOrderSequence(typePrefix, teamCode, yearCode);
 
       if (error) {
         console.error('Error fetching next sequence:', error);
@@ -138,21 +139,43 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
     } else if (mode === 'add') {
       // For new orders, generate a preview
       const typePrefix = formData?.type === 'international' ? 'I' : 'L';
-      const deptCode = formData?.department === 'marine' ? 'MR' :
-                      formData?.department === 'agriculture' ? 'AG' : 'CG';
+
+      // Get team code based on team_id
+      let teamCode = 'XX'; // Default code if team not found
+
+      if (formData?.team_id) {
+        try {
+          const supabase = createClient();
+          const { data: teamData, error } = await supabase
+            .from('teams')
+            .select('name')
+            .eq('id', formData.team_id)
+            .single();
+
+          if (!error && teamData) {
+            // Map team name to team code
+            teamCode = teamData.name === 'Marine' ? 'MR' :
+                      teamData.name === 'Agri' ? 'AF' :
+                      teamData.name === 'CG' ? 'CG' : 'XX';
+          }
+        } catch (err) {
+          console.error('Error fetching team data:', err);
+        }
+      }
+
       const yearCode = new Date().getFullYear().toString().substring(2);
 
       // Fetch the next sequence number from the database
-      const sequence = await fetchNextSequenceFromDB(typePrefix, deptCode, yearCode);
+      const sequence = await fetchNextSequenceFromDB(typePrefix, teamCode, yearCode);
       setNextSequence(sequence);
 
       // Format the sequence number with leading zeros
       const sequenceFormatted = String(sequence).padStart(3, '0');
 
       // Set the preview order number with the actual next sequence
-      setPreviewOrderNumber(`${typePrefix}${deptCode}${yearCode}-${sequenceFormatted}`);
+      setPreviewOrderNumber(`${typePrefix}${teamCode}${yearCode}-${sequenceFormatted}`);
     }
-  }, [formData?.type, formData?.department, formData?.order_number, mode, fetchNextSequenceFromDB])
+  }, [formData?.type, formData?.team_id, formData?.order_number, mode, fetchNextSequenceFromDB])
 
   // Client management (clients & contacts)
   const clientManagement = useClientAndContactManagement({
@@ -275,8 +298,8 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
         throw new Error('Please select an order type')
       }
 
-      if (!formData.department) {
-        throw new Error('Please select a department')
+      if (!formData.team_id) {
+        throw new Error('Please select a team')
       }
 
       if (!formData.order_date) {

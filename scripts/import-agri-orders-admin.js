@@ -7,16 +7,27 @@ const dotenv = require('dotenv');
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../frontend/.env.local') });
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Initialize Supabase client with service role key
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:8000';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase credentials. Please check your .env.local file.');
+if (!supabaseKey) {
+  console.error('Missing Supabase service role key. Please check your .env.local file.');
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+console.log('Supabase URL:', supabaseUrl);
+console.log('Using admin key');
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
+
+// ID của team Agri
+const AGRI_TEAM_ID = '26b6ad02-03c0-45ac-9b65-3caeac723829';
 
 // Maps to store relationships between old and new IDs
 const clientMap = new Map();
@@ -46,6 +57,46 @@ async function readCSV(filePath) {
   });
 }
 
+// Function to format date from DD/MM/YYYY to YYYY-MM-DD
+function formatDate(dateString) {
+  if (!dateString) return null;
+
+  // Check if date is already in YYYY-MM-DD format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return dateString;
+  }
+
+  // Parse DD/MM/YYYY format
+  const parts = dateString.split('/');
+  if (parts.length === 3) {
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year = parts[2];
+    return `${year}-${month}-${day}`;
+  }
+
+  return null;
+}
+
+// Test Supabase connection
+async function testConnection() {
+  try {
+    console.log('Testing Supabase connection...');
+    const { data, error } = await supabase.from('clients').select('count').limit(1);
+
+    if (error) {
+      console.error('Error connecting to Supabase:', error);
+      return false;
+    }
+
+    console.log('Successfully connected to Supabase!');
+    return true;
+  } catch (error) {
+    console.error('Exception during connection test:', error);
+    return false;
+  }
+}
+
 // Function to import clients
 async function importClients(data) {
   console.log('Importing clients...');
@@ -60,7 +111,7 @@ async function importClients(data) {
         address: row.client_address || null,
         email: row.client_email || null,
         phone: row.client_phone || null,
-        tax_id: row.client_tax_id || null
+        team_ids: [AGRI_TEAM_ID] // Assign to Agri team
       });
     }
   });
@@ -71,7 +122,7 @@ async function importClients(data) {
       // Check if client already exists
       const { data: existingClients, error: searchError } = await supabase
         .from('clients')
-        .select('id, name')
+        .select('id, name, team_ids')
         .eq('name', clientName)
         .limit(1);
 
@@ -86,6 +137,22 @@ async function importClients(data) {
         // Client already exists, use existing ID
         clientId = existingClients[0].id;
         console.log(`Client "${clientName}" already exists with ID: ${clientId}`);
+
+        // Update team_ids if needed
+        if (existingClients[0].team_ids && !existingClients[0].team_ids.includes(AGRI_TEAM_ID)) {
+          const updatedTeamIds = [...existingClients[0].team_ids, AGRI_TEAM_ID];
+
+          const { error: updateError } = await supabase
+            .from('clients')
+            .update({ team_ids: updatedTeamIds })
+            .eq('id', clientId);
+
+          if (updateError) {
+            console.error(`Error updating team_ids for client ${clientName}:`, updateError);
+          } else {
+            console.log(`Updated team_ids for client "${clientName}"`);
+          }
+        }
       } else {
         // Create new client
         const { data: newClient, error: insertError } = await supabase
@@ -488,18 +555,14 @@ async function importOrders(data) {
         buyerId = buyerMap.get(firstRow.buyer_name);
       }
 
-      // Determine order type and department
-      const type = firstRow.order_type?.toLowerCase() === 'local' ? 'local' : 'international';
-      let department = 'marine'; // Default
+      // Determine order type
+      const type = firstRow.order_type?.toLowerCase() === 'international' ? 'international' : 'local';
 
-      if (firstRow.department) {
-        const deptLower = firstRow.department.toLowerCase();
-        if (deptLower.includes('agri')) {
-          department = 'agri';
-        } else if (deptLower.includes('consumer') || deptLower.includes('goods')) {
-          department = 'consumer_goods';
-        }
-      }
+      // Format dates
+      const orderDate = formatDate(firstRow.order_date) || new Date().toISOString().split('T')[0];
+      const billOfLadingDate = formatDate(firstRow.bill_of_lading_date);
+      const inspectionDateStarted = formatDate(firstRow.inspection_date_started);
+      const inspectionDateCompleted = formatDate(firstRow.inspection_date_completed);
 
       // Prepare order data
       const orderData = {
@@ -507,17 +570,17 @@ async function importOrders(data) {
         client_id: clientMap.get(firstRow.client_name),
         contact_id: contactId,
         type: type,
-        department: department,
-        order_date: firstRow.order_date || new Date().toISOString().split('T')[0],
+        team_id: AGRI_TEAM_ID,
+        order_date: orderDate,
         client_ref_code: firstRow.client_ref_code || null,
         shipper_id: shipperId,
         buyer_id: buyerId,
         vessel_carrier: firstRow.vessel_carrier || null,
         bill_of_lading: firstRow.bill_of_lading || null,
-        bill_of_lading_date: firstRow.bill_of_lading_date || null,
+        bill_of_lading_date: billOfLadingDate,
         inspection_place: firstRow.inspection_place || null,
-        inspection_date_started: firstRow.inspection_date_started || null,
-        inspection_date_completed: firstRow.inspection_date_completed || null,
+        inspection_date_started: inspectionDateStarted,
+        inspection_date_completed: inspectionDateCompleted,
         status: firstRow.status?.toLowerCase() || 'draft',
         notes: firstRow.notes || null
       };
@@ -612,7 +675,6 @@ async function importOrderItems(orderRows, orderId) {
         .select('id')
         .eq('order_id', orderId)
         .eq('commodity_id', orderItemData.commodity_id)
-        .eq('unit_id', orderItemData.unit_id)
         .limit(1);
 
       if (searchError) {
@@ -653,6 +715,13 @@ async function importOrderItems(orderRows, orderId) {
 // Main function to run the import process
 async function main() {
   try {
+    // Test connection first
+    const connectionSuccessful = await testConnection();
+    if (!connectionSuccessful) {
+      console.error('Failed to connect to Supabase. Please check your credentials.');
+      process.exit(1);
+    }
+
     // Check if file path is provided
     const filePath = process.argv[2];
     if (!filePath) {

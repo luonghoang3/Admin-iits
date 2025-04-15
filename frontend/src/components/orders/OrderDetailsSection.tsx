@@ -1,5 +1,5 @@
-import React from 'react'
-import { CalendarIcon, BuildingOffice2Icon as Building2Icon } from "@heroicons/react/24/outline"
+import React, { useEffect, useState } from 'react'
+import { CalendarIcon, BuildingOffice2Icon as Building2Icon, UserGroupIcon } from "@heroicons/react/24/outline"
 import { format } from "date-fns"
 
 // ShadCN components
@@ -11,9 +11,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 
 // Types
-import { OrderFormData } from '@/types/orders'
+import { OrderFormData, Team } from '@/types/orders'
+
+// Hooks
+import { createClient } from '@/utils/supabase/client'
 
 interface OrderDetailsSectionProps {
   formData: OrderFormData;
@@ -38,17 +42,43 @@ const OrderDetailsSection: React.FC<OrderDetailsSectionProps> = ({
   const client_ref_code = formData.client_ref_code || '';
   const inspection_date_started = formData.inspection_date_started || '';
   const inspection_date_completed = formData.inspection_date_completed || '';
+  const inspection_place = formData.inspection_place || '';
 
-  // Map type and department values to display text
+  // Sử dụng hook để lấy danh sách teams
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Lấy danh sách teams khi component mount
+  useEffect(() => {
+    async function loadTeams() {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('teams')
+          .select('*')
+          .order('name');
+
+        if (error) throw error;
+        setTeams(data || []);
+      } catch (error) {
+        console.error('Lỗi khi lấy danh sách teams:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTeams();
+  }, []);
+
+  // Lấy thông tin team từ team_id
+  const getTeamById = (teamId: string): Team | undefined => {
+    return teams.find(team => team.id === teamId);
+  };
+
+  // Map type values to display text
   const typeDisplay = {
     'international': 'International',
     'local': 'Local'
-  };
-
-  const departmentDisplay = {
-    'marine': 'Marine',
-    'agriculture': 'Agriculture',
-    'consumer goods': 'Consumer Goods'
   };
 
   return (
@@ -89,23 +119,28 @@ const OrderDetailsSection: React.FC<OrderDetailsSectionProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="department">Department</Label>
+            <Label htmlFor="team_id">Team</Label>
             {isEditMode ? (
               <div className="border rounded-md px-3 py-2 bg-muted text-muted-foreground">
-                {departmentDisplay[department as keyof typeof departmentDisplay]}
+                {getTeamById(formData.team_id)?.name || 'Unknown Team'}
               </div>
             ) : (
               <Select
-                value={department}
-                onValueChange={(value) => handleValueChange('department', value)}
+                value={formData.team_id}
+                onValueChange={(value) => handleValueChange('team_id', value)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select department" />
+                  <SelectValue placeholder="Select team" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="marine">Marine</SelectItem>
-                  <SelectItem value="agriculture">Agriculture</SelectItem>
-                  <SelectItem value="consumer goods">Consumer Goods</SelectItem>
+                  {teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      <div className="flex items-center">
+                        <UserGroupIcon className="h-4 w-4 mr-2" />
+                        {team.name}
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             )}
@@ -216,6 +251,17 @@ const OrderDetailsSection: React.FC<OrderDetailsSectionProps> = ({
                 />
               </PopoverContent>
             </Popover>
+          </div>
+
+          <div className="space-y-2 col-span-2">
+            <Label htmlFor="inspection_place">Inspection Place</Label>
+            <Input
+              id="inspection_place"
+              name="inspection_place"
+              value={inspection_place}
+              onChange={handleChange}
+              placeholder="Location where inspection was conducted"
+            />
           </div>
         </div>
       </CardContent>

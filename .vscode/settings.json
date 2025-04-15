@@ -1,0 +1,28 @@
+{
+    "github.copilot.enable": {
+        "*": false
+    },
+    "workbench.activityBar.location": "bottom",
+    "workbench.sideBar.location": "right",
+    "augment.advanced": {
+        "mcpServers": [
+            {
+                "name": "postgres",
+                "command": "docker",
+                "args": [
+                    "run",
+                    "-i",
+                    "--rm",
+                    "--network=supabase_default",
+                    "-e",
+                    "DATABASE_URI",
+                    "crystaldba/postgres-mcp",
+                    "--access-mode=unrestricted"
+                ],
+                "env": {
+                    "DATABASE_URI": "postgresql://postgres:your-super-secret-and-long-postgres-password@supabase-db:5432/postgres"
+                }
+            }
+        ]
+    }
+}

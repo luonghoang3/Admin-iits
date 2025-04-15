@@ -252,6 +252,17 @@ export default function OrderDetailPage({ params: paramsPromise }: OrderDetailPa
                 {order.bill_of_lading_date ? format(new Date(order.bill_of_lading_date), 'MMM d, yyyy') : '-'}
               </p>
             </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Inspection Place</p>
+              <p className="font-medium">{order.inspection_place || '-'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Inspection Period</p>
+              <p className="font-medium">
+                {order.inspection_date_started ? format(new Date(order.inspection_date_started), 'MMM d, yyyy') : '-'}
+                {order.inspection_date_completed ? ` to ${format(new Date(order.inspection_date_completed), 'MMM d, yyyy')}` : ''}
+              </p>
+            </div>
           </CardContent>
         </Card>
 

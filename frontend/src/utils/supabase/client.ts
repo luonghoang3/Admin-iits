@@ -447,10 +447,10 @@ export async function fetchClients(page = 1, limit = 15, searchQuery = '') {
 
     console.log(`fetchClients: offset=${offset}, limit=${limit}, returned=${clients.length}, total=${totalCount}, hasMore=${hasMore}`)
 
-    return { clients: clientsWithContacts, hasMore, error: null }
+    return { clients: clientsWithContacts, hasMore, total: totalCount, error: null }
   } catch (error: any) {
     console.error('Error in fetchClients:', error)
-    return { clients: [], hasMore: false, error: error.message || 'Unknown error in fetchClients' }
+    return { clients: [], hasMore: false, total: 0, error: error.message || 'Unknown error in fetchClients' }
   }
 }
 
@@ -755,51 +755,77 @@ export async function deleteContact(contactId: string) {
 export async function fetchOrders({
   page = 1,
   limit = 10,
-  filters = {}
+  teamId = null,
+  orderNumberSearch = '',
+  clientSearch = ''
 }: {
   page?: number;
   limit?: number;
-  filters?: {
-    department?: string;
-    status?: string;
-    client_id?: string;
-    search?: string;
-  };
+  teamId?: string | null;
+  orderNumberSearch?: string;
+  clientSearch?: string;
 } = {}) {
+  // Removed sorting functionality
   const supabase = createClient()
 
   try {
     // Tính offset dựa trên page và limit
     const offset = (page - 1) * limit
 
-    // Tạo query cơ bản
+    // Tạo query cơ bản với join rõ ràng hơn
+    // Sử dụng cú pháp join rõ ràng hơn để đảm bảo dữ liệu được trả về đúng
     let query = supabase
       .from('orders')
       .select(`
-        *,
-        clients:client_id (name)
+        id,
+        order_number,
+        client_id,
+        team_id,
+        type,
+        status,
+        order_date,
+        created_at,
+        updated_at,
+        client_ref_code,
+        inspection_date_started,
+        inspection_date_completed,
+        inspection_place,
+        notes,
+        clients!client_id (id, name),
+        teams!team_id (id, name)
       `, { count: 'exact' })
 
-    // Thêm các bộ lọc nếu có
-    if (filters.department) {
-      query = query.eq('department', filters.department)
+    // Áp dụng bộ lọc theo team nếu có
+    if (teamId) {
+      query = query.eq('team_id', teamId)
     }
 
-    if (filters.status) {
-      query = query.eq('status', filters.status)
+    // Áp dụng tìm kiếm theo mã đơn hàng nếu có
+    if (orderNumberSearch) {
+      query = query.ilike('order_number', `%${orderNumberSearch}%`)
     }
 
-    if (filters.client_id) {
-      query = query.eq('client_id', filters.client_id)
+    // Áp dụng tìm kiếm theo khách hàng nếu có
+    if (clientSearch) {
+      // Sử dụng cú pháp SQL truy vấn trực tiếp để đảm bảo chỉ lấy các đơn hàng có khách hàng phù hợp
+      // Sử dụng cú pháp clients.name thay vì clients.name để tương thích với Supabase
+      query = query.filter('clients.name', 'ilike', `%${clientSearch}%`)
+
+      // Log query để kiểm tra
+      console.log(`Searching for clients with name containing: ${clientSearch}`)
     }
 
-    if (filters.search) {
-      query = query.or(`order_number.ilike.%${filters.search}%,client_ref_code.ilike.%${filters.search}%`)
+    // Nếu đang tìm kiếm khách hàng, không áp dụng phân trang để lấy tất cả kết quả phù hợp
+    // Chỉ áp dụng phân trang khi không tìm kiếm hoặc chỉ tìm kiếm theo mã đơn hàng
+    if (!clientSearch) {
+      // Chỉ sử dụng phân trang khi không tìm kiếm khách hàng
+      query = query.range(offset, offset + limit - 1)
     }
 
-    // Thêm phân trang
+    // Sắp xếp theo order_date giảm dần (đơn hàng mới nhất ở trang đầu)
+    // Sắp xếp thứ cấp theo created_at để xử lý các trường hợp order_date là null hoặc giống nhau
     query = query
-      .range(offset, offset + limit - 1)
+      .order('order_date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
 
     // Thực thi query
@@ -807,11 +833,25 @@ export async function fetchOrders({
 
     if (ordersError) throw ordersError
 
-    // Format response with client names
-    const formattedOrders = orders.map(order => ({
-      ...order,
-      client_name: order.clients?.name
-    }))
+    // Log số lượng kết quả trả về để kiểm tra
+    console.log(`Query returned ${orders.length} orders${clientSearch ? ` matching client search: ${clientSearch}` : ''}`)
+
+    // Format response with client names and team information
+    const formattedOrders = orders.map(order => {
+      // Đảm bảo rằng dữ liệu clients và teams luôn là một mảng
+      const clientsArray = Array.isArray(order.clients) ? order.clients : [order.clients].filter(Boolean);
+      const teamsArray = Array.isArray(order.teams) ? order.teams : [order.teams].filter(Boolean);
+
+      // Lấy thông tin khách hàng và team từ mảng
+      const clientInfo = clientsArray[0] || {};
+      const teamInfo = teamsArray[0] || {};
+
+      return {
+        ...order,
+        client_name: clientInfo.name || null,
+        team_name: teamInfo.name || null
+      }
+    })
 
     return {
       orders: formattedOrders,
@@ -833,7 +873,8 @@ export async function fetchOrder(orderId: string) {
       .from('orders')
       .select(`
         *,
-        clients:client_id (id, name, phone, email)
+        clients:client_id (id, name, phone, email),
+        teams:team_id (id, name, description)
       `)
       .eq('id', orderId)
       .single()
@@ -862,7 +903,8 @@ export async function fetchOrder(orderId: string) {
         ...order,
         client_name: order.clients?.name,
         client_contacts: contacts || [],
-        selected_contact: selectedContact
+        selected_contact: selectedContact,
+        team: order.teams || null
       },
       error: null
     }
@@ -883,7 +925,7 @@ export async function createOrder(data: {
   shipper_id?: string | null
   buyer_id?: string | null
   type: 'international' | 'local'
-  department: 'marine' | 'agri' | 'consumer_goods'
+  team_id: string
   order_date: string
   client_ref_code?: string | null
   vessel_carrier?: string | null
@@ -899,15 +941,30 @@ export async function createOrder(data: {
 
     // Generate an order number only if not provided
     if (!orderNumber) {
-      const prefix = data.department === 'marine' ? 'MR' :
-                    data.department === 'agri' ? 'AG' : 'CG';
+      // Fetch team information to get the correct team code
+      const { data: teamData, error: teamError } = await supabase
+        .from('teams')
+        .select('name')
+        .eq('id', data.team_id)
+        .single();
+
+      if (teamError) {
+        console.error('Error fetching team data:', teamError);
+        throw teamError;
+      }
+
+      // Map team name to team code
+      const teamCode = teamData.name === 'Marine' ? 'MR' :
+                      teamData.name === 'Agri' ? 'AF' :
+                      teamData.name === 'CG' ? 'CG' : 'XX';
+
       const typePrefix = data.type === 'international' ? 'I' : 'L';
       const currentYear = new Date().getFullYear().toString().substring(2); // Get last 2 digits of year
 
       // Get next sequence number
       const { nextSequence, formattedOrderNumber } = await fetchNextOrderSequence(
         typePrefix,
-        prefix,
+        teamCode,
         currentYear
       );
 
@@ -921,7 +978,7 @@ export async function createOrder(data: {
         client_id: data.client_id,
         contact_id: data.contact_id,
         type: data.type,
-        department: data.department,
+        team_id: data.team_id,
         order_number: orderNumber,
         order_date: data.order_date,
         client_ref_code: data.client_ref_code,
@@ -952,7 +1009,7 @@ export async function updateOrder(
     client_id?: string
     contact_id?: string | null
     type?: 'international' | 'local'
-    department?: 'marine' | 'agri' | 'consumer_goods'
+    team_id?: string
     status?: 'draft' | 'confirmed' | 'completed' | 'cancelled'
     order_date?: string
     client_ref_code?: string | null
@@ -1024,7 +1081,7 @@ export async function deleteOrder(orderId: string) {
 // Get the next sequence number for order numbers
 export async function fetchNextOrderSequence(
   typePrefix: string,
-  departmentCode: string,
+  teamCode: string,
   yearCode: string
 ) {
   const supabase = createClient()
@@ -1034,7 +1091,7 @@ export async function fetchNextOrderSequence(
     const { data: orders, error } = await supabase
       .from('orders')
       .select('order_number')
-      .like('order_number', `${typePrefix}${departmentCode}${yearCode}-%`)
+      .like('order_number', `${typePrefix}${teamCode}${yearCode}-%`)
       .order('order_number', { ascending: false })
 
     if (error) throw error
@@ -1057,13 +1114,13 @@ export async function fetchNextOrderSequence(
     const sequenceFormatted = String(nextSequence).padStart(3, '0')
 
     // Create the full formatted order number
-    const formattedOrderNumber = `${typePrefix}${departmentCode}${yearCode}-${sequenceFormatted}`
+    const formattedOrderNumber = `${typePrefix}${teamCode}${yearCode}-${sequenceFormatted}`
 
     return { nextSequence, formattedOrderNumber, error: null }
   } catch (error: any) {
     console.error('Error getting next sequence:', error)
     const sequenceFormatted = String(1).padStart(3, '0')
-    const formattedOrderNumber = `${typePrefix}${departmentCode}${yearCode}-${sequenceFormatted}`
+    const formattedOrderNumber = `${typePrefix}${teamCode}${yearCode}-${sequenceFormatted}`
     return { nextSequence: 1, formattedOrderNumber, error: error.message }
   }
 }

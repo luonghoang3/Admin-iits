@@ -37,13 +37,36 @@ async function readCSV(filePath) {
         // Normalize data to handle potential encoding issues
         const normalizedData = {};
         for (const [key, value] of Object.entries(data)) {
-          normalizedData[key] = value ? value.trim() : value;
+          // Fix for BOM character in CSV header
+          const normalizedKey = key.startsWith('\ufeff') ? key.substring(1) : key;
+          normalizedData[normalizedKey] = value ? value.trim() : value;
         }
         results.push(normalizedData);
       })
       .on('end', () => resolve(results))
       .on('error', (error) => reject(error));
   });
+}
+
+// Function to format date from DD/MM/YYYY to YYYY-MM-DD
+function formatDate(dateString) {
+  if (!dateString) return null;
+
+  // Check if date is already in YYYY-MM-DD format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return dateString;
+  }
+
+  // Parse DD/MM/YYYY format
+  const parts = dateString.split('/');
+  if (parts.length === 3) {
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year = parts[2];
+    return `${year}-${month}-${day}`;
+  }
+
+  return null;
 }
 
 // Function to import clients
@@ -60,7 +83,8 @@ async function importClients(data) {
         address: row.client_address || null,
         email: row.client_email || null,
         phone: row.client_phone || null,
-        tax_id: row.client_tax_id || null
+        tax_id: null, // Not available in the CSV
+        team_ids: ['26b6ad02-03c0-45ac-9b65-3caeac723829'] // Agri team ID
       });
     }
   });
@@ -71,7 +95,7 @@ async function importClients(data) {
       // Check if client already exists
       const { data: existingClients, error: searchError } = await supabase
         .from('clients')
-        .select('id, name')
+        .select('id, name, team_ids')
         .eq('name', clientName)
         .limit(1);
 
@@ -86,6 +110,22 @@ async function importClients(data) {
         // Client already exists, use existing ID
         clientId = existingClients[0].id;
         console.log(`Client "${clientName}" already exists with ID: ${clientId}`);
+
+        // Update team_ids if needed
+        if (existingClients[0].team_ids && !existingClients[0].team_ids.includes('26b6ad02-03c0-45ac-9b65-3caeac723829')) {
+          const updatedTeamIds = [...existingClients[0].team_ids, '26b6ad02-03c0-45ac-9b65-3caeac723829'];
+
+          const { error: updateError } = await supabase
+            .from('clients')
+            .update({ team_ids: updatedTeamIds })
+            .eq('id', clientId);
+
+          if (updateError) {
+            console.error(`Error updating team_ids for client ${clientName}:`, updateError);
+          } else {
+            console.log(`Updated team_ids for client "${clientName}"`);
+          }
+        }
       } else {
         // Create new client
         const { data: newClient, error: insertError } = await supabase
@@ -455,6 +495,8 @@ async function importOrders(data) {
     }
   });
 
+  console.log(`Found ${orderGroups.size} unique orders in CSV.`);
+
   // Import each order
   for (const [orderNumber, orderRows] of orderGroups.entries()) {
     try {
@@ -488,18 +530,23 @@ async function importOrders(data) {
         buyerId = buyerMap.get(firstRow.buyer_name);
       }
 
-      // Determine order type and department
+      // Determine order type
       const type = firstRow.order_type?.toLowerCase() === 'local' ? 'local' : 'international';
-      let department = 'marine'; // Default
 
-      if (firstRow.department) {
-        const deptLower = firstRow.department.toLowerCase();
-        if (deptLower.includes('agri')) {
-          department = 'agri';
-        } else if (deptLower.includes('consumer') || deptLower.includes('goods')) {
-          department = 'consumer_goods';
-        }
-      }
+      // Format dates
+      const orderDate = formatDate(firstRow.order_date) || new Date().toISOString().split('T')[0];
+      const billOfLadingDate = formatDate(firstRow.bill_of_lading_date);
+      const inspectionDateStarted = formatDate(firstRow.inspection_date_started);
+      const inspectionDateCompleted = formatDate(firstRow.inspection_date_completed);
+
+      console.log(`Processing order ${orderNumber}:`);
+      console.log(`- Client: ${firstRow.client_name} (${clientMap.get(firstRow.client_name)})`);
+      console.log(`- Contact: ${firstRow.contact_name} (${contactId})`);
+      console.log(`- Shipper: ${firstRow.shipper_name} (${shipperId})`);
+      console.log(`- Buyer: ${firstRow.buyer_name} (${buyerId})`);
+      console.log(`- Type: ${type}`);
+      console.log(`- Order Date: ${firstRow.order_date} -> ${orderDate}`);
+      console.log(`- Inspection Place: ${firstRow.inspection_place}`);
 
       // Prepare order data
       const orderData = {
@@ -507,17 +554,17 @@ async function importOrders(data) {
         client_id: clientMap.get(firstRow.client_name),
         contact_id: contactId,
         type: type,
-        department: department,
-        order_date: firstRow.order_date || new Date().toISOString().split('T')[0],
+        team_id: '26b6ad02-03c0-45ac-9b65-3caeac723829', // Agri team ID
+        order_date: orderDate,
         client_ref_code: firstRow.client_ref_code || null,
         shipper_id: shipperId,
         buyer_id: buyerId,
         vessel_carrier: firstRow.vessel_carrier || null,
         bill_of_lading: firstRow.bill_of_lading || null,
-        bill_of_lading_date: firstRow.bill_of_lading_date || null,
+        bill_of_lading_date: billOfLadingDate,
         inspection_place: firstRow.inspection_place || null,
-        inspection_date_started: firstRow.inspection_date_started || null,
-        inspection_date_completed: firstRow.inspection_date_completed || null,
+        inspection_date_started: inspectionDateStarted,
+        inspection_date_completed: inspectionDateCompleted,
         status: firstRow.status?.toLowerCase() || 'draft',
         notes: firstRow.notes || null
       };
@@ -554,6 +601,7 @@ async function importOrders(data) {
         }
       } else {
         // Create new order
+        console.log(`Creating order ${orderNumber} with data:`, JSON.stringify(orderData));
         const { data: newOrder, error: insertError } = await supabase
           .from('orders')
           .insert([orderData])
@@ -663,6 +711,17 @@ async function main() {
     console.log(`Reading CSV file: ${filePath}`);
     const data = await readCSV(filePath);
     console.log(`Read ${data.length} rows from CSV.`);
+
+    // Check if data has order_number
+    const hasOrderNumber = data.some(row => row.order_number);
+    console.log(`Data has order_number: ${hasOrderNumber}`);
+    if (hasOrderNumber) {
+      console.log(`First 5 order numbers:`);
+      data.slice(0, 5).forEach(row => console.log(`- ${row.order_number}`));
+    } else {
+      console.log(`First row keys:`, Object.keys(data[0]));
+      console.log(`First row:`, data[0]);
+    }
 
     // Import data in the correct order
     await importClients(data);

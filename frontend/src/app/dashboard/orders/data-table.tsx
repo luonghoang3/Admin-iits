@@ -7,11 +7,6 @@ import {
   getCoreRowModel,
   useReactTable,
   getPaginationRowModel,
-  SortingState,
-  getSortedRowModel,
-  ColumnFiltersState,
-  getFilteredRowModel,
-  FilterFn,
 } from "@tanstack/react-table"
 
 import {
@@ -32,14 +27,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Order } from "./columns"
-import { Filter } from "lucide-react"
+// Đã gỡ bỏ import DataTableFilters
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  departmentOptions: Array<{value: string, label: string}> 
-  statusOptions: Array<{value: string, label: string}>
-  clientOptions: Array<{value: string, label: string}>
   onDeleteOrder?: (orderId: string) => void
   pagination?: {
     page: number
@@ -48,46 +40,22 @@ interface DataTableProps<TData, TValue> {
   }
 }
 
-// Tùy chỉnh hàm lọc
-const filterFn: FilterFn<any> = (row, columnId, filterValue) => {
-  if (!filterValue || (filterValue as Set<string>).size === 0) return true
-  
-  const value = row.getValue(columnId)
-  const filterSet = filterValue as Set<string>
-  return filterSet.has(value)
-}
+// Đã gỡ bỏ hàm lọc tùy chỉnh
 
 export function DataTable<TData, TValue>({
   columns,
   data,
-  departmentOptions,
-  statusOptions,
-  clientOptions,
   onDeleteOrder,
   pagination,
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const [selectedDepartments, setSelectedDepartments] = useState<Set<string>>(new Set())
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set())
-  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set())
-  
+  // Đã gỡ bỏ state cho bộ lọc
+
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
-    onColumnFiltersChange: setColumnFilters,
-    getFilteredRowModel: getFilteredRowModel(),
-    filterFns: {
-      customFilter: filterFn,
-    },
-    state: {
-      sorting,
-      columnFilters,
-    },
+    state: {},
     initialState: {
       pagination: {
         pageSize: 10,
@@ -98,33 +66,13 @@ export function DataTable<TData, TValue>({
     manualPagination: !!pagination,
   })
 
-  // Thiết lập filterFn cho các cột department, status và client_name
-  useEffect(() => {
-    const departmentColumn = table.getColumn("department");
-    const statusColumn = table.getColumn("status");
-    const clientColumn = table.getColumn("client_name");
-    
-    if (departmentColumn) {
-      // @ts-ignore - TypeScript không nhận ra filterFn trong meta
-      departmentColumn.columnDef.filterFn = filterFn;
-    }
-    
-    if (statusColumn) {
-      // @ts-ignore - TypeScript không nhận ra filterFn trong meta
-      statusColumn.columnDef.filterFn = filterFn;
-    }
-    
-    if (clientColumn) {
-      // @ts-ignore - TypeScript không nhận ra filterFn trong meta
-      clientColumn.columnDef.filterFn = filterFn;
-    }
-  }, [table]);
+  // Đã gỡ bỏ thiết lập filterFn cho các cột
 
   // Xử lý sự kiện click từ nút xóa order
   const handleDeleteButtonClick = (e: MouseEvent) => {
     const target = e.target as HTMLElement
     const deleteButton = target.closest('[data-action="delete-order"]')
-    
+
     if (deleteButton && onDeleteOrder) {
       const orderId = deleteButton.getAttribute('data-order-id')
       if (orderId) {
@@ -143,6 +91,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <div>
+      {/* Đã gỡ bỏ DataTableFilters */}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -190,7 +139,7 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      
+
       {/* Hiển thị phân trang nếu có */}
       {pagination && (
         <div className="flex items-center justify-between mt-4">

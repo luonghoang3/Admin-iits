@@ -18,7 +18,7 @@ import { v4 as uuidv4 } from 'uuid'
 const DEFAULT_ORDER_DATA: OrderFormData = {
   client_id: '',
   type: 'international',
-  department: 'marine',
+  team_id: 'e7697f59-05cc-434e-b679-fde4c53b7d7c', // Marine team ID
   order_date: new Date().toISOString().split('T')[0],
   status: 'draft'
 }
@@ -136,10 +136,7 @@ export function useOrderFormV2({
       }
 
       // Format main order data
-      let department = order.department;
-      if (department === 'agri') department = 'agriculture';
-      if (department === 'consumer_goods') department = 'consumer goods';
-      setFormData({ ...order, department });
+      setFormData(order);
 
       // Then load the items
       const { fetchOrderItems } = await import('@/utils/supabase/client');
@@ -190,14 +187,7 @@ export function useOrderFormV2({
 
     try {
       return await executeSave(async () => {
-        // Convert department to API format BEFORE creating/updating
-        const uiDepartment = formData.department;
-        const apiDepartment = uiDepartment === 'agriculture' ? 'agri' as const :
-                             uiDepartment === 'consumer goods' ? 'consumer_goods' as const :
-                             uiDepartment; // Assumes uiDepartment is already 'marine' or similar
-
-        // Explicitly assert the type for the API call
-        const finalApiDepartment = apiDepartment as 'marine' | 'agri' | 'consumer_goods';
+        // No need to convert department anymore
 
         // Remove fields that don't exist in the database
         const {
@@ -209,8 +199,7 @@ export function useOrderFormV2({
         } = formData;
 
         const apiFormData = {
-          ...cleanFormData,
-          department: finalApiDepartment // Use the asserted type
+          ...cleanFormData
         }
 
         let savedOrderId = orderId

@@ -1,7 +1,7 @@
 import React, { Fragment, useState } from 'react'
 // Import custom combobox component
 import { Combobox as HeadlessuiCombobox } from "@/components/ui/combobox"
-import {
+import { 
   ArchiveBoxIcon as PackageIcon,
   PlusIcon,
   PencilIcon,
@@ -401,4 +401,4 @@ const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({
   )
 }
 
-export default OrderItemsSection
+export default OrderItemsSection 

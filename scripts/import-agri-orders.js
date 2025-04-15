@@ -10,13 +10,29 @@ dotenv.config({ path: path.resolve(__dirname, '../frontend/.env.local') });
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('Missing Supabase credentials. Please check your .env.local file.');
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+if (!supabaseServiceKey) {
+  console.error('Missing Supabase service role key. Please check your .env.local file.');
+  process.exit(1);
+}
+
+// Use service role key to bypass RLS
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
+
+console.log('Supabase URL:', supabaseUrl);
+console.log('Supabase Key:', supabaseKey ? supabaseKey.substring(0, 10) + '...' : 'undefined');
+console.log('Service Role Key:', supabaseServiceKey ? supabaseServiceKey.substring(0, 10) + '...' : 'undefined');
 
 // Maps to store relationships between old and new IDs
 const clientMap = new Map();
@@ -26,6 +42,9 @@ const buyerMap = new Map();
 const commodityMap = new Map();
 const unitMap = new Map();
 const orderMap = new Map();
+
+// ID của team Agri
+const AGRI_TEAM_ID = '26b6ad02-03c0-45ac-9b65-3caeac723829';
 
 // Function to read CSV file
 async function readCSV(filePath) {
@@ -46,11 +65,49 @@ async function readCSV(filePath) {
   });
 }
 
-// Function to import clients
+// Helper function to format date
+function formatDate(dateStr) {
+  if (!dateStr) return null;
+
+  // Try to parse the date
+  try {
+    // Handle different date formats
+    let parts;
+    if (dateStr.includes('/')) {
+      parts = dateStr.split('/');
+    } else if (dateStr.includes('-')) {
+      parts = dateStr.split('-');
+    } else {
+      return null;
+    }
+
+    // Check if we have day/month/year format
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+
+      // Validate date parts
+      if (isNaN(day) || isNaN(month) || isNaN(year)) {
+        return null;
+      }
+
+      // Format as YYYY-MM-DD
+      const formattedYear = year < 100 ? 2000 + year : year;
+      return `${formattedYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Error formatting date ${dateStr}:`, error);
+    return null;
+  }
+}
+
+// Import clients
 async function importClients(data) {
   console.log('Importing clients...');
 
-  // Extract unique clients from the data
   const uniqueClients = new Map();
 
   data.forEach(row => {
@@ -60,18 +117,17 @@ async function importClients(data) {
         address: row.client_address || null,
         email: row.client_email || null,
         phone: row.client_phone || null,
-        tax_id: row.client_tax_id || null
+        team_ids: [AGRI_TEAM_ID] // Assign to Agri team
       });
     }
   });
 
-  // Import each client
   for (const [clientName, clientData] of uniqueClients.entries()) {
     try {
       // Check if client already exists
       const { data: existingClients, error: searchError } = await supabase
         .from('clients')
-        .select('id, name')
+        .select('id, name, team_ids')
         .eq('name', clientName)
         .limit(1);
 
@@ -83,11 +139,25 @@ async function importClients(data) {
       let clientId;
 
       if (existingClients && existingClients.length > 0) {
-        // Client already exists, use existing ID
         clientId = existingClients[0].id;
         console.log(`Client "${clientName}" already exists with ID: ${clientId}`);
+
+        // Update team_ids if needed
+        if (existingClients[0].team_ids && !existingClients[0].team_ids.includes(AGRI_TEAM_ID)) {
+          const updatedTeamIds = [...existingClients[0].team_ids, AGRI_TEAM_ID];
+
+          const { error: updateError } = await supabase
+            .from('clients')
+            .update({ team_ids: updatedTeamIds })
+            .eq('id', clientId);
+
+          if (updateError) {
+            console.error(`Error updating team_ids for client ${clientName}:`, updateError);
+          } else {
+            console.log(`Updated team_ids for client "${clientName}"`);
+          }
+        }
       } else {
-        // Create new client
         const { data: newClient, error: insertError } = await supabase
           .from('clients')
           .insert([clientData])
@@ -102,7 +172,6 @@ async function importClients(data) {
         console.log(`Created client "${clientName}" with ID: ${clientId}`);
       }
 
-      // Store the client ID in the map
       clientMap.set(clientName, clientId);
     } catch (error) {
       console.error(`Error processing client ${clientName}:`, error);
@@ -112,32 +181,32 @@ async function importClients(data) {
   console.log(`Imported ${clientMap.size} clients.`);
 }
 
-// Function to import contacts
+// Import contacts
 async function importContacts(data) {
   console.log('Importing contacts...');
 
-  // Extract unique contacts from the data
   const uniqueContacts = new Map();
 
   data.forEach(row => {
-    if (row.contact_name && row.client_name && clientMap.has(row.client_name)) {
-      const contactKey = `${row.client_name}:${row.contact_name}`;
-
-      if (!uniqueContacts.has(contactKey)) {
-        uniqueContacts.set(contactKey, {
-          client_id: clientMap.get(row.client_name),
-          full_name: row.contact_name,
-          position: row.contact_position || null,
-          phone: row.contact_phone || null,
-          email: row.contact_email || null
-        });
-      }
+    if (row.client_name && row.contact_name && !uniqueContacts.has(`${row.client_name}:${row.contact_name}`)) {
+      uniqueContacts.set(`${row.client_name}:${row.contact_name}`, {
+        client_id: clientMap.get(row.client_name),
+        full_name: row.contact_name,
+        position: row.contact_position || null,
+        email: row.contact_email || null,
+        phone: row.contact_phone || null
+      });
     }
   });
 
-  // Import each contact
   for (const [contactKey, contactData] of uniqueContacts.entries()) {
     try {
+      // Skip if client doesn't exist
+      if (!contactData.client_id) {
+        console.warn(`Skipping contact ${contactKey}: Client not found.`);
+        continue;
+      }
+
       // Check if contact already exists
       const { data: existingContacts, error: searchError } = await supabase
         .from('contacts')
@@ -154,11 +223,9 @@ async function importContacts(data) {
       let contactId;
 
       if (existingContacts && existingContacts.length > 0) {
-        // Contact already exists, use existing ID
         contactId = existingContacts[0].id;
         console.log(`Contact "${contactKey}" already exists with ID: ${contactId}`);
       } else {
-        // Create new contact
         const { data: newContact, error: insertError } = await supabase
           .from('contacts')
           .insert([contactData])
@@ -173,7 +240,6 @@ async function importContacts(data) {
         console.log(`Created contact "${contactKey}" with ID: ${contactId}`);
       }
 
-      // Store the contact ID in the map
       contactMap.set(contactKey, contactId);
     } catch (error) {
       console.error(`Error processing contact ${contactKey}:`, error);
@@ -183,11 +249,10 @@ async function importContacts(data) {
   console.log(`Imported ${contactMap.size} contacts.`);
 }
 
-// Function to import shippers
+// Import shippers
 async function importShippers(data) {
   console.log('Importing shippers...');
 
-  // Extract unique shippers from the data
   const uniqueShippers = new Map();
 
   data.forEach(row => {
@@ -201,10 +266,8 @@ async function importShippers(data) {
     }
   });
 
-  // Import each shipper
   for (const [shipperName, shipperData] of uniqueShippers.entries()) {
     try {
-      // Check if shipper already exists
       const { data: existingShippers, error: searchError } = await supabase
         .from('shippers')
         .select('id, name')
@@ -219,11 +282,9 @@ async function importShippers(data) {
       let shipperId;
 
       if (existingShippers && existingShippers.length > 0) {
-        // Shipper already exists, use existing ID
         shipperId = existingShippers[0].id;
         console.log(`Shipper "${shipperName}" already exists with ID: ${shipperId}`);
       } else {
-        // Create new shipper
         const { data: newShipper, error: insertError } = await supabase
           .from('shippers')
           .insert([shipperData])
@@ -238,7 +299,6 @@ async function importShippers(data) {
         console.log(`Created shipper "${shipperName}" with ID: ${shipperId}`);
       }
 
-      // Store the shipper ID in the map
       shipperMap.set(shipperName, shipperId);
     } catch (error) {
       console.error(`Error processing shipper ${shipperName}:`, error);
@@ -248,11 +308,10 @@ async function importShippers(data) {
   console.log(`Imported ${shipperMap.size} shippers.`);
 }
 
-// Function to import buyers
+// Import buyers
 async function importBuyers(data) {
   console.log('Importing buyers...');
 
-  // Extract unique buyers from the data
   const uniqueBuyers = new Map();
 
   data.forEach(row => {
@@ -266,10 +325,8 @@ async function importBuyers(data) {
     }
   });
 
-  // Import each buyer
   for (const [buyerName, buyerData] of uniqueBuyers.entries()) {
     try {
-      // Check if buyer already exists
       const { data: existingBuyers, error: searchError } = await supabase
         .from('buyers')
         .select('id, name')
@@ -284,11 +341,9 @@ async function importBuyers(data) {
       let buyerId;
 
       if (existingBuyers && existingBuyers.length > 0) {
-        // Buyer already exists, use existing ID
         buyerId = existingBuyers[0].id;
         console.log(`Buyer "${buyerName}" already exists with ID: ${buyerId}`);
       } else {
-        // Create new buyer
         const { data: newBuyer, error: insertError } = await supabase
           .from('buyers')
           .insert([buyerData])
@@ -303,7 +358,6 @@ async function importBuyers(data) {
         console.log(`Created buyer "${buyerName}" with ID: ${buyerId}`);
       }
 
-      // Store the buyer ID in the map
       buyerMap.set(buyerName, buyerId);
     } catch (error) {
       console.error(`Error processing buyer ${buyerName}:`, error);
@@ -313,11 +367,10 @@ async function importBuyers(data) {
   console.log(`Imported ${buyerMap.size} buyers.`);
 }
 
-// Function to import commodities
+// Import commodities
 async function importCommodities(data) {
   console.log('Importing commodities...');
 
-  // Extract unique commodities from the data
   const uniqueCommodities = new Map();
 
   data.forEach(row => {
@@ -325,14 +378,13 @@ async function importCommodities(data) {
       uniqueCommodities.set(row.commodity_name, {
         name: row.commodity_name,
         description: row.commodity_description || null
+        // Removed team_id as it doesn't exist in the table
       });
     }
   });
 
-  // Import each commodity
   for (const [commodityName, commodityData] of uniqueCommodities.entries()) {
     try {
-      // Check if commodity already exists
       const { data: existingCommodities, error: searchError } = await supabase
         .from('commodities')
         .select('id, name')
@@ -347,11 +399,19 @@ async function importCommodities(data) {
       let commodityId;
 
       if (existingCommodities && existingCommodities.length > 0) {
-        // Commodity already exists, use existing ID
         commodityId = existingCommodities[0].id;
         console.log(`Commodity "${commodityName}" already exists with ID: ${commodityId}`);
+
+        // Update team_id if needed
+        const { error: updateError } = await supabase
+          .from('commodities')
+          .update({ team_id: AGRI_TEAM_ID })
+          .eq('id', commodityId);
+
+        if (updateError) {
+          console.error(`Error updating team_id for commodity ${commodityName}:`, updateError);
+        }
       } else {
-        // Create new commodity
         const { data: newCommodity, error: insertError } = await supabase
           .from('commodities')
           .insert([commodityData])
@@ -366,7 +426,6 @@ async function importCommodities(data) {
         console.log(`Created commodity "${commodityName}" with ID: ${commodityId}`);
       }
 
-      // Store the commodity ID in the map
       commodityMap.set(commodityName, commodityId);
     } catch (error) {
       console.error(`Error processing commodity ${commodityName}:`, error);
@@ -376,11 +435,10 @@ async function importCommodities(data) {
   console.log(`Imported ${commodityMap.size} commodities.`);
 }
 
-// Function to import units
+// Import units
 async function importUnits(data) {
   console.log('Importing units...');
 
-  // Extract unique units from the data
   const uniqueUnits = new Map();
 
   data.forEach(row => {
@@ -392,10 +450,8 @@ async function importUnits(data) {
     }
   });
 
-  // Import each unit
   for (const [unitName, unitData] of uniqueUnits.entries()) {
     try {
-      // Check if unit already exists
       const { data: existingUnits, error: searchError } = await supabase
         .from('units')
         .select('id, name')
@@ -410,11 +466,9 @@ async function importUnits(data) {
       let unitId;
 
       if (existingUnits && existingUnits.length > 0) {
-        // Unit already exists, use existing ID
         unitId = existingUnits[0].id;
         console.log(`Unit "${unitName}" already exists with ID: ${unitId}`);
       } else {
-        // Create new unit
         const { data: newUnit, error: insertError } = await supabase
           .from('units')
           .insert([unitData])
@@ -429,7 +483,6 @@ async function importUnits(data) {
         console.log(`Created unit "${unitName}" with ID: ${unitId}`);
       }
 
-      // Store the unit ID in the map
       unitMap.set(unitName, unitId);
     } catch (error) {
       console.error(`Error processing unit ${unitName}:`, error);
@@ -439,7 +492,7 @@ async function importUnits(data) {
   console.log(`Imported ${unitMap.size} units.`);
 }
 
-// Function to import orders
+// Import orders
 async function importOrders(data) {
   console.log('Importing orders...');
 
@@ -455,10 +508,8 @@ async function importOrders(data) {
     }
   });
 
-  // Import each order
   for (const [orderNumber, orderRows] of orderGroups.entries()) {
     try {
-      // Use the first row for order details
       const firstRow = orderRows[0];
 
       // Skip if client doesn't exist
@@ -467,39 +518,32 @@ async function importOrders(data) {
         continue;
       }
 
-      // Prepare contact ID if available
+      // Get contact ID if available
       let contactId = null;
-      if (firstRow.contact_name) {
-        const contactKey = `${firstRow.client_name}:${firstRow.contact_name}`;
-        if (contactMap.has(contactKey)) {
-          contactId = contactMap.get(contactKey);
-        }
+      if (firstRow.contact_name && contactMap.has(`${firstRow.client_name}:${firstRow.contact_name}`)) {
+        contactId = contactMap.get(`${firstRow.client_name}:${firstRow.contact_name}`);
       }
 
-      // Prepare shipper ID if available
+      // Get shipper ID if available
       let shipperId = null;
       if (firstRow.shipper_name && shipperMap.has(firstRow.shipper_name)) {
         shipperId = shipperMap.get(firstRow.shipper_name);
       }
 
-      // Prepare buyer ID if available
+      // Get buyer ID if available
       let buyerId = null;
       if (firstRow.buyer_name && buyerMap.has(firstRow.buyer_name)) {
         buyerId = buyerMap.get(firstRow.buyer_name);
       }
 
-      // Determine order type and department
-      const type = firstRow.order_type?.toLowerCase() === 'local' ? 'local' : 'international';
-      let department = 'marine'; // Default
+      // Determine order type
+      const type = firstRow.order_type?.toLowerCase() === 'international' ? 'international' : 'local';
 
-      if (firstRow.department) {
-        const deptLower = firstRow.department.toLowerCase();
-        if (deptLower.includes('agri')) {
-          department = 'agri';
-        } else if (deptLower.includes('consumer') || deptLower.includes('goods')) {
-          department = 'consumer_goods';
-        }
-      }
+      // Format dates
+      const orderDate = formatDate(firstRow.order_date) || new Date().toISOString().split('T')[0];
+      const billOfLadingDate = formatDate(firstRow.bill_of_lading_date);
+      const inspectionDateStarted = formatDate(firstRow.inspection_date_started);
+      const inspectionDateCompleted = formatDate(firstRow.inspection_date_completed);
 
       // Prepare order data
       const orderData = {
@@ -507,30 +551,30 @@ async function importOrders(data) {
         client_id: clientMap.get(firstRow.client_name),
         contact_id: contactId,
         type: type,
-        department: department,
-        order_date: firstRow.order_date || new Date().toISOString().split('T')[0],
+        team_id: AGRI_TEAM_ID, // Assign to Agri team
+        order_date: orderDate,
         client_ref_code: firstRow.client_ref_code || null,
         shipper_id: shipperId,
         buyer_id: buyerId,
         vessel_carrier: firstRow.vessel_carrier || null,
         bill_of_lading: firstRow.bill_of_lading || null,
-        bill_of_lading_date: firstRow.bill_of_lading_date || null,
+        bill_of_lading_date: billOfLadingDate,
         inspection_place: firstRow.inspection_place || null,
-        inspection_date_started: firstRow.inspection_date_started || null,
-        inspection_date_completed: firstRow.inspection_date_completed || null,
+        inspection_date_started: inspectionDateStarted,
+        inspection_date_completed: inspectionDateCompleted,
         status: firstRow.status?.toLowerCase() || 'draft',
         notes: firstRow.notes || null
       };
 
       // Check if order already exists
-      const { data: existingOrders, error: searchError } = await supabase
+      const { data: existingOrders, error: checkError } = await supabase
         .from('orders')
         .select('id, order_number')
         .eq('order_number', orderNumber)
         .limit(1);
 
-      if (searchError) {
-        console.error(`Error searching for order ${orderNumber}:`, searchError);
+      if (checkError) {
+        console.error(`Error checking order ${orderNumber}:`, checkError);
         continue;
       }
 
@@ -581,7 +625,7 @@ async function importOrders(data) {
   console.log(`Imported ${orderMap.size} orders.`);
 }
 
-// Function to import order items
+// Import order items
 async function importOrderItems(orderRows, orderId) {
   // Process each row as an order item
   for (const row of orderRows) {
@@ -607,16 +651,15 @@ async function importOrderItems(orderRows, orderId) {
       };
 
       // Check if order item already exists
-      const { data: existingItems, error: searchError } = await supabase
+      const { data: existingItems, error: checkError } = await supabase
         .from('order_items')
         .select('id')
         .eq('order_id', orderId)
         .eq('commodity_id', orderItemData.commodity_id)
-        .eq('unit_id', orderItemData.unit_id)
         .limit(1);
 
-      if (searchError) {
-        console.error(`Error searching for order item:`, searchError);
+      if (checkError) {
+        console.error(`Error checking order item:`, checkError);
         continue;
       }
 
@@ -650,9 +693,35 @@ async function importOrderItems(orderRows, orderId) {
   }
 }
 
+// Test Supabase connection
+async function testConnection() {
+  try {
+    console.log('Testing Supabase connection...');
+    const { data, error } = await supabase.from('clients').select('count').limit(1);
+
+    if (error) {
+      console.error('Error connecting to Supabase:', error);
+      return false;
+    }
+
+    console.log('Successfully connected to Supabase!');
+    return true;
+  } catch (error) {
+    console.error('Exception during connection test:', error);
+    return false;
+  }
+}
+
 // Main function to run the import process
 async function main() {
   try {
+    // Test connection first
+    const connectionSuccessful = await testConnection();
+    if (!connectionSuccessful) {
+      console.error('Failed to connect to Supabase. Please check your credentials.');
+      process.exit(1);
+    }
+
     // Check if file path is provided
     const filePath = process.argv[2];
     if (!filePath) {

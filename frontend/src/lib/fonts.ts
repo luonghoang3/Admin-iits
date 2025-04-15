@@ -11,6 +11,7 @@ export const inter = Inter({
   fallback: ['system-ui', 'sans-serif'], // Font dự phòng
   weight: ['400', '500', '600', '700'],  // Các weight cần thiết
   variable: '--font-inter',          // CSS variable để sử dụng trong tailwind
+  adjustFontFallback: false,         // Tắt điều chỉnh font fallback để tránh lỗi hydration
 })
 
 // Nếu bạn sử dụng font tùy chỉnh, hãy bỏ comment đoạn code dưới đây

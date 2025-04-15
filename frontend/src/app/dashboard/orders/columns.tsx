@@ -2,6 +2,7 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal, Edit, Trash2, ExternalLink } from "lucide-react"
+import { UserGroupIcon } from "@heroicons/react/24/outline"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,21 +21,33 @@ export interface Order {
   order_number: string
   client_id: string
   client_name?: string
-  type: 'international' | 'local' 
-  department: 'marine' | 'agri' | 'consumer_goods'
+  clients?: {
+    id: string
+    name: string
+  }
+  type: 'international' | 'local'
+  team_id: string
+  team_name?: string
+  teams?: {
+    id: string
+    name: string
+  }
   status: 'draft' | 'confirmed' | 'completed' | 'cancelled'
   order_date: string
   created_at: string
   updated_at: string
   client_ref_code?: string | null
+  inspection_date_started?: string | null
+  inspection_date_completed?: string | null
+  inspection_place?: string | null
   notes?: string | null
 }
 
-// Map màu và nhãn cho Department
-const departmentColorMap: Record<string, { color: string, label: string }> = {
-  marine: { color: "bg-blue-100 text-blue-800 border-blue-200", label: "Marine (MR)" },
-  agri: { color: "bg-green-100 text-green-800 border-green-200", label: "Agriculture (AG)" },
-  consumer_goods: { color: "bg-purple-100 text-purple-800 border-purple-200", label: "Consumer Goods (CG)" },
+// Map màu và nhãn cho Team
+const teamColorMap: Record<string, { color: string }> = {
+  'Marine': { color: "bg-blue-100 text-blue-800 border-blue-200" },
+  'Agri': { color: "bg-green-100 text-green-800 border-green-200" },
+  'CG': { color: "bg-purple-100 text-purple-800 border-purple-200" },
 }
 
 // Map màu và nhãn cho Status
@@ -76,9 +89,12 @@ export const columns: ColumnDef<Order>[] = [
     accessorKey: "client_name",
     header: "Khách hàng",
     cell: ({ row }) => {
+      // Sử dụng trực tiếp client_name đã được xử lý từ fetchOrders
+      const clientName = row.original.client_name || '-';
+
       return (
         <div className="font-medium">
-          {row.original.client_name || '-'}
+          {clientName}
         </div>
       )
     },
@@ -95,20 +111,23 @@ export const columns: ColumnDef<Order>[] = [
     },
   },
   {
-    accessorKey: "department",
-    header: "Phòng ban",
+    accessorKey: "team_name",
+    header: "Team",
     cell: ({ row }) => {
-      const department = row.original.department;
-      const { color, label } = departmentColorMap[department] || 
-        { color: "bg-gray-100 text-gray-800 border-gray-200", label: department };
-      
+      const teamName = row.original.team_name || 'Unknown';
+      const { color } = teamColorMap[teamName] ||
+        { color: "bg-gray-100 text-gray-800 border-gray-200" };
+
       return (
-        <Badge 
-          variant="outline"
-          className={`${color}`}
-        >
-          {label}
-        </Badge>
+        <div>
+          <Badge
+            variant="outline"
+            className={`${color}`}
+          >
+            <UserGroupIcon className="h-3 w-3 mr-1 inline" />
+            {teamName}
+          </Badge>
+        </div>
       )
     },
   },
@@ -117,11 +136,11 @@ export const columns: ColumnDef<Order>[] = [
     header: "Trạng thái",
     cell: ({ row }) => {
       const status = row.original.status;
-      const { color, label } = statusColorMap[status] || 
+      const { color, label } = statusColorMap[status] ||
         { color: "bg-gray-100 text-gray-800 border-gray-200", label: status };
-      
+
       return (
-        <Badge 
+        <Badge
           variant="outline"
           className={`${color}`}
         >
@@ -180,4 +199,4 @@ export const columns: ColumnDef<Order>[] = [
       )
     },
   },
-] 
+]
