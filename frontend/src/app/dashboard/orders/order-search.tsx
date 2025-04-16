@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import Search from "lucide-react/dist/esm/icons/search"
+import { useDebounce } from '@/hooks/useDebounce'
 
 interface OrderSearchProps {
   onSearch: (query: string) => void
@@ -11,12 +12,14 @@ interface OrderSearchProps {
 
 export function OrderSearch({ onSearch }: OrderSearchProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const debouncedQuery = useDebounce(searchQuery, 300)
 
-  // Gọi onSearch mỗi khi người dùng thay đổi input
+  React.useEffect(() => {
+    onSearch(debouncedQuery)
+  }, [debouncedQuery, onSearch])
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setSearchQuery(value)
-    onSearch(value)
+    setSearchQuery(e.target.value)
   }
 
   return (
