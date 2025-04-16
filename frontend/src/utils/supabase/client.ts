@@ -865,6 +865,7 @@ export async function fetchOrders({
 }
 
 // Fetch a single order by ID
+// @deprecated Use fetchOrderById from @/services/orderService instead for better business logic handling
 export async function fetchOrder(orderId: string) {
   const supabase = createClient()
 
@@ -919,6 +920,7 @@ export async function fetchOrder(orderId: string) {
 }
 
 // Create a new order
+// @deprecated Use createOrder from @/services/orderService instead for better business logic handling
 export async function createOrder(data: {
   client_id: string
   contact_id?: string | null
@@ -1003,6 +1005,7 @@ export async function createOrder(data: {
 }
 
 // Update an existing order
+// @deprecated Use updateOrder from @/services/orderService instead for better business logic handling
 export async function updateOrder(
   orderId: string,
   data: {
@@ -1060,6 +1063,7 @@ export async function updateOrder(
 }
 
 // Delete an order
+// @deprecated Use deleteOrder from @/services/orderService instead for better business logic handling
 export async function deleteOrder(orderId: string) {
   const supabase = createClient()
 
@@ -1141,6 +1145,7 @@ interface OrderItemsResponse {
 }
 
 // Hàm lấy các order items của một order
+// @deprecated Use fetchOrderItems from @/services/orderService instead for better business logic handling
 export const fetchOrderItems = async (orderId: string): Promise<OrderItemsResponse> => {
   const supabase = createClient()
   try {
@@ -1211,6 +1216,7 @@ export const fetchOrderItems = async (orderId: string): Promise<OrderItemsRespon
 };
 
 // Hàm tạo order item mới
+// @deprecated Use createOrderItem from @/services/orderService instead for better business logic handling
 export async function createOrderItem(data: {
   order_id: string
   commodity_id: string
@@ -1273,6 +1279,7 @@ export async function createOrderItem(data: {
 }
 
 // Hàm cập nhật order item
+// @deprecated Use updateOrderItem from @/services/orderService instead for better business logic handling
 export async function updateOrderItem(
   orderItemId: string,
   data: {
@@ -1334,6 +1341,7 @@ export async function updateOrderItem(
 }
 
 // Hàm xóa order item
+// @deprecated Use deleteOrderItem from @/services/orderService instead for better business logic handling
 export async function deleteOrderItem(orderItemId: string) {
   const supabase = createClient()
 
@@ -1367,6 +1375,7 @@ export async function deleteOrderItem(orderItemId: string) {
 }
 
 // Hàm xóa tất cả order items của một order
+// @deprecated Use deleteOrderItemsByOrderId from @/services/orderService instead for better business logic handling
 export async function deleteOrderItemsByOrderId(orderId: string) {
   const supabase = createClient()
 

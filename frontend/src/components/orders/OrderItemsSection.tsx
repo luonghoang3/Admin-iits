@@ -1,7 +1,7 @@
 import React, { Fragment, useState } from 'react'
 // Import custom combobox component
 import { Combobox as HeadlessuiCombobox } from "@/components/ui/combobox"
-import { 
+import {
   ArchiveBoxIcon as PackageIcon,
   PlusIcon,
   PencilIcon,
@@ -57,11 +57,10 @@ const getUnitName = (item: OrderItem, units: Unit[]): string => {
 
 // Refactored interface to accept functions from useOrderFormV2
 interface OrderItemsSectionProps {
-  // Data from useOrderFormV2
+  // Data from useOrderItems
   orderItems: OrderItem[];
-  addLocalItem: (item: Omit<OrderItem, 'id'>) => void;
-  updateLocalItem: (idOrIndex: string | number, updatedFields: Partial<OrderItem>) => void;
-  removeLocalItem: (idOrIndex: string | number) => void;
+  addOrUpdateItem: (item: Partial<OrderItem>) => void;
+  removeItem: (idOrIndex: string | number) => void;
 
   // Data from other hooks
   commodities: Commodity[];
@@ -87,9 +86,8 @@ interface OrderItemsSectionProps {
 const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({
   // Core props from OrderForm
   orderItems,
-  addLocalItem,
-  updateLocalItem,
-  removeLocalItem,
+  addOrUpdateItem,
+  removeItem,
   commodities,
   units,
   isLoadingCommodities,
@@ -116,40 +114,54 @@ const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({
   const [editingItemId, setEditingItemId] = useState<string | number | null>(null);
   const [localDialogError, setLocalDialogError] = useState<string | null>(null);
 
-  // Local search state (used if external state not provided)
-  const [localCommoditySearch, setLocalCommoditySearch] = useState(externalCommoditySearch);
-  const [localUnitSearch, setLocalUnitSearch] = useState(externalUnitSearch);
-
-  // --- Dialog Management Functions ---
-  const openAddItemForm = () => {
+  // Handler for add or update item
+  const handleSaveItem = () => {
+    if (!currentItemData) return;
+    console.log('OrderItemsSection: handleSaveItem called with data:', currentItemData);
+    addOrUpdateItem(currentItemData);
+    console.log('OrderItemsSection: addOrUpdateItem called');
+    setIsItemDialogOpen(false);
     setCurrentItemData({});
     setIsEditingItemDialog(false);
     setEditingItemId(null);
     setLocalDialogError(null);
-    setIsItemDialogOpen(true);
   };
 
+  // Handler for delete item
+  const handleDeleteItem = (idOrIndex: string | number) => {
+    removeItem(idOrIndex);
+  };
+
+  // Handler for open add item dialog
+  const openAddItemForm = () => {
+    setCurrentItemData({});
+    setIsEditingItemDialog(false);
+    setIsItemDialogOpen(true);
+    setEditingItemId(null);
+    setLocalDialogError(null);
+  };
+
+  // Handler for open edit item dialog
   const openEditItemForm = (item: OrderItem) => {
-    // Create a clean copy of the item data
-    setCurrentItemData({ ...item });
+    setCurrentItemData(item);
     setIsEditingItemDialog(true);
+    setIsItemDialogOpen(true);
     setEditingItemId(item.id || null);
     setLocalDialogError(null);
-    setIsItemDialogOpen(true);
   };
 
+  // Handler for close dialog
   const closeItemDialog = () => {
     setIsItemDialogOpen(false);
     setCurrentItemData({});
     setIsEditingItemDialog(false);
     setEditingItemId(null);
     setLocalDialogError(null);
-    // Reset search
-    setLocalCommoditySearch('');
-    setLocalUnitSearch('');
-    if (setExternalCommoditySearch) setExternalCommoditySearch('');
-    if (setExternalUnitSearch) setExternalUnitSearch('');
   };
+
+  // Local search state (used if external state not provided)
+  const [localCommoditySearch, setLocalCommoditySearch] = useState(externalCommoditySearch);
+  const [localUnitSearch, setLocalUnitSearch] = useState(externalUnitSearch);
 
   // --- Form Handling Functions ---
   const handleItemDialogChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -159,7 +171,7 @@ const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({
       const numValue = parseFloat(value);
       setCurrentItemData(prev => ({
         ...prev,
-        [name]: isNaN(numValue) ? '' : numValue
+        [name]: isNaN(numValue) ? undefined : numValue
       }));
     } else {
       setCurrentItemData(prev => ({
@@ -179,69 +191,9 @@ const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({
     setLocalDialogError(null);
   };
 
-  const handleSaveItem = () => {
-    setLocalDialogError(null);
 
-    // Basic validation
-    if (!currentItemData.commodity_id) {
-      setLocalDialogError('Please select a commodity');
-      return;
-    }
 
-    if (!currentItemData.unit_id) {
-      setLocalDialogError('Please select a unit');
-      return;
-    }
 
-    const quantity = Number(currentItemData.quantity);
-    if (isNaN(quantity) || quantity <= 0) {
-      setLocalDialogError('Please enter a valid quantity greater than 0');
-      return;
-    }
-
-    try {
-      // Prepare item data
-      const selectedCommodity = commodities.find(c => c.id === currentItemData.commodity_id);
-      const selectedUnit = units.find(u => u.id === currentItemData.unit_id);
-
-      const itemToSave: Omit<OrderItem, 'id'> = {
-        commodity_id: currentItemData.commodity_id!,
-        unit_id: currentItemData.unit_id!,
-        quantity: quantity,
-        commodity_description: currentItemData.commodity_description || null,
-        // Include commodity and unit information
-        commodities: selectedCommodity || null,
-        commodity: selectedCommodity || null,
-        units: selectedUnit || null,
-        unit: selectedUnit || null
-      };
-
-      if (isEditingItemDialog && editingItemId) {
-        // Update existing item
-        updateLocalItem(editingItemId, itemToSave);
-      } else {
-        // Add new item
-        addLocalItem(itemToSave);
-      }
-
-      // Close dialog on success
-      closeItemDialog();
-    } catch (error: any) {
-      console.error("Error saving item:", error);
-      setLocalDialogError(error.message || "Failed to save item");
-    }
-  };
-
-  const handleDeleteItem = (idOrIndex: string | number) => {
-    if (confirm('Are you sure you want to remove this item?')) {
-      try {
-        removeLocalItem(idOrIndex);
-      } catch (error: any) {
-        console.error("Error removing item:", error);
-        alert(`Failed to remove item: ${error.message || "Unknown error"}`);
-      }
-    }
-  };
 
   // --- Search and Filtering Functions ---
   const handleLocalCommoditySearch = (query: string) => {
@@ -401,4 +353,4 @@ const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({
   )
 }
 
-export default OrderItemsSection 
+export default OrderItemsSection

@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 
 // Custom hooks
 import { useOrderFormV2 } from '@/hooks/orders/useOrderFormV2'
+import { useOrderItems } from '@/hooks/orders/useOrderItems'
 import { useClientAndContactManagement } from '@/hooks/useClientAndContactManagement'
 import { useUnits } from "@/hooks/useUnits"
 import { useCommodities } from "@/hooks/useCommodities"
@@ -80,7 +81,7 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
   // Chuyển đổi mode của component sang mode của hook
   const hookMode = mode === 'add' ? 'create' : 'edit'
 
-  // Hook now manages items internally via localOrderItems state
+  // Quản lý state form đơn hàng
   const orderFormData = useOrderFormV2({
     mode: hookMode,
     orderId,
@@ -94,7 +95,24 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
     }
   });
 
-  // Destructure necessary parts, including item management functions
+  // Quản lý order items bằng hook chuyên biệt
+  const {
+    items: orderItems,
+    isLoading: isLoadingItems,
+    itemError,
+    saveItem: addOrUpdateItem,
+    deleteItem: removeItem,
+    temporaryItems,
+    saveTemporaryItems,
+    // ...các hàm khác nếu cần
+  } = useOrderItems({
+    orderId,
+    // Có thể truyền initialItems nếu muốn
+  });
+
+  // Không cần lưu bản sao của temporaryItems nữa vì chúng ta sử dụng trực tiếp temporaryItems
+
+  // Destructure các phần còn lại của form
   const {
     formData,
     setFormData,
@@ -104,12 +122,6 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
     isSaving,
     saveOrder,
     resetForm,
-    localOrderItems, // The list of items
-    addLocalItem,    // Function to add item (called by OrderItemsSection)
-    updateLocalItem, // Function to update item (called by OrderItemsSection)
-    removeLocalItem, // Function to remove item (called by OrderItemsSection)
-    isLoadingItems,  // Pass down if needed by OrderItemsSection
-    itemError,       // Pass down if needed by OrderItemsSection
     loadOrderDataAndItems
   } = orderFormData;
 
@@ -289,6 +301,12 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
       setSaving(true)
       setError(null)
 
+      // Chỉ log trong môi trường development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('OrderForm: handleSubmit called');
+        console.log('OrderForm: temporaryItems at submit time:', temporaryItems);
+      }
+
       // Validate required fields
       if (!formData.client_id) {
         throw new Error('Please select a client')
@@ -306,8 +324,28 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
         throw new Error('Please select an order date')
       }
 
-      // Lưu đơn hàng bằng hook, hook sẽ gọi callback onSuccess khi hoàn thành
-      await saveOrder();
+      try {
+        // Lưu đơn hàng
+        const savedOrder = await saveOrder();
+
+        // Lưu các items tạm thời nếu có
+        if (savedOrder?.id && temporaryItems?.length > 0) {
+          const isDev = process.env.NODE_ENV === 'development';
+          if (isDev) console.log(`Saving ${temporaryItems.length} temporary items for order ${savedOrder.id}`);
+
+          try {
+            await saveTemporaryItems(savedOrder.id);
+          } catch (itemError) {
+            // Không throw error ở đây, vẫn tiếp tục với việc tạo đơn hàng
+            if (isDev) console.error('Error saving temporary items:', itemError);
+          }
+        }
+      } catch (saveError) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error saving order:', saveError);
+        }
+        throw saveError; // Re-throw to be caught by the outer catch block
+      }
 
       // Không cần redirect ở đây vì đã được xử lý trong onSuccess
     } catch (err: any) {
@@ -315,7 +353,7 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
     } finally {
       setSaving(false)
     }
-  }, [formData, saveOrder, setSaving, setError])
+  }, [formData, saveOrder, setSaving, setError, temporaryItems, saveTemporaryItems])
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -384,7 +422,13 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
               ) : (
                 <>
                   <SaveIcon className="h-4 w-4 mr-2" />
-                  {mode === 'add' ? 'Save Order' : 'Update Order'}
+                  {mode === 'add' ? (
+                    temporaryItems && temporaryItems.length > 0 ?
+                      `Save Order & ${temporaryItems.length} Item${temporaryItems.length > 1 ? 's' : ''}` :
+                      'Save Order'
+                  ) : (
+                    'Update Order'
+                  )}
                 </>
               )}
             </Button>
@@ -451,10 +495,9 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
 
       <div className="mt-6">
         <OrderItemsSection
-          orderItems={localOrderItems}
-          addLocalItem={addLocalItem}
-          updateLocalItem={updateLocalItem}
-          removeLocalItem={removeLocalItem}
+          orderItems={orderItems}
+          addOrUpdateItem={addOrUpdateItem}
+          removeItem={removeItem}
           commodities={commodities}
           units={units}
           isLoadingCommodities={isLoadingCommodities}

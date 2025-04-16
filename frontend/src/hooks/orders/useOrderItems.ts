@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { OrderItem, Commodity, Unit } from '@/types/orders'
-import { fetchOrderItems, createOrderItem, updateOrderItem, deleteOrderItem as apiDeleteOrderItem } from '@/utils/supabase/client'
+import { fetchOrderItems, createOrderItem, updateOrderItem, deleteOrderItem as apiDeleteOrderItem } from '@/services/orderService'
 import { useAsyncAction } from '../common/useAsyncAction'
 import { v4 as uuidv4 } from 'uuid'
 import { toast } from '@/lib/toast'
@@ -376,9 +376,10 @@ export function useOrderItems({
         };
 
         // Add to temporary items
+        console.log('Adding temporary item to items:', tempItem);
         setItems((prevItems) => {
           const updatedItems = [...prevItems, tempItem];
-
+          console.log('Updated items after adding temporary item:', updatedItems);
           return updatedItems;
         });
 
@@ -401,8 +402,21 @@ export function useOrderItems({
 
         // If the item has a temporary id, remove it
         if (processedItem.id && processedItem.id.startsWith("temp_")) {
+          // For temporary items, remove the temporary ID and ensure we have the correct order_id
           const { id, ...itemWithoutId } = processedItem;
-          processedItem = itemWithoutId as OrderItem;
+          processedItem = {
+            ...itemWithoutId,
+            order_id: effectiveOrderId // Ensure order_id is set correctly
+          } as OrderItem;
+
+          // Chỉ log trong môi trường development
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Converting temporary item to permanent:', {
+              tempId: id,
+              newItem: processedItem,
+              effectiveOrderId
+            });
+          }
         }
 
         if (!processedItem.id) {
@@ -420,13 +434,16 @@ export function useOrderItems({
 
 
 
+          const isDev = process.env.NODE_ENV === 'development';
+          if (isDev) console.log('Creating order item:', itemToCreate);
+
           const response = await createOrderItem(itemToCreate);
 
           if (response.error) {
-
+            if (isDev) console.error('Error in createOrderItem:', response.error);
             toast.toast({
               title: "Error creating item",
-              description: response.error || "An error occurred",
+              description: response.error.message || "An error occurred",
               variant: "destructive"
             });
             return null;
@@ -471,13 +488,16 @@ export function useOrderItems({
             return null;
           }
 
+          const isDev = process.env.NODE_ENV === 'development';
+          if (isDev) console.log('Updating order item:', processedItem.id);
+
           const response = await updateOrderItem(processedItem.id, itemToUpdate);
 
           if (response.error) {
-
+            if (isDev) console.error('Error in updateOrderItem:', response.error);
             toast.toast({
               title: "Error updating item",
-              description: response.error || "An error occurred",
+              description: response.error.message || "An error occurred",
               variant: "destructive"
             });
             return null;
@@ -564,6 +584,84 @@ export function useOrderItems({
     }, 0)
   }, [items])
 
+  /**
+   * Lưu tất cả các items tạm thời vào database
+   */
+  const saveTemporaryItems = useCallback(async (newOrderId: string) => {
+    const isDev = process.env.NODE_ENV === 'development';
+
+    // Early return nếu không có orderId hợp lệ
+    if (!newOrderId || typeof newOrderId !== 'string') {
+      if (isDev) console.error('Invalid orderId provided to saveTemporaryItems:', newOrderId);
+      toast.toast({
+        title: "Error saving items",
+        description: "No valid order ID provided",
+        variant: "destructive"
+      });
+      return [];
+    }
+
+    // Lấy các items tạm thời trực tiếp từ state
+    const tempItems = items.filter(item => item.id && item.id.startsWith('temp_'));
+
+    // Early return nếu không có items tạm thời
+    if (tempItems.length === 0) {
+      if (isDev) console.log('No temporary items to save');
+      return [];
+    }
+
+    if (isDev) console.log(`Saving ${tempItems.length} temporary items for order ${newOrderId}`);
+
+    // Cập nhật orderId trong hook state
+    setOrderId(newOrderId);
+
+    // Lưu các items tạm thời
+    const savedItems = [];
+    const failedItems = [];
+
+    for (const tempItem of tempItems) {
+      try {
+        const savedItem = await saveItem(tempItem, newOrderId);
+        if (savedItem) {
+          savedItems.push(savedItem);
+        } else {
+          failedItems.push(tempItem);
+        }
+      } catch (error) {
+        if (isDev) console.error('Error saving temporary item:', error);
+        failedItems.push(tempItem);
+      }
+    }
+
+    // Hiển thị thông báo kết quả
+    if (failedItems.length > 0) {
+      toast.toast({
+        title: "Warning",
+        description: `Failed to save ${failedItems.length} items.`,
+        variant: "destructive"
+      });
+    }
+
+    if (savedItems.length > 0) {
+      toast.toast({
+        title: "Items saved",
+        description: `Successfully saved ${savedItems.length} items to the order.`,
+        variant: "default"
+      });
+    }
+
+    return savedItems;
+  }, [items, saveItem, setOrderId, toast]);
+
+  // Calculate temporary items using useMemo to avoid recalculation
+  const temporaryItems = useMemo(() => {
+    // Chỉ log trong môi trường development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Current items:', items);
+    }
+    return items.filter(item => item.id && item.id.startsWith('temp_'));
+  }, [items]);
+
   return {
     items,
     setItems,
@@ -583,6 +681,7 @@ export function useOrderItems({
     deleteItem,
     calculateTotal,
     setOrderId,
-    temporaryItems: items.filter(item => item.id && item.id.startsWith('temp_'))
+    temporaryItems,
+    saveTemporaryItems
   }
 }
