@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { createClient, fetchOrders, deleteOrder } from '@/utils/supabase/client'
 import { redirect } from 'next/navigation'
@@ -137,10 +137,14 @@ setTotalOrders(total)
   }
 
   // Xử lý tìm kiếm khách hàng
+  const prevClientSearchRef = useRef('')
   const handleClientSearch = (query: string) => {
     setClientSearch(query)
-    // Reset về trang 1 khi tìm kiếm
-    setPage(1)
+    // Chỉ reset page về 1 khi query thực sự thay đổi
+    if (prevClientSearchRef.current !== query) {
+      setPage(1)
+      prevClientSearchRef.current = query
+    }
   }
 
   async function handleDeleteOrder(orderId: string) {
