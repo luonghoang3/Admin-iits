@@ -130,10 +130,14 @@ setTotalOrders(total)
   }
 
   // Xử lý tìm kiếm mã đơn hàng
+  const prevOrderNumberSearchRef = useRef('')
   const handleOrderSearch = (query: string) => {
     setOrderNumberSearch(query)
-    // Reset về trang 1 khi tìm kiếm
-    setPage(1)
+    // Chỉ reset page về 1 khi query thực sự thay đổi
+    if (prevOrderNumberSearchRef.current !== query) {
+      setPage(1)
+      prevOrderNumberSearchRef.current = query
+    }
   }
 
   // Xử lý tìm kiếm khách hàng
