@@ -9,6 +9,7 @@ import { columns, Order } from './columns'
 import { TeamFilter } from './team-filter'
 import { OrderSearch } from './order-search'
 import { ClientSearch } from './client-search'
+import { normalizeIdNameField } from '@/utils/formatters/orderMappingUtils' // Refactor mapping clients/teams
 // Đã gỡ bỏ import Button vì đã được import trong TeamFilter
 
 // Đã gỡ bỏ các options cho bộ lọc
@@ -89,41 +90,8 @@ export default function OrdersPage() {
 
             setOrders(paginatedOrders.map(order => ({
   ...order,
-  clients: order.clients ? {
-    id: String(order.clients.id),
-    name: String(order.clients.name)
-  } : undefined,
-  teams: (() => {
-  if (!order.teams) return undefined;
-  if (Array.isArray(order.teams)) {
-    const t = order.teams[0];
-    if (
-      t &&
-      typeof t === 'object' &&
-      t !== null &&
-      (t as any).id !== undefined &&
-      (t as any).name !== undefined
-    ) {
-      return {
-        id: String((t as any).id),
-        name: String((t as any).name)
-      };
-    }
-    return undefined;
-  }
-  if (
-    typeof order.teams === 'object' &&
-    order.teams !== null &&
-    typeof (order.teams as any).id !== 'undefined' &&
-    typeof (order.teams as any).name !== 'undefined'
-  ) {
-    return {
-      id: String((order.teams as any).id),
-      name: String((order.teams as any).name)
-    };
-  }
-  return undefined;
-})()
+  clients: normalizeIdNameField(order.clients),
+  teams: normalizeIdNameField(order.teams)
 })));
             setTotalOrders(totalFilteredOrders);
 
@@ -135,41 +103,8 @@ export default function OrdersPage() {
             // Không tìm kiếm, sử dụng phân trang bình thường
             setOrders(ordersData.map(order => ({
   ...order,
-  clients: order.clients ? {
-    id: String(order.clients.id),
-    name: String(order.clients.name)
-  } : undefined,
-  teams: (() => {
-  if (!order.teams) return undefined;
-  if (Array.isArray(order.teams)) {
-    const t = order.teams[0];
-    if (
-      t &&
-      typeof t === 'object' &&
-      t !== null &&
-      (t as any).id !== undefined &&
-      (t as any).name !== undefined
-    ) {
-      return {
-        id: String((t as any).id),
-        name: String((t as any).name)
-      };
-    }
-    return undefined;
-  }
-  if (
-    typeof order.teams === 'object' &&
-    order.teams !== null &&
-    typeof (order.teams as any).id !== 'undefined' &&
-    typeof (order.teams as any).name !== 'undefined'
-  ) {
-    return {
-      id: String((order.teams as any).id),
-      name: String((order.teams as any).name)
-    };
-  }
-  return undefined;
-})()
+  clients: normalizeIdNameField(order.clients),
+  teams: normalizeIdNameField(order.teams)
 })))
 setTotalOrders(total)
           }
