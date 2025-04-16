@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search } from "lucide-react"
+import Search from "lucide-react/dist/esm/icons/search"
 
 interface OrderSearchProps {
   onSearch: (query: string) => void
@@ -12,32 +12,25 @@ interface OrderSearchProps {
 export function OrderSearch({ onSearch }: OrderSearchProps) {
   const [searchQuery, setSearchQuery] = useState("")
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSearch(searchQuery)
+  // Gọi onSearch mỗi khi người dùng thay đổi input
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSearchQuery(value)
+    onSearch(value)
   }
 
   return (
-    <form onSubmit={handleSearch} className="flex items-center space-x-2">
+    <div className="flex items-center space-x-2">
       <div className="relative flex-1">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+        <span className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500"><Search /></span>
         <Input
           type="text"
           placeholder="Tìm kiếm mã đơn hàng..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={handleChange}
           className="pl-9"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              onSearch(searchQuery)
-            }
-          }}
         />
       </div>
-      <Button type="submit" variant="default" size="sm" className="whitespace-nowrap">
-        Tìm kiếm
-      </Button>
-    </form>
+    </div>
   )
 }

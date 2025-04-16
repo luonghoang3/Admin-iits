@@ -87,7 +87,44 @@ export default function OrdersPage() {
             const endIndex = startIndex + limit;
             const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
 
-            setOrders(paginatedOrders);
+            setOrders(paginatedOrders.map(order => ({
+  ...order,
+  clients: order.clients ? {
+    id: String(order.clients.id),
+    name: String(order.clients.name)
+  } : undefined,
+  teams: (() => {
+  if (!order.teams) return undefined;
+  if (Array.isArray(order.teams)) {
+    const t = order.teams[0];
+    if (
+      t &&
+      typeof t === 'object' &&
+      t !== null &&
+      (t as any).id !== undefined &&
+      (t as any).name !== undefined
+    ) {
+      return {
+        id: String((t as any).id),
+        name: String((t as any).name)
+      };
+    }
+    return undefined;
+  }
+  if (
+    typeof order.teams === 'object' &&
+    order.teams !== null &&
+    typeof (order.teams as any).id !== 'undefined' &&
+    typeof (order.teams as any).name !== 'undefined'
+  ) {
+    return {
+      id: String((order.teams as any).id),
+      name: String((order.teams as any).name)
+    };
+  }
+  return undefined;
+})()
+})));
             setTotalOrders(totalFilteredOrders);
 
             // Nếu trang hiện tại không có dữ liệu và không phải trang đầu tiên, quay lại trang trước
@@ -96,8 +133,45 @@ export default function OrdersPage() {
             }
           } else {
             // Không tìm kiếm, sử dụng phân trang bình thường
-            setOrders(ordersData)
-            setTotalOrders(total)
+            setOrders(ordersData.map(order => ({
+  ...order,
+  clients: order.clients ? {
+    id: String(order.clients.id),
+    name: String(order.clients.name)
+  } : undefined,
+  teams: (() => {
+  if (!order.teams) return undefined;
+  if (Array.isArray(order.teams)) {
+    const t = order.teams[0];
+    if (
+      t &&
+      typeof t === 'object' &&
+      t !== null &&
+      (t as any).id !== undefined &&
+      (t as any).name !== undefined
+    ) {
+      return {
+        id: String((t as any).id),
+        name: String((t as any).name)
+      };
+    }
+    return undefined;
+  }
+  if (
+    typeof order.teams === 'object' &&
+    order.teams !== null &&
+    typeof (order.teams as any).id !== 'undefined' &&
+    typeof (order.teams as any).name !== 'undefined'
+  ) {
+    return {
+      id: String((order.teams as any).id),
+      name: String((order.teams as any).name)
+    };
+  }
+  return undefined;
+})()
+})))
+setTotalOrders(total)
           }
         }
       } catch (err: any) {
@@ -182,19 +256,24 @@ export default function OrdersPage() {
 
       {/* Tìm kiếm và bộ lọc */}
       <div className="mb-6 bg-white p-3 rounded-md shadow-sm border">
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <div className="w-full sm:w-3/5 lg:w-2/3 space-y-3">
-            <OrderSearch onSearch={handleOrderSearch} />
-            <ClientSearch onSearch={handleClientSearch} />
-          </div>
-          <div className="w-full sm:w-2/5 lg:w-1/3 mt-2 sm:mt-0 flex justify-center sm:justify-end">
-            <TeamFilter
-              selectedTeam={selectedTeam}
-              setSelectedTeam={setSelectedTeam}
-            />
-          </div>
-        </div>
+  <div className="flex flex-col sm:flex-row items-center gap-3">
+    {/* 2 trường search nằm cùng 1 dòng, chia đôi chiều rộng */}
+    <div className="w-full sm:w-3/5 lg:w-2/3 flex flex-row gap-3">
+      <div className="flex-1">
+        <OrderSearch onSearch={handleOrderSearch} />
       </div>
+      <div className="flex-1">
+        <ClientSearch onSearch={handleClientSearch} />
+      </div>
+    </div>
+    <div className="w-full sm:w-2/5 lg:w-1/3 mt-2 sm:mt-0 flex justify-center sm:justify-end">
+      <TeamFilter
+        selectedTeam={selectedTeam}
+        setSelectedTeam={setSelectedTeam}
+      />
+    </div>
+  </div>
+</div>
 
       {error && (
         <div className="bg-red-50 text-red-600 p-4 rounded-md mb-6">
