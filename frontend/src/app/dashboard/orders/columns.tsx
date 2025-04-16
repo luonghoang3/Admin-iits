@@ -1,8 +1,14 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { MoreHorizontal, Edit, Trash2, ExternalLink } from "lucide-react"
-import { UserGroupIcon } from "@heroicons/react/24/outline"
+// Import các biểu tượng từ heroicons thay vì lucide-react
+import {
+  EllipsisHorizontalIcon,
+  PencilIcon,
+  TrashIcon,
+  ArrowTopRightOnSquareIcon,
+  UserGroupIcon
+} from "@heroicons/react/24/outline"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
@@ -68,10 +74,7 @@ function formatDate(dateString: string): string {
   });
 }
 
-// Hàm định dạng kiểu đơn hàng
-function formatOrderType(type: string): string {
-  return type === 'international' ? 'International (I)' : 'Local (L)';
-}
+// Đã gỡ bỏ hàm formatOrderType không sử dụng
 
 export const columns: ColumnDef<Order>[] = [
   {
@@ -90,6 +93,8 @@ export const columns: ColumnDef<Order>[] = [
     header: "Khách hàng",
     cell: ({ row }) => {
       // Sử dụng trực tiếp client_name đã được xử lý từ fetchOrders
+      // Đã gỡ bỏ debug log
+
       const clientName = row.original.client_name || '-';
 
       return (
@@ -114,6 +119,8 @@ export const columns: ColumnDef<Order>[] = [
     accessorKey: "team_name",
     header: "Team",
     cell: ({ row }) => {
+      // Đã gỡ bỏ debug log
+
       const teamName = row.original.team_name || 'Unknown';
       const { color } = teamColorMap[teamName] ||
         { color: "bg-gray-100 text-gray-800 border-gray-200" };
@@ -159,20 +166,20 @@ export const columns: ColumnDef<Order>[] = [
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">
               <span className="sr-only">Mở menu</span>
-              <MoreHorizontal className="h-4 w-4" />
+              <EllipsisHorizontalIcon className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Hành động</DropdownMenuLabel>
             <DropdownMenuItem asChild>
               <Link href={`/dashboard/orders/${order.id}`} className="flex items-center">
-                <ExternalLink className="mr-2 h-4 w-4" />
+                <ArrowTopRightOnSquareIcon className="mr-2 h-4 w-4" />
                 <span>Chi tiết</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href={`/dashboard/orders/edit/${order.id}`} className="flex items-center">
-                <Edit className="mr-2 h-4 w-4" />
+                <PencilIcon className="mr-2 h-4 w-4" />
                 <span>Chỉnh sửa</span>
               </Link>
             </DropdownMenuItem>
@@ -191,7 +198,7 @@ export const columns: ColumnDef<Order>[] = [
                 document.body.removeChild(deleteButton)
               }}
             >
-              <Trash2 className="mr-2 h-4 w-4" />
+              <TrashIcon className="mr-2 h-4 w-4" />
               <span>Xóa</span>
             </DropdownMenuItem>
           </DropdownMenuContent>

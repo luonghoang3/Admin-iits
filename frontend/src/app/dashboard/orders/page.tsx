@@ -2,14 +2,15 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { createClient, fetchOrders, deleteOrder } from '@/utils/supabase/client'
+import { createClient } from '@/utils/supabase/client'
+import { fetchOrders, deleteOrder } from '@/services/orderService'
 import { redirect } from 'next/navigation'
 import { DataTable } from './data-table'
 import { columns, Order } from './columns'
 import { TeamFilter } from './team-filter'
 import { OrderSearch } from './order-search'
 import { ClientSearch } from './client-search'
-import { normalizeIdNameField } from '@/utils/formatters/orderMappingUtils' // Refactor mapping clients/teams
+// Đã gỡ bỏ import normalizeIdNameField vì không còn sử dụng
 // Đã gỡ bỏ import Button vì đã được import trong TeamFilter
 
 // Đã gỡ bỏ các options cho bộ lọc
@@ -34,13 +35,49 @@ export default function OrdersPage() {
   // Thêm state cho tìm kiếm khách hàng
   const [clientSearch, setClientSearch] = useState('')
 
+  // State cho tìm kiếm khách hàng
+  const [allOrders, setAllOrders] = useState<Order[]>([]) // Lưu trữ tất cả đơn hàng khi tìm kiếm
+  const [allOrdersUnfiltered, setAllOrdersUnfiltered] = useState<Order[]>([]) // Lưu trữ tất cả đơn hàng không lọc theo team
+  const [isSearchingClient, setIsSearchingClient] = useState(false) // Đánh dấu đang tìm kiếm khách hàng
+
   // Đã gỡ bỏ hàm tải danh sách khách hàng
 
   // Đã gỡ bỏ hàm loadData và sử dụng useEffect để tải dữ liệu
 
-  // Tải dữ liệu khi page thay đổi
+  // Xử lý dữ liệu khi tìm kiếm khách hàng hoặc thay đổi team
   useEffect(() => {
-    console.log('Loading data for page:', page)
+    if (isSearchingClient && clientSearch && allOrders.length > 0) {
+      // Lọc các đơn hàng có client_name chứa từ khóa tìm kiếm
+      const filteredOrders = allOrders.filter(order =>
+        order.client_name && order.client_name.toLowerCase().includes(clientSearch.toLowerCase())
+      );
+
+      // Tổng số đơn hàng phù hợp
+      const totalFilteredOrders = filteredOrders.length;
+
+      // Phân trang thủ công đối với kết quả tìm kiếm
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+      setOrders(paginatedOrders);
+      setTotalOrders(totalFilteredOrders);
+
+      // Nếu trang hiện tại không có dữ liệu và không phải trang đầu tiên, quay lại trang trước
+      if (paginatedOrders.length === 0 && page > 1) {
+        setPage(1); // Quay lại trang đầu tiên khi kết quả tìm kiếm không đủ để hiển thị ở trang hiện tại
+      }
+
+      // Đã gỡ bỏ debug log
+    }
+  }, [isSearchingClient, clientSearch, allOrders, page, limit, selectedTeam]);
+
+  // Tải dữ liệu khi page thay đổi hoặc không tìm kiếm khách hàng
+  useEffect(() => {
+    // Nếu đang tìm kiếm khách hàng, không tải dữ liệu theo trang
+    if (isSearchingClient) return;
+
+    // Đã gỡ bỏ debug log
     // Gọi hàm tải dữ liệu
     const fetchData = async () => {
       setLoading(true)
@@ -58,7 +95,7 @@ export default function OrdersPage() {
 
         if (!user) {
           redirect('/login')
-          return
+          // 'return' sau redirect là không cần thiết vì redirect sẽ chuyển hướng người dùng
         }
 
         // Lấy dữ liệu đơn hàng với phân trang, bộ lọc team và tìm kiếm
@@ -66,51 +103,26 @@ export default function OrdersPage() {
           page,
           limit,
           teamId: selectedTeam,
-          orderNumberSearch,
-          clientSearch
+          orderNumberSearch
         })
+
+        // Đã gỡ bỏ debug log
 
         if (ordersError) {
           setError(`Could not load orders: ${ordersError}`)
         } else {
-          // Nếu đang tìm kiếm khách hàng
-          if (clientSearch) {
-            // Lọc các đơn hàng có client_name chứa từ khóa tìm kiếm
-            const filteredOrders = ordersData.filter(order =>
-              order.client_name && order.client_name.toLowerCase().includes(clientSearch.toLowerCase())
-            );
+          // Sử dụng dữ liệu trực tiếp từ API
+          // Sử dụng type assertion để tránh lỗi TypeScript
+          setOrders(ordersData as Order[]);
+          setTotalOrders(total);
 
-            // Tổng số đơn hàng phù hợp
-            const totalFilteredOrders = filteredOrders.length;
-
-            // Phân trang thủ công đối với kết quả tìm kiếm
-            const startIndex = (page - 1) * limit;
-            const endIndex = startIndex + limit;
-            const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
-
-            setOrders(paginatedOrders.map(order => ({
-  ...order,
-  clients: normalizeIdNameField(order.clients),
-  teams: normalizeIdNameField(order.teams)
-})));
-            setTotalOrders(totalFilteredOrders);
-
-            // Nếu trang hiện tại không có dữ liệu và không phải trang đầu tiên, quay lại trang trước
-            if (paginatedOrders.length === 0 && page > 1) {
-              setPage(1); // Quay lại trang đầu tiên khi kết quả tìm kiếm không đủ để hiển thị ở trang hiện tại
-            }
-          } else {
-            // Không tìm kiếm, sử dụng phân trang bình thường
-            setOrders(ordersData.map(order => ({
-  ...order,
-  clients: normalizeIdNameField(order.clients),
-  teams: normalizeIdNameField(order.teams)
-})))
-setTotalOrders(total)
+          // Nếu trang hiện tại không có dữ liệu và không phải trang đầu tiên, quay lại trang trước
+          if (ordersData.length === 0 && page > 1) {
+            setPage(1); // Quay lại trang đầu tiên khi kết quả tìm kiếm không đủ để hiển thị ở trang hiện tại
           }
         }
       } catch (err: any) {
-        console.error('Error:', err)
+        // Đã gỡ bỏ debug log
         setError(err.message || 'An error occurred')
       } finally {
         setLoading(false)
@@ -118,13 +130,29 @@ setTotalOrders(total)
     }
 
     fetchData()
-  }, [page, limit, selectedTeam, orderNumberSearch, clientSearch]) // Chạy khi page, limit, selectedTeam, orderNumberSearch hoặc clientSearch thay đổi
+  }, [page, limit, selectedTeam, orderNumberSearch, isSearchingClient]) // Chạy khi page, limit, selectedTeam, orderNumberSearch hoặc isSearchingClient thay đổi
 
-  // Đã gỡ bỏ xử lý thay đổi bộ lọc
+  // Xử lý thay đổi team
+  const handleTeamChange = (teamId: string | null) => {
+    setSelectedTeam(teamId)
+    setPage(1) // Reset về trang 1 khi thay đổi team
+
+    // Nếu đang tìm kiếm khách hàng, lọc lại kết quả theo team mới
+    if (isSearchingClient && clientSearch) {
+      if (teamId) {
+        // Lọc theo team được chọn
+        const filteredByTeam = allOrdersUnfiltered.filter(order => order.team_id === teamId)
+        setAllOrders(filteredByTeam)
+      } else {
+        // Không lọc theo team
+        setAllOrders(allOrdersUnfiltered)
+      }
+    }
+  }
 
   // Xử lý thay đổi trang
   const handlePageChange = (newPage: number) => {
-    console.log('Changing page to:', newPage)
+    // Đã gỡ bỏ debug log
     setPage(newPage)
     // Không cần gọi loadData() ở đây vì useEffect sẽ tự động gọi khi page thay đổi
   }
@@ -142,13 +170,54 @@ setTotalOrders(total)
 
   // Xử lý tìm kiếm khách hàng
   const prevClientSearchRef = useRef('')
-  const handleClientSearch = (query: string) => {
-    setClientSearch(query)
+
+  const handleClientSearch = async (query: string) => {
     // Chỉ reset page về 1 khi query thực sự thay đổi
     if (prevClientSearchRef.current !== query) {
       setPage(1)
       prevClientSearchRef.current = query
+
+      if (query) {
+        // Nếu đang tìm kiếm, tải tất cả dữ liệu
+        setIsSearchingClient(true)
+        setLoading(true)
+
+        try {
+          // Tải tất cả dữ liệu (không phân trang)
+          // Không cần sử dụng totalAll
+          const { orders: allOrdersData, error: allOrdersError } = await fetchOrders({
+            teamId: selectedTeam, // Vẫn lọc theo team hiện tại
+            orderNumberSearch,
+            skipPagination: true
+          })
+
+          // Tải tất cả dữ liệu không lọc theo team để có thể lọc lại sau này
+          const { orders: allOrdersUnfilteredData } = await fetchOrders({
+            orderNumberSearch,
+            skipPagination: true
+          })
+
+          if (allOrdersError) {
+            setError(`Could not load all orders: ${allOrdersError}`)
+          } else {
+            // Sử dụng type assertion để tránh lỗi TypeScript
+            setAllOrders(allOrdersData as Order[])
+            // Lưu trữ dữ liệu không lọc theo team
+            setAllOrdersUnfiltered(allOrdersUnfilteredData as Order[])
+          }
+        } catch (err: any) {
+          // Đã gỡ bỏ debug log
+          setError(err.message || 'An error occurred while loading all orders')
+        } finally {
+          setLoading(false)
+        }
+      } else {
+        // Nếu không tìm kiếm nữa, quay lại chế độ bình thường
+        setIsSearchingClient(false)
+      }
     }
+
+    setClientSearch(query)
   }
 
   async function handleDeleteOrder(orderId: string) {
@@ -159,26 +228,45 @@ setTotalOrders(total)
     try {
       setLoading(true)
 
-      const { success, error: deleteError } = await deleteOrder(orderId)
+      // Sử dụng hàm deleteOrder từ orderService.ts
+      await deleteOrder(orderId)
 
-      if (deleteError) throw new Error(deleteError)
+      // Cập nhật danh sách đơn hàng trực tiếp trên client
+      if (isSearchingClient) {
+        // Nếu đang tìm kiếm, cập nhật cả hai danh sách
+        setAllOrders(prevOrders => prevOrders.filter(order => order.id !== orderId))
+        setAllOrdersUnfiltered(prevOrders => prevOrders.filter(order => order.id !== orderId))
 
-      if (success) {
-        // Tải lại dữ liệu sau khi xóa thành công
-        // Cách 1: Set lại page hiện tại để trigger useEffect
-        // setPage(page)
-
-        // Cách 2: Set page về 1 nếu đang ở trang cuối và chỉ còn 1 item
+        // Cập nhật danh sách hiển thị
+        setOrders(prevOrders => {
+          const updatedOrders = prevOrders.filter(order => order.id !== orderId)
+          setTotalOrders(prev => prev - 1) // Giảm tổng số đơn hàng
+          return updatedOrders
+        })
+      } else {
+        // Nếu không đang tìm kiếm, tải lại dữ liệu từ server
+        // Kiểm tra nếu đang ở trang cuối và chỉ còn 1 item
         if (page > 1 && orders.length === 1) {
           setPage(page - 1) // Quay lại trang trước nếu xóa item cuối cùng của trang
         } else {
-          // Force re-render bằng cách set một giá trị mới
-          setPage(current => current) // Trigger useEffect để tải lại dữ liệu
+          // Cập nhật danh sách hiển thị trước, sau đó tải lại dữ liệu
+          setOrders(prevOrders => {
+            const updatedOrders = prevOrders.filter(order => order.id !== orderId)
+            setTotalOrders(prev => prev - 1) // Giảm tổng số đơn hàng
+            return updatedOrders
+          })
+
+          // Tạo một giá trị ngẫu nhiên để bắt buộc useEffect tải lại dữ liệu
+          setTimeout(() => {
+            // Sử dụng setTimeout để đảm bảo cập nhật UI trước khi tải lại dữ liệu
+            setPage(current => current) // Trigger useEffect để tải lại dữ liệu
+          }, 100)
         }
-        alert('Xóa đơn hàng thành công')
       }
+
+      alert('Xóa đơn hàng thành công')
     } catch (err: any) {
-      console.error('Error deleting order:', err)
+      // Đã gỡ bỏ debug log
       alert(`Lỗi khi xóa đơn hàng: ${err.message}`)
     } finally {
       setLoading(false)
@@ -212,7 +300,7 @@ setTotalOrders(total)
     <div className="w-full sm:w-2/5 lg:w-1/3 mt-2 sm:mt-0 flex justify-center sm:justify-end">
       <TeamFilter
         selectedTeam={selectedTeam}
-        setSelectedTeam={setSelectedTeam}
+        setSelectedTeam={handleTeamChange}
       />
     </div>
   </div>
