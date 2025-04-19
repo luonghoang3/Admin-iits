@@ -64,8 +64,11 @@ export function buildHierarchicalItems(
 ): HierarchicalComboboxItem[] {
   let items: HierarchicalComboboxItem[] = [];
 
+  // Sắp xếp danh mục theo tên
+  const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name));
+
   // Thêm các danh mục vào danh sách
-  categories.forEach(category => {
+  sortedCategories.forEach(category => {
     // Thêm danh mục nếu cần
     if (includeCategories) {
       items.push({
@@ -80,7 +83,11 @@ export function buildHierarchicalItems(
 
     // Thêm các hàng hóa thuộc danh mục này
     const categoryCommodities = commodities.filter(c => c.category_id === category.id);
-    categoryCommodities.forEach(commodity => {
+
+    // Sắp xếp hàng hóa theo tên
+    const sortedCommodities = [...categoryCommodities].sort((a, b) => a.name.localeCompare(b.name));
+
+    sortedCommodities.forEach(commodity => {
       items.push({
         value: commodity.id,
         label: commodity.name,
@@ -111,7 +118,10 @@ export function buildHierarchicalItems(
         disabled: true
       });
 
-      uncategorizedCommodities.forEach(commodity => {
+      // Sắp xếp hàng hóa không phân loại theo tên
+      const sortedUncategorized = [...uncategorizedCommodities].sort((a, b) => a.name.localeCompare(b.name));
+
+      sortedUncategorized.forEach(commodity => {
         items.push({
           value: commodity.id,
           label: commodity.name,
@@ -128,18 +138,56 @@ export function buildHierarchicalItems(
 
 /**
  * Lọc danh sách phẳng các mục theo từ khóa tìm kiếm
+ * Giữ lại cấu trúc cây khi tìm kiếm
  */
 export function filterHierarchicalItems(
   items: HierarchicalComboboxItem[],
   searchTerm: string
 ): HierarchicalComboboxItem[] {
   if (!searchTerm) return items;
-  
+
   const lowerSearchTerm = searchTerm.toLowerCase();
-  
-  // Lọc các mục phù hợp với từ khóa tìm kiếm
-  return items.filter(item => 
-    item.label.toLowerCase().includes(lowerSearchTerm) || 
+
+  // Tạo một map các danh mục
+  const categoryMap = new Map<string, HierarchicalComboboxItem>();
+
+  // Tìm các mục phù hợp với từ khóa tìm kiếm
+  const matchingItems = items.filter(item =>
+    item.label.toLowerCase().includes(lowerSearchTerm) ||
     (item.description && item.description.toLowerCase().includes(lowerSearchTerm))
   );
+
+  // Nếu không có mục nào phù hợp, trả về danh sách rỗng
+  if (matchingItems.length === 0) return [];
+
+  // Lọc các mục không phải danh mục
+  const nonCategoryItems = matchingItems.filter(item => !item.isCategory);
+
+  // Tạo danh sách kết quả
+  const result: HierarchicalComboboxItem[] = [];
+
+  // Thêm các mục không phải danh mục vào kết quả
+  nonCategoryItems.forEach(item => {
+    // Tìm danh mục cha của mục này
+    if (item.categoryId) {
+      const categoryItem = items.find(i => i.isCategory && i.value === `category-${item.categoryId}`);
+      if (categoryItem && !result.some(i => i.value === categoryItem.value)) {
+        result.push(categoryItem);
+      }
+    }
+    result.push(item);
+  });
+
+  // Sắp xếp kết quả theo cấu trúc cây
+  return result.sort((a, b) => {
+    // Đặt danh mục trước
+    if (a.isCategory && !b.isCategory) return -1;
+    if (!a.isCategory && b.isCategory) return 1;
+
+    // Nếu cùng là danh mục hoặc cùng không phải danh mục, sắp xếp theo level
+    if (a.level !== b.level) return a.level - b.level;
+
+    // Nếu cùng level, sắp xếp theo tên
+    return a.label.localeCompare(b.label);
+  });
 }

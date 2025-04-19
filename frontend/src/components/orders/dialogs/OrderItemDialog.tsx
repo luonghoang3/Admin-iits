@@ -103,6 +103,7 @@ export default function OrderItemDialog({
                 ),
                 commoditySearch
               )}
+              className="z-50"
               value={currentItem.commodity_id || ''}
               onChange={(value) => handleSelectChange('commodity_id', value)}
               placeholder="Select commodity..."

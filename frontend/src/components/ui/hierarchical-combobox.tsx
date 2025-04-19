@@ -31,7 +31,7 @@ interface HierarchicalComboboxProps {
   onLoadMore?: () => void
   hasMore?: boolean
   isLoadingMore?: boolean
-  selectedItemData?: HierarchicalComboboxItem | null 
+  selectedItemData?: HierarchicalComboboxItem | null
 }
 
 export function HierarchicalCombobox({
@@ -83,9 +83,9 @@ export function HierarchicalCombobox({
           {/* Use Combobox.Input as the main element */}
           <HeadlessUICombobox.Input
             className="relative w-full cursor-default rounded-md border border-input bg-transparent py-2 pl-3 pr-10 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-            displayValue={(val: string) => 
-              (selectedItemData && selectedItemData.value === val) 
-                ? selectedItemData.label 
+            displayValue={(val: string) =>
+              (selectedItemData && selectedItemData.value === val)
+                ? selectedItemData.label
                 : items.find(item => item.value === val)?.label || ''
             }
             onChange={handleInputChange}
@@ -137,11 +137,10 @@ export function HierarchicalCombobox({
                       disabled={item.disabled}
                       className={({ active }) =>
                         cn(
-                          'relative cursor-default select-none py-2 pl-10 pr-4 text-sm',
+                          'relative cursor-default select-none py-2 pr-4 text-sm',
                           active ? 'bg-accent text-accent-foreground' : 'text-popover-foreground',
                           item.disabled ? "opacity-50 cursor-not-allowed" : "",
-                          item.isCategory ? "font-semibold" : "",
-                          item.level && item.level > 0 ? `pl-${10 + (item.level * 4)}` : ""
+                          item.isCategory ? "font-semibold" : ""
                         )
                       }
                     >
@@ -151,15 +150,13 @@ export function HierarchicalCombobox({
                             className={cn(
                               'block truncate',
                               selected ? 'font-medium' : 'font-normal',
-                              item.isCategory ? "font-semibold" : "",
-                              // Indent based on level
-                              item.level ? `ml-${item.level * 4}` : ""
+                              item.isCategory ? "font-semibold" : ""
                             )}
                             style={{
-                              marginLeft: item.level ? `${item.level * 16}px` : undefined
+                              paddingLeft: item.level ? `${(item.level * 16) + 10}px` : "10px"
                             }}
                           >
-                            {item.label}
+                            {item.isCategory ? '📁 ' : ''}{item.label}
                           </span>
                           {item.description && (
                               <span className={cn(
