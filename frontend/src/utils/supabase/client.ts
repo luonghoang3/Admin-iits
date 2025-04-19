@@ -1135,10 +1135,11 @@ interface OrderItemsResponse {
     id: string;
     order_id: string;
     commodity_id: string;
-    commodity: any;
+    commodity?: any;
     quantity: number;
     unit_id: string;
     unit: any;
+    units?: any;
     commodity_description?: string;
   }>;
   error: string | null;
@@ -1164,11 +1165,6 @@ export const fetchOrderItems = async (orderId: string): Promise<OrderItemsRespon
         id,
         order_id,
         commodity_id,
-        commodities (
-          id,
-          name,
-          description
-        ),
         quantity,
         unit_id,
         units (
@@ -1190,7 +1186,6 @@ export const fetchOrderItems = async (orderId: string): Promise<OrderItemsRespon
     // Process the items to transform the nested data structure
     const processedItems = data.map((item: any) => {
       // Extract nested objects
-      const commodity = item.commodities || null;
       const unit = item.units || null;
 
       // Return normalized item with both formats for compatibility
@@ -1198,13 +1193,12 @@ export const fetchOrderItems = async (orderId: string): Promise<OrderItemsRespon
         id: item.id,
         order_id: item.order_id,
         commodity_id: item.commodity_id,
-        commodities: commodity, // Keep for backward compatibility
-        commodity: commodity,   // Add this format too
         quantity: item.quantity,
         unit_id: item.unit_id,
         units: unit,           // Keep for backward compatibility
         unit: unit,            // Add this format too
-        commodity_description: item.commodity_description
+        commodity_description: item.commodity_description,
+        commodity: null        // Add empty commodity for compatibility
       };
     });
 
@@ -1233,9 +1227,8 @@ export async function createOrderItem(data: {
       commodity_id,
       quantity,
       unit_id,
-      commodity_description,
+      commodity_description
       // Ignore any other fields
-      ...rest
     } = data;
 
     // Create a clean payload with only valid fields
@@ -1297,9 +1290,8 @@ export async function updateOrderItem(
       commodity_id,
       quantity,
       unit_id,
-      commodity_description,
+      commodity_description
       // Ignore any other fields
-      ...rest
     } = data;
 
     // Create a clean payload with only valid fields
@@ -1436,7 +1428,7 @@ export const fetchCommodities = async (page = 1, limit = 10, searchQuery = '') =
 
   try {
     let query = supabase
-      .from('commodities')
+      .from('commodities_new')
       .select('*', { count: 'exact' })
 
     // Add search filter if provided
@@ -1478,10 +1470,10 @@ export async function fetchCommodity(commodityId: string) {
   try {
     // Lấy thông tin hàng hóa
     const { data: commodity, error: commodityError } = await supabase
-      .from('commodities')
+      .from('commodities_new')
       .select(`
         *,
-        teams:commodities_teams(team_id)
+        teams:commodities_teams_new(team_id)
       `)
       .eq('id', commodityId)
       .single()

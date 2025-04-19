@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { fetchOrder, fetchOrderItems } from '@/utils/supabase/client'
+import { fetchOrder } from '@/utils/supabase/client'
+import { fetchOrderItems } from '@/services/orderService'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -321,8 +322,7 @@ export default function OrderDetailPage({ params: paramsPromise }: OrderDetailPa
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Commodity</TableHead>
-                  <TableHead>Description</TableHead>
+                  <TableHead>Item Description</TableHead>
                   <TableHead>Quantity</TableHead>
                   <TableHead>Unit</TableHead>
                 </TableRow>
@@ -330,8 +330,7 @@ export default function OrderDetailPage({ params: paramsPromise }: OrderDetailPa
               <TableBody>
                 {orderItems.map(item => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.commodities?.name || 'Unknown'}</TableCell>
-                    <TableCell>{item.commodity_description || '-'}</TableCell>
+                    <TableCell className="font-medium">{item.commodity_description || 'Unknown'}</TableCell>
                     <TableCell>{item.quantity}</TableCell>
                     <TableCell>{item.units?.name || 'Unknown'}</TableCell>
                   </TableRow>
