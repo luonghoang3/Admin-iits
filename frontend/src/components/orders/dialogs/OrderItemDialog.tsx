@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Combobox as HeadlessuiCombobox } from "@/components/ui/combobox"
+import { HierarchicalCombobox } from "@/components/ui/hierarchical-combobox"
+import { buildCategoryTree, buildHierarchicalItems, filterHierarchicalItems } from "@/utils/hierarchical-utils"
 import { OrderItem, Commodity, Unit } from '@/types/orders'
 
 interface OrderItemDialogProps {
@@ -83,12 +85,24 @@ export default function OrderItemDialog({
 
           <div className="grid gap-2">
             <Label htmlFor="commodity_id">Commodity*</Label>
-            <HeadlessuiCombobox
-              items={commodities.map(c => ({
-                value: c.id,
-                label: c.name,
-                description: c.description || undefined
-              }))}
+            <HierarchicalCombobox
+              items={filterHierarchicalItems(
+                buildHierarchicalItems(
+                  buildCategoryTree(
+                    // Lọc ra các danh mục từ commodities và loại bỏ các giá trị null/undefined
+                    commodities
+                      .filter(c => c.category)
+                      .map(c => c.category!)
+                      // Loại bỏ các danh mục trùng lặp
+                      .filter((category, index, self) =>
+                        index === self.findIndex(c => c.id === category.id)
+                      )
+                  ),
+                  commodities,
+                  true
+                ),
+                commoditySearch
+              )}
               value={currentItem.commodity_id || ''}
               onChange={(value) => handleSelectChange('commodity_id', value)}
               placeholder="Select commodity..."
