@@ -1,172 +1,259 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { createClient } from '@/utils/supabase/client'
-import { DataTable } from './data-table'
-import { columns, Commodity } from './columns'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Package2, Search, Layers, Users, Filter, Plus } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { fetchCommodities, fetchCategories, buildCategoryTree, fetchTeams } from '@/services/commodityService'
+import { Commodity, Category, CategoryWithChildren, Team } from '@/types/commodities'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function CommoditiesPage() {
-  const [commodities, setCommodities] = useState<Commodity[]>([])
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  
+  const [searchQuery, setSearchQuery] = useState('')
+  const [commodities, setCommodities] = useState<Commodity[]>([])
+  const [filteredCommodities, setFilteredCommodities] = useState<Commodity[]>([])
+  const [categoryTree, setCategoryTree] = useState<CategoryWithChildren[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null)
+
+  // Lấy dữ liệu ban đầu
   useEffect(() => {
-    async function loadData() {
-      const supabase = createClient()
-      
+    const loadData = async () => {
+      setLoading(true)
       try {
-        // Kiểm tra xác thực
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-        
-        if (authError) {
-          setError(authError.message)
-          setLoading(false)
-          return
-        }
-        
-        if (!user) {
-          window.location.href = '/login'
-          return
-        }
-        
-        // Kiểm tra quyền admin
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role, is_active')
-          .eq('id', user.id)
-          .single()
-          
-        if (!profile?.is_active) {
-          window.location.href = '/login?error=inactive'
-          return
-        }
-        
-        if (profile?.role !== 'admin') {
-          window.location.href = '/dashboard'
-          return
-        }
-        
-        // Lấy dữ liệu commodities
-        const { data: commoditiesData, error: commoditiesError } = await supabase
-          .from('commodities')
-          .select('*, category:category_id(*)')
-          .order('name')
-        
-        if (commoditiesError) {
-          setError(`Không thể tải hàng hóa: ${commoditiesError.message}`)
-          setLoading(false)
-          return
-        }
-        
-        // Lấy thông tin teams cho mỗi commodity
-        const commoditiesWithTeams = []
-        
-        for (const commodity of commoditiesData || []) {
-          // Lấy các team được liên kết với commodity
-          const { data: teamLinks, error: teamLinksError } = await supabase
-            .from('commodities_teams')
-            .select('team_id')
-            .eq('commodity_id', commodity.id)
-          
-          if (teamLinksError) {
-            console.error('Error loading team links:', teamLinksError)
-            continue
-          }
-          
-          // Lấy thông tin chi tiết của các team
-          const teamIds = teamLinks?.map(link => link.team_id) || []
-          let teams: { id: string; name: string }[] = []
-          
-          if (teamIds.length > 0) {
-            const { data: teamsData, error: teamsError } = await supabase
-              .from('teams')
-              .select('id, name')
-              .in('id', teamIds)
-            
-            if (teamsError) {
-              console.error('Error loading teams:', teamsError)
-            } else {
-              teams = teamsData || []
-            }
-          }
-          
-          commoditiesWithTeams.push({
-            ...commodity,
-            teams
-          })
-        }
-        
-        setCommodities(commoditiesWithTeams)
-        setLoading(false)
-      } catch (err: any) {
-        console.error('Error:', err)
-        setError(err.message || 'Đã xảy ra lỗi')
+        // Lấy danh sách hàng hóa
+        const { commodities: commoditiesData } = await fetchCommodities()
+        setCommodities(commoditiesData)
+        setFilteredCommodities(commoditiesData)
+
+        // Lấy danh sách danh mục và xây dựng cây phân cấp
+        const { categories } = await fetchCategories()
+        const tree = buildCategoryTree(categories as Category[])
+        setCategoryTree(tree)
+
+        // Lấy danh sách đội nhóm
+        const { teams: teamsData } = await fetchTeams()
+        setTeams(teamsData)
+      } catch (error) {
+        console.error('Error loading data:', error)
+      } finally {
         setLoading(false)
       }
     }
-    
+
     loadData()
   }, [])
-  
-  async function handleDeleteCommodity(commodityId: string) {
-    if (!confirm('Bạn có chắc chắn muốn xóa hàng hóa này?')) {
-      return
+
+  // Lọc hàng hóa khi thay đổi tìm kiếm, danh mục hoặc đội nhóm
+  useEffect(() => {
+    let filtered = [...commodities]
+
+    // Lọc theo từ khóa tìm kiếm
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(item =>
+        item.name.toLowerCase().includes(query) ||
+        item.description?.toLowerCase().includes(query)
+      )
     }
-    
-    try {
-      setLoading(true)
-      
-      const supabase = createClient()
-      const { error: deleteError } = await supabase
-        .from('commodities')
-        .delete()
-        .eq('id', commodityId)
-      
-      if (deleteError) throw new Error(deleteError.message)
-      
-      // Cập nhật danh sách hàng hóa
-      setCommodities(commodities.filter(commodity => commodity.id !== commodityId))
-      alert('Xóa hàng hóa thành công')
-    } catch (err: any) {
-      console.error('Error deleting commodity:', err)
-      alert(`Lỗi khi xóa hàng hóa: ${err.message}`)
-    } finally {
-      setLoading(false)
+
+    // Lọc theo danh mục
+    if (selectedCategory) {
+      filtered = filtered.filter(item => item.category_id === selectedCategory)
     }
-  }
-  
-  return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Quản lý hàng hóa</h1>
-        <Link
-          href="/dashboard/commodities/add"
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+
+    // Lọc theo đội nhóm
+    if (selectedTeam) {
+      filtered = filtered.filter(item =>
+        item.teams?.some((team: any) => team.id === selectedTeam)
+      )
+    }
+
+    setFilteredCommodities(filtered)
+  }, [searchQuery, selectedCategory, selectedTeam, commodities])
+
+  // Hiển thị danh mục dạng cây
+  const renderCategoryTree = (categories: CategoryWithChildren[], level = 0) => {
+    return categories.map(category => (
+      <div key={category.id}>
+        <div
+          className={`flex items-center py-1 px-2 rounded cursor-pointer hover:bg-gray-100 ${selectedCategory === category.id ? 'bg-blue-100 font-medium' : ''}`}
+          style={{ paddingLeft: `${level * 16 + 8}px` }}
+          onClick={() => setSelectedCategory(category.id)}
         >
-          Thêm hàng hóa mới
-        </Link>
+          {category.name} ({countCommoditiesInCategory(category.id)})
+        </div>
+        {category.children.length > 0 && renderCategoryTree(category.children, level + 1)}
       </div>
-      
-      {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-md mb-6">
-          {error}
+    ))
+  }
+
+  // Đếm số hàng hóa trong danh mục
+  const countCommoditiesInCategory = (categoryId: string) => {
+    return commodities.filter(item => item.category_id === categoryId).length
+  }
+
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Package2 className="h-6 w-6" />
+          Quản lý hàng hóa
+        </h1>
+        <Button onClick={() => router.push('/dashboard/commodities/new')}>
+          <Plus className="h-4 w-4 mr-2" /> Thêm hàng hóa
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Thanh tìm kiếm */}
+        <div className="md:col-span-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+            <Input
+              placeholder="Tìm kiếm hàng hóa..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </div>
-      )}
-      
-      {loading ? (
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-center h-64">
-          <p className="text-gray-500">Đang tải dữ liệu...</p>
+
+        {/* Bộ lọc bên trái */}
+        <div className="md:col-span-1">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                Bộ lọc
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Tabs defaultValue="categories">
+                <TabsList className="w-full">
+                  <TabsTrigger value="categories" className="flex-1">
+                    <Layers className="h-4 w-4 mr-2" /> Danh mục
+                  </TabsTrigger>
+                  <TabsTrigger value="teams" className="flex-1">
+                    <Users className="h-4 w-4 mr-2" /> Đội nhóm
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="categories" className="pt-4">
+                  {loading ? (
+                    <div className="space-y-2">
+                      {Array(5).fill(0).map((_, i) => (
+                        <Skeleton key={i} className="h-6 w-full" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="max-h-[400px] overflow-y-auto">
+                      <div
+                        className={`flex items-center py-1 px-2 rounded cursor-pointer hover:bg-gray-100 ${selectedCategory === null ? 'bg-blue-100 font-medium' : ''}`}
+                        onClick={() => setSelectedCategory(null)}
+                      >
+                        Tất cả ({commodities.length})
+                      </div>
+                      {renderCategoryTree(categoryTree)}
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="teams" className="pt-4">
+                  {loading ? (
+                    <div className="space-y-2">
+                      {Array(3).fill(0).map((_, i) => (
+                        <Skeleton key={i} className="h-6 w-full" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="max-h-[400px] overflow-y-auto">
+                      <div
+                        className={`flex items-center py-1 px-2 rounded cursor-pointer hover:bg-gray-100 ${selectedTeam === null ? 'bg-blue-100 font-medium' : ''}`}
+                        onClick={() => setSelectedTeam(null)}
+                      >
+                        Tất cả ({commodities.length})
+                      </div>
+                      {teams.map(team => (
+                        <div
+                          key={team.id}
+                          className={`flex items-center py-1 px-2 rounded cursor-pointer hover:bg-gray-100 ${selectedTeam === team.id ? 'bg-blue-100 font-medium' : ''}`}
+                          onClick={() => setSelectedTeam(team.id)}
+                        >
+                          {team.name} ({commodities.filter(item => item.teams?.some((t: any) => t.id === team.id)).length})
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
         </div>
-      ) : (
-        <div className="bg-white overflow-hidden shadow-md rounded-lg p-6">
-          <DataTable 
-            columns={columns} 
-            data={commodities} 
-            onDeleteCommodity={handleDeleteCommodity}
-          />
+
+        {/* Danh sách hàng hóa */}
+        <div className="md:col-span-3">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Package2 className="h-4 w-4" />
+                  Danh sách hàng hóa
+                </div>
+                <div className="text-sm font-normal text-gray-500">
+                  Hiển thị {filteredCommodities.length} / {commodities.length} hàng hóa
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="space-y-4">
+                  {Array(5).fill(0).map((_, i) => (
+                    <Skeleton key={i} className="h-20 w-full" />
+                  ))}
+                </div>
+              ) : filteredCommodities.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  Không tìm thấy hàng hóa nào
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredCommodities.map(commodity => (
+                    <Card key={commodity.id} className="overflow-hidden hover:border-blue-300 cursor-pointer transition-colors"
+                      onClick={() => router.push(`/dashboard/commodities/${commodity.id}`)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex flex-col md:flex-row md:items-center gap-4">
+                          <div className="flex-1">
+                            <h3 className="font-medium">{commodity.name}</h3>
+                            <p className="text-sm text-gray-500 line-clamp-2">{commodity.description || 'Không có mô tả'}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {commodity.category && (
+                              <div className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                                {commodity.category.name}
+                              </div>
+                            )}
+                            {commodity.teams?.map((team: any) => (
+                              <div key={team.id} className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                                {team.name}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      )}
+      </div>
     </div>
   )
-} 
+}

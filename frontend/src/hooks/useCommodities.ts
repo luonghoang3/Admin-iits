@@ -1,107 +1,125 @@
-import { useEffect, useState, useCallback } from 'react';
-import { fetchCommodities, fetchCommodity } from '@/utils/supabase/client';
-import type { Commodity } from '@/types/orders';
+import { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import type { Commodity } from '@/types/commodities';
 
-export function useCommodities() {
+interface UseCommoditiesReturn {
+  commodities: Commodity[];
+  isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMore: boolean;
+  error: string | null;
+  searchQuery: string;
+  searchCommodities: (query: string) => void;
+  loadMoreCommodities: () => Promise<void>;
+  findCommodityById: (id: string) => Commodity | undefined;
+}
+
+export function useCommodities(): UseCommoditiesReturn {
   const [commodities, setCommodities] = useState<Commodity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
   const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
 
-  // Tải commodities với tìm kiếm và phân trang
-  const loadCommodities = useCallback(async (searchText: string = '', pageNum: number = 1) => {
+  // Hàm tải dữ liệu hàng hóa
+  const loadCommodities = useCallback(async (query: string, pageNumber: number, replace: boolean = false) => {
     try {
-      // Nếu trang đầu tiên, đặt isLoading = true, ngược lại đặt isLoadingMore = true
-      if (pageNum === 1) {
-        setIsLoading(true);
-        setIsLoadingMore(false);
+      const supabase = createClient();
+      const from = pageNumber * pageSize;
+      const to = from + pageSize - 1;
+
+      // Sử dụng bảng commodities_new thay vì commodities
+      let request = supabase
+        .from('commodities_new')
+        .select(`
+          *,
+          category:categories_new(*),
+          teams:commodities_teams_new(team_id, teams(*))
+        `)
+        .order('name');
+
+      // Thêm điều kiện tìm kiếm nếu có
+      if (query) {
+        request = request.ilike('name', `%${query}%`);
+      }
+
+      // Phân trang
+      request = request.range(from, to);
+
+      const { data, error, count } = await request;
+
+      if (error) throw error;
+
+      // Chuyển đổi dữ liệu để phù hợp với interface Commodity
+      const formattedData = data?.map(item => ({
+        ...item,
+        category_id: item.category_id,
+        category: item.category,
+        teams: item.teams?.map((t: any) => t.teams)
+      })) || [];
+
+      // Cập nhật state
+      if (replace) {
+        setCommodities(formattedData);
       } else {
-        setIsLoadingMore(true);
+        setCommodities(prev => [...prev, ...formattedData]);
       }
 
-      const { commodities: data, total, error: fetchError } = await fetchCommodities(pageNum, 20, searchText);
-
-      if (fetchError) {
-        throw new Error(fetchError);
-      }
-
-      // Nếu trang đầu tiên hoặc đang tìm kiếm mới, thay thế toàn bộ danh sách
-      if (pageNum === 1) {
-        setCommodities(data);
-      } else {
-        // Nếu tải thêm, nối vào danh sách hiện tại
-        setCommodities(prev => [...prev, ...data]);
-      }
-
-      // Cập nhật thông tin phân trang
-      setTotalItems(total || 0);
-      setHasMore(data.length >= 20 && (pageNum * 20) < total);
-      setPage(pageNum);
-      setSearchQuery(searchText);
+      // Kiểm tra xem còn dữ liệu để tải không
+      setHasMore(formattedData.length === pageSize);
       setError(null);
     } catch (err) {
+      console.error('Error loading commodities:', err);
       setError(err instanceof Error ? err.message : 'Failed to load commodities');
-    } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
     }
-  }, []);
-
-  // Tìm commodity theo ID và đảm bảo nó có trong danh sách
-  const findCommodityById = useCallback(async (commodityId: string) => {
-    // Kiểm tra xem commodity đã có trong danh sách chưa
-    const existingCommodity = commodities.find(c => c.id === commodityId);
-    if (existingCommodity) return existingCommodity;
-
-    // Nếu chưa có, tải từ API
-    try {
-      const { commodity, error } = await fetchCommodity(commodityId);
-      if (error) throw new Error(error);
-
-      if (commodity) {
-        // Thêm vào danh sách commodities nếu chưa có
-        setCommodities(prev => {
-          // Kiểm tra lại một lần nữa để tránh trùng lặp
-          if (prev.some(c => c.id === commodity.id)) return prev;
-          return [commodity, ...prev];
-        });
-        return commodity;
-      }
-    } catch (err) {
-      console.error('Error loading commodity:', err);
-    }
-
-    return null;
-  }, [commodities]);
-
-  // Tìm kiếm commodity
-  const searchCommodities = useCallback((query: string) => {
-    loadCommodities(query, 1);
-  }, [loadCommodities]);
-
-  // Tải thêm commodity
-  const loadMoreCommodities = useCallback(() => {
-    if (!isLoading && hasMore) {
-      loadCommodities(searchQuery, page + 1);
-    }
-  }, [isLoading, hasMore, searchQuery, page, loadCommodities]);
+  }, [pageSize]);
 
   // Tải dữ liệu ban đầu
   useEffect(() => {
-    loadCommodities();
+    async function initialLoad() {
+      setIsLoading(true);
+      await loadCommodities('', 0, true);
+      setIsLoading(false);
+    }
+
+    initialLoad();
   }, [loadCommodities]);
+
+  // Hàm tìm kiếm hàng hóa
+  const searchCommodities = useCallback((query: string) => {
+    setSearchQuery(query);
+    setPage(0);
+    setIsLoading(true);
+    loadCommodities(query, 0, true).then(() => {
+      setIsLoading(false);
+    });
+  }, [loadCommodities]);
+
+  // Hàm tải thêm dữ liệu
+  const loadMoreCommodities = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+    
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    await loadCommodities(searchQuery, nextPage, false);
+    setPage(nextPage);
+    setIsLoadingMore(false);
+  }, [isLoadingMore, hasMore, page, searchQuery, loadCommodities]);
+
+  // Hàm tìm hàng hóa theo ID
+  const findCommodityById = useCallback((id: string) => {
+    return commodities.find(commodity => commodity.id === id);
+  }, [commodities]);
 
   return {
     commodities,
     isLoading,
-    isLoadingMore, // Thêm trạng thái isLoadingMore
-    error,
+    isLoadingMore,
     hasMore,
-    totalItems,
+    error,
     searchQuery,
     searchCommodities,
     loadMoreCommodities,

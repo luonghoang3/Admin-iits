@@ -1,8 +1,14 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useSidebar } from '@/contexts/SidebarContext';
+import { SidebarMenuItem } from './SidebarMenuItem';
+import { SidebarGroup } from './SidebarGroup';
+// @ts-ignore
+import PanelLeftClose from 'lucide-react/dist/esm/icons/panel-left-close';
+// @ts-ignore
+import PanelLeft from 'lucide-react/dist/esm/icons/panel-left';
 import { Button } from '@/components/ui/button';
 
 // Import từng icon riêng lẻ
@@ -22,106 +28,121 @@ import Ruler from 'lucide-react/dist/esm/icons/ruler';
 import Package2 from 'lucide-react/dist/esm/icons/package-2';
 // @ts-ignore
 import Layers from 'lucide-react/dist/esm/icons/layers';
+// @ts-ignore
+import Contact from 'lucide-react/dist/esm/icons/contact';
+// @ts-ignore
+import UserCog from 'lucide-react/dist/esm/icons/user-cog';
+// @ts-ignore
+import BoxesIcon from 'lucide-react/dist/esm/icons/boxes';
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const { isOpen, toggle } = useSidebar();
 
   return (
-    <div className="h-full min-h-screen bg-card border-r w-64">
-      <div className="flex h-16 shrink-0 items-center px-6 border-b">
-        <h1 className="text-lg font-semibold text-card-foreground">Admin IITS</h1>
+    <div
+      className={cn(
+        "h-full min-h-screen border-r transition-all duration-300",
+        isOpen ? "w-64 bg-card" : "w-16 bg-gray-900"
+      )}
+    >
+      <div className={cn(
+        "flex h-16 shrink-0 items-center justify-center px-2 border-b relative",
+        !isOpen && "border-gray-800"
+      )}>
+        {isOpen && (
+          <h1 className="text-lg font-semibold text-card-foreground transition-opacity duration-300">
+            Admin IITS
+          </h1>
+        )}
+        <Button
+          variant={isOpen ? "ghost" : "default"}
+          size="icon"
+          onClick={toggle}
+          className={cn(
+            "h-8 w-8 rounded-full transition-all duration-300 absolute shadow-sm hover:shadow",
+            isOpen ? "right-2" : "left-1/2 -translate-x-1/2 bg-white text-gray-900"
+          )}
+          title={isOpen ? "Thu gọn sidebar" : "Mở rộng sidebar"}
+        >
+          {isOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
+        </Button>
       </div>
-      <nav className="space-y-1 px-3 py-3">
-        <Button
-          asChild
-          variant={pathname === '/dashboard' ? 'default' : 'ghost'}
-          className="w-full justify-start"
-        >
-          <Link href="/dashboard" className="flex items-center">
-            <Home className="mr-3 h-5 w-5" />
-            Dashboard
-          </Link>
-        </Button>
-        
-        <Button
-          asChild
-          variant={pathname.includes('/dashboard/users') ? 'default' : 'ghost'}
-          className="w-full justify-start"
-        >
-          <Link href="/dashboard/users" className="flex items-center">
-            <Users2 className="mr-3 h-5 w-5" />
-            Quản lý người dùng
-          </Link>
-        </Button>
-        
-        <Button
-          asChild
-          variant={pathname.includes('/dashboard/teams') ? 'default' : 'ghost'}
-          className="w-full justify-start"
-        >
-          <Link href="/dashboard/teams" className="flex items-center">
-            <Users className="mr-3 h-5 w-5" />
-            Quản lý nhóm
-          </Link>
-        </Button>
-        
-        <Button
-          asChild
-          variant={pathname.includes('/dashboard/clients') ? 'default' : 'ghost'}
-          className="w-full justify-start"
-        >
-          <Link href="/dashboard/clients" className="flex items-center">
-            <Building2 className="mr-3 h-5 w-5" />
-            Quản lý khách hàng
-          </Link>
-        </Button>
-        
-        <Button
-          asChild
-          variant={pathname.includes('/dashboard/orders') ? 'default' : 'ghost'}
-          className="w-full justify-start"
-        >
-          <Link href="/dashboard/orders" className="flex items-center">
-            <ClipboardList className="mr-3 h-5 w-5" />
-            Quản lý đơn hàng
-          </Link>
-        </Button>
-        
-        <Button
-          asChild
-          variant={pathname.includes('/dashboard/categories') ? 'default' : 'ghost'}
-          className="w-full justify-start"
-        >
-          <Link href="/dashboard/categories" className="flex items-center">
-            <Layers className="mr-3 h-5 w-5" />
-            Quản lý danh mục
-          </Link>
-        </Button>
-        
-        <Button
-          asChild
-          variant={pathname.includes('/dashboard/units') ? 'default' : 'ghost'}
-          className="w-full justify-start"
-        >
-          <Link href="/dashboard/units" className="flex items-center">
-            <Ruler className="mr-3 h-5 w-5" />
-            Quản lý đơn vị tính
-          </Link>
-        </Button>
-        
-        <Button
-          asChild
-          variant={pathname.includes('/dashboard/commodities') ? 'default' : 'ghost'}
-          className="w-full justify-start"
-        >
-          <Link href="/dashboard/commodities" className="flex items-center">
-            <Package2 className="mr-3 h-5 w-5" />
-            Quản lý hàng hóa
-          </Link>
-        </Button>
+      <nav className={cn(
+        "space-y-3 py-3",
+        isOpen ? "px-3" : "px-2 flex flex-col items-center"
+      )}>
+        <SidebarMenuItem
+          href="/dashboard"
+          icon={<Home />}
+          label="Dashboard"
+          isActive={pathname === '/dashboard'}
+        />
+
+        <SidebarGroup title="Quản lý người dùng" icon={<UserCog />}>
+          <SidebarMenuItem
+            href="/dashboard/users"
+            icon={<Users2 />}
+            label="Quản lý người dùng"
+            isActive={pathname.includes('/dashboard/users')}
+          />
+
+          <SidebarMenuItem
+            href="/dashboard/teams"
+            icon={<Users />}
+            label="Quản lý nhóm"
+            isActive={pathname.includes('/dashboard/teams')}
+          />
+        </SidebarGroup>
+
+        <SidebarGroup title="Quản lý khách hàng" icon={<Building2 />}>
+          <SidebarMenuItem
+            href="/dashboard/clients"
+            icon={<Building2 />}
+            label="Quản lý khách hàng"
+            isActive={pathname.includes('/dashboard/clients')}
+          />
+
+          <SidebarMenuItem
+            href="/dashboard/contacts"
+            icon={<Contact />}
+            label="Quản lý liên hệ"
+            isActive={pathname.includes('/dashboard/contacts')}
+          />
+        </SidebarGroup>
+
+        <SidebarMenuItem
+          href="/dashboard/orders"
+          icon={<ClipboardList />}
+          label="Quản lý đơn hàng"
+          isActive={pathname.includes('/dashboard/orders')}
+        />
+
+        <SidebarGroup title="Quản lý hàng giám định" icon={<BoxesIcon />}>
+          <SidebarMenuItem
+            href="/dashboard/categories"
+            icon={<Layers />}
+            label="Quản lý danh mục"
+            isActive={pathname.includes('/dashboard/categories')}
+          />
+
+          <SidebarMenuItem
+            href="/dashboard/commodities"
+            icon={<Package2 />}
+            label="Quản lý hàng hóa (Mới)"
+            isActive={pathname.includes('/dashboard/commodities')}
+          />
+
+          <SidebarMenuItem
+            href="/dashboard/units"
+            icon={<Ruler />}
+            label="Quản lý đơn vị tính"
+            isActive={pathname.includes('/dashboard/units')}
+          />
+        </SidebarGroup>
       </nav>
     </div>
   );
 };
 
-export default Sidebar; 
+export default Sidebar;
