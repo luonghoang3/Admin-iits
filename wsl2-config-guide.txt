@@ -1,0 +1,41 @@
+HƯỚNG DẪN CẤU HÌNH WSL2 TRÊN WINDOWS
+
+1. Tạo hoặc chỉnh sửa file .wslconfig trong thư mục người dùng Windows:
+   - Mở Windows Explorer
+   - Điều hướng đến C:\Users\<TênNgườiDùng>
+   - Tạo file mới có tên .wslconfig (chú ý dấu chấm ở đầu)
+   - Thêm nội dung sau vào file:
+
+[wsl2]
+memory=12GB
+processors=8
+swap=4GB
+localhostForwarding=true
+kernelCommandLine=sysctl.vm.swappiness=10
+
+2. Khởi động lại WSL2:
+   - Mở PowerShell với quyền Administrator
+   - Chạy lệnh: wsl --shutdown
+   - Đóng Docker Desktop nếu đang mở
+   - Khởi động lại Docker Desktop
+
+3. Kiểm tra cấu hình:
+   - Mở terminal WSL
+   - Chạy lệnh: free -h
+   - Chạy lệnh: nproc
+   - Kiểm tra xem bộ nhớ và số lượng CPU có đúng như cấu hình không
+
+4. Tối ưu hóa Docker Desktop:
+   - Mở Docker Desktop
+   - Vào Settings > Resources
+   - Điều chỉnh CPU: 8
+   - Điều chỉnh Memory: 8 GB
+   - Điều chỉnh Swap: 2 GB
+   - Điều chỉnh Disk image size: 60 GB
+   - Nhấn Apply & Restart
+
+5. Lịch trình khởi động lại Docker:
+   - Tạo một tác vụ trong Task Scheduler của Windows
+   - Đặt lịch chạy mỗi ngày vào lúc 3 giờ sáng
+   - Thêm hành động: wsl --shutdown
+   - Sau đó thêm hành động khởi động Docker Desktop
