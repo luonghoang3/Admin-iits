@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { createClient, fetchClients, deleteClient, fetchTeams } from '@/utils/supabase/client'
+import { createClient, fetchClients, deleteClient, fetchTeams, removeAccentsJS } from '@/utils/supabase/client'
 import { DataTable } from './data-table'
 import { columns, Client, Team } from './columns'
+import { ClientSearch } from './client-search'
+import logger from '@/lib/logger'
 
 // Function to generate a consistent color for each team based on id
 function getTeamColor(id: string): string {
@@ -31,7 +33,9 @@ export default function ClientsPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  // Không cần state searchQuery vì tìm kiếm được xử lý trong DataTable
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filteredClients, setFilteredClients] = useState<Client[]>([])
+  const [allClients, setAllClients] = useState<Client[]>([])
   const pageSize = 1000 // Lấy tất cả clients
 
   // Function to load clients data
@@ -63,7 +67,7 @@ export default function ClientsPage() {
         return processedClients
       }
     } catch (err: any) {
-      console.error('Error loading clients:', err)
+      logger.error('Error loading clients:', err)
       setError(err.message || 'An error occurred loading clients')
       return []
     } finally {
@@ -94,7 +98,7 @@ export default function ClientsPage() {
         const { teams: teamsData, error: teamsError } = await fetchTeams()
 
         if (teamsError) {
-          console.error('Error loading teams:', teamsError)
+          logger.error('Error loading teams:', teamsError)
         } else if (teamsData) {
           setTeams(teamsData)
         }
@@ -102,8 +106,10 @@ export default function ClientsPage() {
         // Load all clients
         const clientsData = await loadClientsData()
         setClients(clientsData)
+        setAllClients(clientsData)
+        setFilteredClients(clientsData)
       } catch (err: any) {
-        console.error('Error:', err)
+        logger.error('Error:', err)
         setError(err.message || 'An error occurred')
       } finally {
         setLoading(false)
@@ -129,8 +135,41 @@ export default function ClientsPage() {
       });
 
       setClients(processedClients);
+      setAllClients(processedClients);
+      setFilteredClients(processedClients);
     }
   }, [teams]);
+
+  // Xử lý tìm kiếm khách hàng
+  const prevSearchQueryRef = useRef('');
+
+  // Sử dụng useEffect để tránh vòng lặp vô hạn
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      // Nếu không có từ khóa tìm kiếm, hiển thị tất cả khách hàng
+      setFilteredClients(allClients);
+      return;
+    }
+
+    // Loại bỏ dấu từ từ khóa tìm kiếm
+    const queryLower = searchQuery.toLowerCase();
+    const queryWithoutAccent = removeAccentsJS(queryLower);
+
+    // Lọc khách hàng theo tên (cả có dấu và không dấu)
+    const filtered = allClients.filter(client => {
+      const clientName = client.name.toLowerCase();
+      const clientNameWithoutAccent = removeAccentsJS(clientName);
+
+      return clientName.includes(queryLower) || clientNameWithoutAccent.includes(queryWithoutAccent);
+    });
+
+    setFilteredClients(filtered);
+  }, [searchQuery, allClients]);
+
+  const handleClientSearch = (query: string) => {
+    // Chỉ cập nhật searchQuery, useEffect sẽ xử lý việc lọc
+    setSearchQuery(query);
+  };
 
 
 
@@ -150,11 +189,14 @@ export default function ClientsPage() {
 
       if (success) {
         // Update the clients list
-        setClients(clients.filter(client => client.id !== clientId))
+        const updatedClients = clients.filter(client => client.id !== clientId);
+        setClients(updatedClients);
+        setAllClients(updatedClients);
+        setFilteredClients(updatedClients);
         alert('Client deleted successfully')
       }
     } catch (err: any) {
-      console.error('Error deleting client:', err)
+      logger.error('Error deleting client:', err)
       alert(`Error deleting client: ${err.message}`)
     } finally {
       setLoading(false)
@@ -205,7 +247,13 @@ export default function ClientsPage() {
         </Link>
       </div>
 
-
+      <div className="mb-6 bg-white p-3 rounded-md shadow-sm border">
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="w-full">
+            <ClientSearch onSearch={handleClientSearch} />
+          </div>
+        </div>
+      </div>
 
       {error && (
         <div className="bg-red-50 text-red-600 p-4 rounded-md mb-6">
@@ -221,7 +269,7 @@ export default function ClientsPage() {
         <div className="bg-white overflow-hidden shadow-md rounded-lg p-6">
           <DataTable
             columns={columns}
-            data={clients}
+            data={filteredClients}
             teams={teams}
             onDeleteClient={handleDeleteClient}
           />

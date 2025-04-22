@@ -1,15 +1,23 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { createClient as createServerClient } from './server';
+import logger from '@/lib/logger'
+
+// Hàm loại bỏ dấu tiếng Việt ở phía client
+export function removeAccentsJS(str: string): string {
+  return str.normalize('NFD')
+           .replace(/[\u0300-\u036f]/g, '')
+           .replace(/đ/g, 'd').replace(/Đ/g, 'D');
+}
 
 export const createClient = () => {
   try {
     // Check if environment variables are defined
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      console.error('NEXT_PUBLIC_SUPABASE_URL is not defined')
+      logger.error('NEXT_PUBLIC_SUPABASE_URL is not defined')
     }
 
     if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined')
+      logger.error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined')
     }
 
     const client = createBrowserClient(
@@ -19,7 +27,7 @@ export const createClient = () => {
 
     return client
   } catch (error) {
-    console.error('Error initializing Supabase client:', error)
+    logger.error('Error initializing Supabase client:', error)
     // Return backup client to avoid application errors
     return createBrowserClient(
       'http://localhost:8000',
@@ -52,7 +60,7 @@ export async function fetchUsers() {
       .select('*')
 
     if (teamsError) {
-      console.error('Lỗi khi lấy danh sách teams:', teamsError)
+      logger.error('Lỗi khi lấy danh sách teams:', teamsError)
     }
 
     // Map team IDs to team names for each user
@@ -74,7 +82,7 @@ export async function fetchUsers() {
 
     return { users, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi lấy danh sách người dùng:', error)
+    logger.error('Lỗi khi lấy danh sách người dùng:', error)
     return { users: [], error: error.message }
   }
 }
@@ -132,7 +140,7 @@ export async function createUser({ email, password, username, full_name, role, i
 
     return { user, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi tạo người dùng:', error)
+    logger.error('Lỗi khi tạo người dùng:', error)
     return { user: null, error: error.message }
   }
 }
@@ -171,7 +179,7 @@ export async function updateUser(userId: string, data: {
 
     return { success: true, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi cập nhật người dùng:', error)
+    logger.error('Lỗi khi cập nhật người dùng:', error)
     return { success: false, error: error.message }
   }
 }
@@ -191,7 +199,7 @@ export async function deleteUser(userId: string) {
 
     return { success: true, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi xóa người dùng:', error)
+    logger.error('Lỗi khi xóa người dùng:', error)
     return { success: false, error: error.message }
   }
 }
@@ -211,11 +219,11 @@ export async function fetchTeams(retryCount = 3, retryDelay = 1000) {
         .order('name', { ascending: true })
 
       if (teamsError) {
-        console.warn(`Lỗi khi lấy danh sách teams (lần thử ${attempt + 1}/${retryCount}):`, teamsError);
+        logger.warn(`Lỗi khi lấy danh sách teams (lần thử ${attempt + 1}/${retryCount}):`, teamsError);
         lastError = teamsError;
 
         if (attempt < retryCount - 1) {
-          console.log(`Thử lại sau ${retryDelay}ms...`);
+          logger.log(`Thử lại sau ${retryDelay}ms...`);
           await new Promise(resolve => setTimeout(resolve, retryDelay));
           continue;
         }
@@ -224,11 +232,11 @@ export async function fetchTeams(retryCount = 3, retryDelay = 1000) {
 
       return { teams, error: null }
     } catch (error: any) {
-      console.error(`Lỗi khi lấy danh sách teams (lần thử ${attempt + 1}/${retryCount}):`, error);
+      logger.error(`Lỗi khi lấy danh sách teams (lần thử ${attempt + 1}/${retryCount}):`, error);
       lastError = error;
 
       if (attempt < retryCount - 1) {
-        console.log(`Thử lại sau ${retryDelay}ms...`);
+        logger.log(`Thử lại sau ${retryDelay}ms...`);
         await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     }
@@ -251,11 +259,11 @@ export async function checkTeamsTable(retryCount = 3, retryDelay = 1000) {
       // Kiểm tra kết nối đến Supabase trước
       const { data: connectionTest, error: connectionError } = await supabase.from('profiles').select('id').limit(1);
       if (connectionError) {
-        console.warn(`Lỗi kết nối đến Supabase (lần thử ${attempt + 1}/${retryCount}):`, connectionError);
+        logger.warn(`Lỗi kết nối đến Supabase (lần thử ${attempt + 1}/${retryCount}):`, connectionError);
         lastError = connectionError;
 
         if (attempt < retryCount - 1) {
-          console.log(`Thử lại sau ${retryDelay}ms...`);
+          logger.log(`Thử lại sau ${retryDelay}ms...`);
           await new Promise(resolve => setTimeout(resolve, retryDelay));
           continue;
         }
@@ -276,15 +284,15 @@ export async function checkTeamsTable(retryCount = 3, retryDelay = 1000) {
       }
 
       // Lỗi khác (quyền truy cập, v.v.)
-      console.error('Lỗi kiểm tra bảng teams:', error);
+      logger.error('Lỗi kiểm tra bảng teams:', error);
       return { exists: false, error: error.message };
 
     } catch (error: any) {
-      console.error(`Lỗi khi kiểm tra bảng teams (lần thử ${attempt + 1}/${retryCount}):`, error);
+      logger.error(`Lỗi khi kiểm tra bảng teams (lần thử ${attempt + 1}/${retryCount}):`, error);
       lastError = error;
 
       if (attempt < retryCount - 1) {
-        console.log(`Thử lại sau ${retryDelay}ms...`);
+        logger.log(`Thử lại sau ${retryDelay}ms...`);
         await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     }
@@ -311,7 +319,7 @@ export async function deleteTeam(teamId: string) {
 
     return { success: true, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi xóa team:', error)
+    logger.error('Lỗi khi xóa team:', error)
     return { success: false, error: error.message }
   }
 }
@@ -345,7 +353,7 @@ export async function createTeam({ name, description }: {
 
     return { team, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi tạo team:', error)
+    logger.error('Lỗi khi tạo team:', error)
     return { team: null, error: error.message }
   }
 }
@@ -374,7 +382,7 @@ export async function updateTeam(
 
     return { success: true, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi cập nhật team:', error)
+    logger.error('Lỗi khi cập nhật team:', error)
     return { success: false, error: error.message }
   }
 }
@@ -384,7 +392,7 @@ export async function updateTeam(
 // Fetch clients with their contacts
 export async function fetchClients(page = 1, limit = 15, searchQuery = '') {
   try {
-    console.log(`API call: fetchClients - page=${page}, limit=${limit}, searchQuery="${searchQuery}"`)
+    logger.log(`API call: fetchClients - page=${page}, limit=${limit}, searchQuery="${searchQuery}"`)
 
     const supabase = createClient()
 
@@ -398,7 +406,14 @@ export async function fetchClients(page = 1, limit = 15, searchQuery = '') {
 
     // Add search filter if provided
     if (searchQuery) {
-      query = query.ilike('name', `%${searchQuery}%`)
+      // Loại bỏ dấu từ từ khóa tìm kiếm
+      const searchWithoutAccent = removeAccentsJS(searchQuery)
+
+      // Tìm kiếm trên cả hai cột name và name_without_accent
+      query = query.or([
+        { name: { ilike: `%${searchQuery}%` } },
+        { name_without_accent: { ilike: `%${searchWithoutAccent}%` } }
+      ])
     }
 
     // Add pagination
@@ -410,7 +425,7 @@ export async function fetchClients(page = 1, limit = 15, searchQuery = '') {
     const { data: clients, error: clientsError, count } = await query
 
     if (clientsError) {
-      console.error('Error in fetchClients query:', clientsError)
+      logger.error('Error in fetchClients query:', clientsError)
       throw clientsError
     }
 
@@ -425,7 +440,7 @@ export async function fetchClients(page = 1, limit = 15, searchQuery = '') {
       .select('*')
 
     if (contactsError) {
-      console.error('Error fetching contacts:', contactsError)
+      logger.error('Error fetching contacts:', contactsError)
     }
 
     // Associate contacts with clients
@@ -445,11 +460,11 @@ export async function fetchClients(page = 1, limit = 15, searchQuery = '') {
     const currentPosition = offset + clients.length
     const hasMore = totalCount > currentPosition
 
-    console.log(`fetchClients: offset=${offset}, limit=${limit}, returned=${clients.length}, total=${totalCount}, hasMore=${hasMore}`)
+    logger.log(`fetchClients: offset=${offset}, limit=${limit}, returned=${clients.length}, total=${totalCount}, hasMore=${hasMore}`)
 
     return { clients: clientsWithContacts, hasMore, total: totalCount, error: null }
   } catch (error: any) {
-    console.error('Error in fetchClients:', error)
+    logger.error('Error in fetchClients:', error)
     return { clients: [], hasMore: false, total: 0, error: error.message || 'Unknown error in fetchClients' }
   }
 }
@@ -465,7 +480,7 @@ export async function fetchClientsForCombobox({
   searchQuery?: string;
 } = {}) {
   try {
-    console.log(`API call: fetchClientsForCombobox - page=${page}, limit=${limit}, searchQuery="${searchQuery}"`)
+    logger.log(`API call: fetchClientsForCombobox - page=${page}, limit=${limit}, searchQuery="${searchQuery}"`)
 
     const supabase = createClient()
 
@@ -479,7 +494,14 @@ export async function fetchClientsForCombobox({
 
     // Add search filter if provided
     if (searchQuery) {
-      query = query.ilike('name', `%${searchQuery}%`)
+      // Loại bỏ dấu từ từ khóa tìm kiếm
+      const searchWithoutAccent = removeAccentsJS(searchQuery)
+
+      // Tìm kiếm trên cả hai cột name và name_without_accent
+      query = query.or([
+        { name: { ilike: `%${searchQuery}%` } },
+        { name_without_accent: { ilike: `%${searchWithoutAccent}%` } }
+      ])
     }
 
     // Add pagination and sorting
@@ -491,7 +513,7 @@ export async function fetchClientsForCombobox({
     const { data, error, count } = await query
 
     if (error) {
-      console.error('Error in fetchClientsForCombobox query:', error)
+      logger.error('Error in fetchClientsForCombobox query:', error)
       return {
         clients: [],
         hasMore: false,
@@ -514,13 +536,13 @@ export async function fetchClientsForCombobox({
     const currentPosition = offset + dataLength
 
     // Debug log chi tiết
-    console.log(`API: offset=${offset}, limit=${limit}, returned=${dataLength}, total=${totalCount}`)
-    console.log(`API: currentPosition=${currentPosition}, hasMore check: ${totalCount > currentPosition} && ${dataLength === limit}`)
+    logger.log(`API: offset=${offset}, limit=${limit}, returned=${dataLength}, total=${totalCount}`)
+    logger.log(`API: currentPosition=${currentPosition}, hasMore check: ${totalCount > currentPosition} && ${dataLength === limit}`)
 
     // Chỉ có thêm dữ liệu nếu tổng số > vị trí hiện tại và số lượng trả về = limit
     const hasMore = totalCount > currentPosition && dataLength === limit
 
-    console.log(`API final hasMore: ${hasMore}`)
+    logger.log(`API final hasMore: ${hasMore}`)
 
     return {
       clients,
@@ -529,7 +551,7 @@ export async function fetchClientsForCombobox({
       error: null
     }
   } catch (error: any) {
-    console.error('Error in fetchClientsForCombobox:', error)
+    logger.error('Error in fetchClientsForCombobox:', error)
     return {
       clients: [],
       hasMore: false,
@@ -560,7 +582,7 @@ export async function fetchClient(clientId: string) {
       .eq('client_id', clientId)
 
     if (contactsError) {
-      console.error('Error fetching client contacts:', contactsError)
+      logger.error('Error fetching client contacts:', contactsError)
     }
 
     return {
@@ -571,7 +593,7 @@ export async function fetchClient(clientId: string) {
       error: null
     }
   } catch (error: any) {
-    console.error('Error fetching client details:', error)
+    logger.error('Error fetching client details:', error)
     // Check if error is an empty object or undefined
     const errorMessage = (error && Object.keys(error).length > 0)
       ? error.message || error.toString()
@@ -611,7 +633,7 @@ export async function createClientRecord({ name, address, email, phone, tax_id, 
 
     return { client, error: null }
   } catch (error: any) {
-    console.error('Error creating client:', error)
+    logger.error('Error creating client:', error)
     return { client: null, error: error.message }
   }
 }
@@ -644,7 +666,7 @@ export async function updateClient(clientId: string, data: {
 
     return { client, error: null }
   } catch (error: any) {
-    console.error('Error updating client:', error)
+    logger.error('Error updating client:', error)
     return { client: null, error: error.message }
   }
 }
@@ -664,7 +686,7 @@ export async function deleteClient(clientId: string) {
 
     return { success: true, error: null }
   } catch (error: any) {
-    console.error('Error deleting client:', error)
+    logger.error('Error deleting client:', error)
     return { success: false, error: error.message }
   }
 }
@@ -696,7 +718,7 @@ export async function createContact(data: {
 
     return { contact, error: null }
   } catch (error: any) {
-    console.error('Error creating contact:', error)
+    logger.error('Error creating contact:', error)
     return { contact: null, error: error.message }
   }
 }
@@ -727,7 +749,7 @@ export async function updateContact(contactId: string, data: {
 
     return { contact, error: null }
   } catch (error: any) {
-    console.error('Error updating contact:', error)
+    logger.error('Error updating contact:', error)
     return { contact: null, error: error.message }
   }
 }
@@ -746,7 +768,7 @@ export async function deleteContact(contactId: string) {
 
     return { success: true, error: null }
   } catch (error: any) {
-    console.error('Error deleting contact:', error)
+    logger.error('Error deleting contact:', error)
     return { success: false, error: error.message }
   }
 }
@@ -807,12 +829,17 @@ export async function fetchOrders({
 
     // Áp dụng tìm kiếm theo khách hàng nếu có
     if (clientSearch) {
-      // Sử dụng cú pháp SQL truy vấn trực tiếp để đảm bảo chỉ lấy các đơn hàng có khách hàng phù hợp
-      // Sử dụng cú pháp clients.name thay vì clients.name để tương thích với Supabase
-      query = query.filter('clients.name', 'ilike', `%${clientSearch}%`)
+      // Loại bỏ dấu từ từ khóa tìm kiếm
+      const searchWithoutAccent = removeAccentsJS(clientSearch)
+
+      // Tìm kiếm trên cả hai cột name và name_without_accent
+      query = query.or([
+        { "clients.name": { ilike: `%${clientSearch}%` } },
+        { "clients.name_without_accent": { ilike: `%${searchWithoutAccent}%` } }
+      ])
 
       // Log query để kiểm tra
-      console.log(`Searching for clients with name containing: ${clientSearch}`)
+      logger.log(`Searching for clients with name containing: ${clientSearch} (without accents: ${searchWithoutAccent})`)
     }
 
     // Nếu đang tìm kiếm khách hàng, không áp dụng phân trang để lấy tất cả kết quả phù hợp
@@ -834,7 +861,7 @@ export async function fetchOrders({
     if (ordersError) throw ordersError
 
     // Log số lượng kết quả trả về để kiểm tra
-    console.log(`Query returned ${orders.length} orders${clientSearch ? ` matching client search: ${clientSearch}` : ''}`)
+    logger.log(`Query returned ${orders.length} orders${clientSearch ? ` matching client search: ${clientSearch}` : ''}`)
 
     // Format response with client names and team information
     const formattedOrders = orders.map(order => {
@@ -859,7 +886,7 @@ export async function fetchOrders({
       error: null
     }
   } catch (error: any) {
-    console.error('Error fetching orders:', error)
+    logger.error('Error fetching orders:', error)
     return { orders: [], total: 0, error: error.message }
   }
 }
@@ -890,7 +917,7 @@ export async function fetchOrder(orderId: string) {
       .order('full_name', { ascending: true })
 
     if (contactsError) {
-      console.error('Error fetching client contacts:', contactsError)
+      logger.error('Error fetching client contacts:', contactsError)
     }
 
     // Find the selected contact if contact_id is set
@@ -910,7 +937,7 @@ export async function fetchOrder(orderId: string) {
       error: null
     }
   } catch (error: any) {
-    console.error('Error fetching order:', error)
+    logger.error('Error fetching order:', error)
     // Check if error is an empty object or undefined
     const errorMessage = (error && Object.keys(error).length > 0)
       ? error.message || error.toString()
@@ -951,7 +978,7 @@ export async function createOrder(data: {
         .single();
 
       if (teamError) {
-        console.error('Error fetching team data:', teamError);
+        logger.error('Error fetching team data:', teamError);
         throw teamError;
       }
 
@@ -999,7 +1026,7 @@ export async function createOrder(data: {
 
     return { order, error: null }
   } catch (error: any) {
-    console.error('Error creating order:', error)
+    logger.error('Error creating order:', error)
     return { order: null, error: error.message }
   }
 }
@@ -1044,7 +1071,7 @@ export async function updateOrder(
 
     return { order, error: null }
   } catch (error: any) {
-    console.error('Error updating order:', error)
+    logger.error('Error updating order:', error)
 
     // Improve error handling
     let errorMessage: string;
@@ -1077,7 +1104,7 @@ export async function deleteOrder(orderId: string) {
 
     return { success: true, error: null }
   } catch (error: any) {
-    console.error('Error deleting order:', error)
+    logger.error('Error deleting order:', error)
     return { success: false, error: error.message }
   }
 }
@@ -1122,7 +1149,7 @@ export async function fetchNextOrderSequence(
 
     return { nextSequence, formattedOrderNumber, error: null }
   } catch (error: any) {
-    console.error('Error getting next sequence:', error)
+    logger.error('Error getting next sequence:', error)
     const sequenceFormatted = String(1).padStart(3, '0')
     const formattedOrderNumber = `${typePrefix}${teamCode}${yearCode}-${sequenceFormatted}`
     return { nextSequence: 1, formattedOrderNumber, error: error.message }
@@ -1253,7 +1280,7 @@ export async function createOrderItem(data: {
 
     return { orderItem, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi tạo order item:', error)
+    logger.error('Lỗi khi tạo order item:', error)
 
     // Improve error handling
     let errorMessage: string;
@@ -1314,7 +1341,7 @@ export async function updateOrderItem(
 
     return { orderItem, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi cập nhật order item:', error)
+    logger.error('Lỗi khi cập nhật order item:', error)
 
     // Improve error handling
     let errorMessage: string;
@@ -1348,7 +1375,7 @@ export async function deleteOrderItem(orderItemId: string) {
 
     return { success: true, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi xóa order item:', error)
+    logger.error('Lỗi khi xóa order item:', error)
 
     // Improve error handling
     let errorMessage: string;
@@ -1382,7 +1409,7 @@ export async function deleteOrderItemsByOrderId(orderId: string) {
 
     return { success: true, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi xóa order items:', error)
+    logger.error('Lỗi khi xóa order items:', error)
 
     // Improve error handling
     let errorMessage: string;
@@ -1417,13 +1444,13 @@ export const fetchContactsByClientId = async (clientId: string) => {
 
     return { contacts, error: null }
   } catch (error: any) {
-    console.error('Error fetching contacts:', error)
+    logger.error('Error fetching contacts:', error)
     return { contacts: [], error: error.message }
   }
 }
 
 // Fetch all commodities with pagination
-export const fetchCommodities = async (page = 1, limit = 10, searchQuery = '') => {
+export const fetchCommodities = async ({ page = 1, limit = 10, searchQuery = '' } = {}) => {
   const supabase = createClient()
 
   try {
@@ -1496,7 +1523,7 @@ export async function fetchCommodity(commodityId: string) {
 
     return { commodity, error: null }
   } catch (error: any) {
-    console.error('Lỗi khi lấy thông tin hàng hóa:', error)
+    logger.error('Lỗi khi lấy thông tin hàng hóa:', error)
     return { commodity: null, error: error.message }
   }
 }
@@ -1555,7 +1582,7 @@ export async function fetchUnit(unitId: string) {
 
     return { unit, error: null }
   } catch (error: any) {
-    console.error('Error fetching unit:', error)
+    logger.error('Error fetching unit:', error)
     return { unit: null, error: error.message }
   }
 }

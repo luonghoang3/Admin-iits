@@ -1,5 +1,6 @@
 import { createClient, fetchNextOrderSequence } from '@/utils/supabase/client';
 import { OrderFormData } from '@/types/orders';
+import logger from '@/lib/logger'
 
 // This service layer provides a simplified interface for order-related operations
 // It uses the lower-level functions from client.ts but adds additional business logic
@@ -13,7 +14,7 @@ export async function fetchOrderById(id: string) {
     if (!data) throw new Error(`Order with ID ${id} not found`);
     return data;
   } catch (error) {
-    console.error('Error in fetchOrderById:', error, 'id:', id);
+    logger.error('Error in fetchOrderById:', error, 'id:', id);
     throw error;
   }
 }
@@ -58,7 +59,7 @@ export async function createOrder(orderData: OrderFormData) {
         // Use the formatted order number
         dataToSave.order_number = formattedOrderNumber;
       } catch (error) {
-        console.error('Error generating order number in orderService:', error);
+        logger.error('Error generating order number in orderService:', error);
         // Fallback to old format if there's an error
         const now = new Date();
         const pad = (n: number) => n.toString().padStart(2, '0');
@@ -74,7 +75,7 @@ export async function createOrder(orderData: OrderFormData) {
     if (!data) throw new Error('No data returned from API');
     return data;
   } catch (error) {
-    console.error('Error in createOrder:', error, 'orderData:', orderData);
+    logger.error('Error in createOrder:', error, 'orderData:', orderData);
     throw error;
   }
 }
@@ -88,7 +89,7 @@ export async function updateOrder(id: string, orderData: Partial<OrderFormData>)
     if (!data) throw new Error('No data returned from API');
     return data;
   } catch (error) {
-    console.error('Error in updateOrder:', error, 'id:', id, 'orderData:', orderData);
+    logger.error('Error in updateOrder:', error, 'id:', id, 'orderData:', orderData);
     throw error;
   }
 }
@@ -127,7 +128,7 @@ export async function fetchOrderItems(orderId: string) {
     if (error) return { orderItems: [], error };
     return { orderItems: data || [], error: null };
   } catch (error) {
-    console.error('Error in fetchOrderItems:', error, 'orderId:', orderId);
+    logger.error('Error in fetchOrderItems:', error, 'orderId:', orderId);
     return { orderItems: [], error };
   }
 }
@@ -138,7 +139,7 @@ export async function createOrderItem(orderItemData: any) {
   try {
     // Ensure order_id is set
     if (!orderItemData.order_id) {
-      console.error('Missing order_id in orderItemData:', orderItemData);
+      logger.error('Missing order_id in orderItemData:', orderItemData);
       return { orderItem: null, error: new Error('Missing order_id') };
     }
 
@@ -175,19 +176,19 @@ export async function createOrderItem(orderItemData: any) {
       .single();
 
     if (error) {
-      console.error('Supabase error in createOrderItem:', error);
+      logger.error('Supabase error in createOrderItem:', error);
       return { orderItem: null, error };
     }
 
     if (!data) {
-      console.error('No data returned from API in createOrderItem');
+      logger.error('No data returned from API in createOrderItem');
       return { orderItem: null, error: new Error('No data returned from API') };
     }
 
     // Đã gỡ bỏ debug log
     return { orderItem: data, error: null };
   } catch (error) {
-    console.error('Error in createOrderItem:', error, 'orderItemData:', orderItemData);
+    logger.error('Error in createOrderItem:', error, 'orderItemData:', orderItemData);
     return { orderItem: null, error };
   }
 }
@@ -198,13 +199,13 @@ export async function updateOrderItem(id: string, orderItemData: any) {
   try {
     // Validate input
     if (!id) {
-      console.error('Missing id in updateOrderItem');
+      logger.error('Missing id in updateOrderItem');
       return { orderItem: null, error: new Error('Missing item id') };
     }
 
     // Ensure at least one field is being updated
     if (Object.keys(orderItemData).length === 0) {
-      console.error('No fields to update in updateOrderItem');
+      logger.error('No fields to update in updateOrderItem');
       return { orderItem: null, error: new Error('No fields to update') };
     }
 
@@ -228,19 +229,19 @@ export async function updateOrderItem(id: string, orderItemData: any) {
       .single();
 
     if (error) {
-      console.error('Supabase error in updateOrderItem:', error);
+      logger.error('Supabase error in updateOrderItem:', error);
       return { orderItem: null, error };
     }
 
     if (!data) {
-      console.error('No data returned from API in updateOrderItem');
+      logger.error('No data returned from API in updateOrderItem');
       return { orderItem: null, error: new Error('No data returned from API') };
     }
 
     // Đã gỡ bỏ debug log
     return { orderItem: data, error: null };
   } catch (error) {
-    console.error('Error in updateOrderItem:', error, 'id:', id, 'orderItemData:', orderItemData);
+    logger.error('Error in updateOrderItem:', error, 'id:', id, 'orderItemData:', orderItemData);
     return { orderItem: null, error };
   }
 }
@@ -269,14 +270,14 @@ export async function fetchOrders({
   limit = 10,
   teamId = null,
   orderNumberSearch = '',
-
+  clientSearch = '', // Thêm tham số clientSearch
   skipPagination = false // Thêm tham số để bỏ qua phân trang khi tìm kiếm khách hàng
 }: {
   page?: number;
   limit?: number;
   teamId?: string | null;
   orderNumberSearch?: string;
-
+  clientSearch?: string; // Thêm kiểu dữ liệu cho clientSearch
   skipPagination?: boolean;
 } = {}) {
   const supabase = createClient();
@@ -317,8 +318,39 @@ export async function fetchOrders({
       query = query.ilike('order_number', `%${orderNumberSearch}%`);
     }
 
-    // Lưu ý: Tìm kiếm khách hàng được xử lý ở phía client
-    // Vì Supabase không hỗ trợ trực tiếp tìm kiếm trong bảng liên kết
+    // Áp dụng tìm kiếm theo khách hàng nếu có
+    if (clientSearch) {
+      // Import hàm removeAccentsJS từ client.ts
+      const { removeAccentsJS } = await import('@/utils/supabase/client');
+
+      // Loại bỏ dấu từ từ khóa tìm kiếm
+      const searchWithoutAccent = removeAccentsJS(clientSearch);
+
+      // Sử dụng cách tiếp cận khác: tìm kiếm theo client_id
+      // Trước tiên, tìm các client phù hợp với từ khóa tìm kiếm
+      const { data: matchingClients, error: clientsError } = await supabase
+        .from('clients')
+        .select('id')
+        .or(`name.ilike.%${clientSearch}%,name_without_accent.ilike.%${searchWithoutAccent}%`);
+
+      if (clientsError) {
+        logger.error('Error searching clients:', clientsError);
+      } else if (matchingClients && matchingClients.length > 0) {
+        // Lấy danh sách ID của các client phù hợp
+        const clientIds = matchingClients.map(c => c.id);
+
+        // Tìm các đơn hàng có client_id nằm trong danh sách này
+        query = query.in('client_id', clientIds);
+
+        logger.log(`Found ${clientIds.length} clients matching search: ${clientSearch}`);
+      } else {
+        // Nếu không tìm thấy client nào, trả về kết quả rỗng
+        logger.log(`No clients found matching search: ${clientSearch}`);
+        return { orders: [], total: 0, error: null };
+      }
+
+      logger.log(`Searching for clients with name containing: ${clientSearch} (without accents: ${searchWithoutAccent})`);
+    }
 
     // Sắp xếp theo order_date giảm dần (đơn hàng mới nhất ở trang đầu)
     query = query
@@ -326,6 +358,7 @@ export async function fetchOrders({
       .order('created_at', { ascending: false });
 
     // Áp dụng phân trang nếu không bỏ qua
+    // Luôn áp dụng phân trang, trừ khi skipPagination=true
     if (!skipPagination) {
       query = query.range(offset, offset + limit - 1);
     }
