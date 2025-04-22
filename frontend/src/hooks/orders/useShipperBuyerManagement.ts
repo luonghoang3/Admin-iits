@@ -17,6 +17,7 @@ import {
   deleteBuyer
 } from '@/utils/supabase/buyers'
 import { Shipper, Buyer } from '@/types/orders'
+import logger from '@/lib/logger'
 
 interface UseShipperBuyerManagementProps {
   initialShipperId?: string
@@ -115,7 +116,7 @@ export default function useShipperBuyerManagement({
         setShipper(selectedShipperData)
       }
     } catch (error) {
-      console.error('Error fetching shippers:', error)
+      logger.error('Error fetching shippers:', error)
       toast({
         title: 'Error',
         description: 'Failed to load shippers',
@@ -164,7 +165,7 @@ export default function useShipperBuyerManagement({
         setBuyer(selectedBuyerData)
       }
     } catch (error) {
-      console.error('Error fetching buyers:', error)
+      logger.error('Error fetching buyers:', error)
       toast({
         title: 'Error',
         description: 'Failed to load buyers',
@@ -209,7 +210,7 @@ export default function useShipperBuyerManagement({
       setShippers(updatedShippers)
       setHasMoreShippers(hasMore)
     } catch (error) {
-      console.error('Error searching shippers:', error)
+      logger.error('Error searching shippers:', error)
       // Optionally show toast
     } finally {
       setIsLoadingShippers(false)
@@ -232,14 +233,14 @@ export default function useShipperBuyerManagement({
         });
 
       if (checkError) {
-        console.error('Error checking current results:', checkError);
+        logger.error('Error checking current results:', checkError);
         setIsLoadingMoreShippers(false);
         return;
       }
 
       // Nếu số lượng kết quả hiện tại ít hơn 15, không cần tải thêm
       if (currentResults.length < 15) {
-        console.log('Not enough results to load more:', currentResults.length);
+        logger.log('Not enough results to load more:', currentResults.length);
         setHasMoreShippers(false);
         setIsLoadingMoreShippers(false);
         return;
@@ -249,7 +250,7 @@ export default function useShipperBuyerManagement({
       const itemsPerPage = 15;
       const nextPage = Math.floor(shippers.length / itemsPerPage) + 1;
 
-      console.log(`Loading more shippers: page=${nextPage}, query="${shipperSearch}"`);
+      logger.log(`Loading more shippers: page=${nextPage}, query="${shipperSearch}"`);
       const { data, hasMore, error } = await fetchShippers({
         page: nextPage,
         limit: itemsPerPage,
@@ -259,10 +260,10 @@ export default function useShipperBuyerManagement({
       if (error) {
         // Nếu lỗi là "Requested Range Not Satisfiable", đặt hasMore = false và không hiển thị lỗi
         const errorStr = JSON.stringify(error);
-        console.log('Error object:', errorStr);
-        console.log('Error code:', error.code);
-        console.log('Error message:', error.message);
-        console.log('Error details:', error.details);
+        logger.log('Error object:', errorStr);
+        logger.log('Error code:', error.code);
+        logger.log('Error message:', error.message);
+        logger.log('Error details:', error.details);
 
         // Kiểm tra các trường hợp lỗi khác nhau
         const isPGRST103 = error.code === 'PGRST103';
@@ -270,13 +271,13 @@ export default function useShipperBuyerManagement({
         const hasRangeInStr = errorStr.includes('Requested range not satisfiable');
         const isEmptyError = errorStr === '{}';
 
-        console.log('isPGRST103:', isPGRST103);
-        console.log('hasRangeMessage:', hasRangeMessage);
-        console.log('hasRangeInStr:', hasRangeInStr);
-        console.log('isEmptyError:', isEmptyError);
+        logger.log('isPGRST103:', isPGRST103);
+        logger.log('hasRangeMessage:', hasRangeMessage);
+        logger.log('hasRangeInStr:', hasRangeInStr);
+        logger.log('isEmptyError:', isEmptyError);
 
         if (isEmptyError || hasRangeInStr || isPGRST103 || hasRangeMessage) {
-          console.log('Reached end of results, no more data to load');
+          logger.log('Reached end of results, no more data to load');
           setHasMoreShippers(false);
           setIsLoadingMoreShippers(false);
           return;
@@ -285,7 +286,7 @@ export default function useShipperBuyerManagement({
         // Đặt hasMoreShippers = false để ngăn người dùng cố gắng tải thêm dữ liệu
         setHasMoreShippers(false);
         setIsLoadingMoreShippers(false);
-        console.error(`Error loading more shippers: ${error}`);
+        logger.error(`Error loading more shippers: ${error}`);
         return;
       }
 
@@ -305,7 +306,7 @@ export default function useShipperBuyerManagement({
         setHasMoreShippers(false)
       }
     } catch (error) {
-      console.error('Error loading more shippers:', error)
+      logger.error('Error loading more shippers:', error)
       setHasMoreShippers(false);
     } finally {
       setIsLoadingMoreShippers(false)
@@ -436,7 +437,7 @@ export default function useShipperBuyerManagement({
 
       setShipperDialogOpen(false)
     } catch (error: any) {
-      console.error('Error saving shipper:', error)
+      logger.error('Error saving shipper:', error)
       setShipperError('Failed to save shipper. Please try again.')
     }
   }
@@ -471,7 +472,7 @@ export default function useShipperBuyerManagement({
 
       setIsConfirmDeleteShipperOpen(false)
     } catch (error) {
-      console.error('Error deleting shipper:', error)
+      logger.error('Error deleting shipper:', error)
       toast({
         title: 'Error',
         description: 'Failed to delete shipper',
@@ -510,7 +511,7 @@ export default function useShipperBuyerManagement({
       setBuyers(updatedBuyers)
       setHasMoreBuyers(hasMore)
     } catch (error) {
-      console.error('Error searching buyers:', error)
+      logger.error('Error searching buyers:', error)
       // Optionally show toast
     } finally {
       setIsLoadingBuyers(false)
@@ -533,14 +534,14 @@ export default function useShipperBuyerManagement({
         });
 
       if (checkError) {
-        console.error('Error checking current results:', checkError);
+        logger.error('Error checking current results:', checkError);
         setIsLoadingMoreBuyers(false);
         return;
       }
 
       // Nếu số lượng kết quả hiện tại ít hơn 15, không cần tải thêm
       if (currentResults.length < 15) {
-        console.log('Not enough results to load more:', currentResults.length);
+        logger.log('Not enough results to load more:', currentResults.length);
         setHasMoreBuyers(false);
         setIsLoadingMoreBuyers(false);
         return;
@@ -550,7 +551,7 @@ export default function useShipperBuyerManagement({
       const itemsPerPage = 15;
       const nextPage = Math.floor(buyers.length / itemsPerPage) + 1;
 
-      console.log(`Loading more buyers: page=${nextPage}, query="${buyerSearch}"`);
+      logger.log(`Loading more buyers: page=${nextPage}, query="${buyerSearch}"`);
       const { data, hasMore, error } = await fetchBuyers({
         page: nextPage,
         limit: itemsPerPage,
@@ -560,10 +561,10 @@ export default function useShipperBuyerManagement({
       if (error) {
         // Nếu lỗi là "Requested Range Not Satisfiable", đặt hasMore = false và không hiển thị lỗi
         const errorStr = JSON.stringify(error);
-        console.log('Error object:', errorStr);
-        console.log('Error code:', error.code);
-        console.log('Error message:', error.message);
-        console.log('Error details:', error.details);
+        logger.log('Error object:', errorStr);
+        logger.log('Error code:', error.code);
+        logger.log('Error message:', error.message);
+        logger.log('Error details:', error.details);
 
         // Kiểm tra các trường hợp lỗi khác nhau
         const isPGRST103 = error.code === 'PGRST103';
@@ -571,13 +572,13 @@ export default function useShipperBuyerManagement({
         const hasRangeInStr = errorStr.includes('Requested range not satisfiable');
         const isEmptyError = errorStr === '{}';
 
-        console.log('isPGRST103:', isPGRST103);
-        console.log('hasRangeMessage:', hasRangeMessage);
-        console.log('hasRangeInStr:', hasRangeInStr);
-        console.log('isEmptyError:', isEmptyError);
+        logger.log('isPGRST103:', isPGRST103);
+        logger.log('hasRangeMessage:', hasRangeMessage);
+        logger.log('hasRangeInStr:', hasRangeInStr);
+        logger.log('isEmptyError:', isEmptyError);
 
         if (isEmptyError || hasRangeInStr || isPGRST103 || hasRangeMessage) {
-          console.log('Reached end of results, no more data to load');
+          logger.log('Reached end of results, no more data to load');
           setHasMoreBuyers(false);
           setIsLoadingMoreBuyers(false);
           return;
@@ -586,7 +587,7 @@ export default function useShipperBuyerManagement({
         // Đặt hasMoreBuyers = false để ngăn người dùng cố gắng tải thêm dữ liệu
         setHasMoreBuyers(false);
         setIsLoadingMoreBuyers(false);
-        console.error(`Error loading more buyers: ${error}`);
+        logger.error(`Error loading more buyers: ${error}`);
         return;
       }
 
@@ -606,7 +607,7 @@ export default function useShipperBuyerManagement({
         setHasMoreBuyers(false)
       }
     } catch (error) {
-      console.error('Error loading more buyers:', error)
+      logger.error('Error loading more buyers:', error)
       setHasMoreBuyers(false);
     } finally {
       setIsLoadingMoreBuyers(false)
@@ -737,7 +738,7 @@ export default function useShipperBuyerManagement({
 
       setBuyerDialogOpen(false)
     } catch (error: any) {
-      console.error('Error saving buyer:', error)
+      logger.error('Error saving buyer:', error)
       setBuyerError('Failed to save buyer. Please try again.')
     }
   }
@@ -772,7 +773,7 @@ export default function useShipperBuyerManagement({
 
       setIsConfirmDeleteBuyerOpen(false)
     } catch (error) {
-      console.error('Error deleting buyer:', error)
+      logger.error('Error deleting buyer:', error)
       toast({
         title: 'Error',
         description: 'Failed to delete buyer',

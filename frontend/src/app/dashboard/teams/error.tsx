@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect } from 'react'
+import logger from '@/lib/logger'
 
 export default function Error({
   error,
@@ -12,7 +13,7 @@ export default function Error({
 }) {
   useEffect(() => {
     // Ghi log lỗi cho quản trị viên
-    console.error('Lỗi trang Teams:', error)
+    logger.error('Lỗi trang Teams:', error)
   }, [error])
 
   return (

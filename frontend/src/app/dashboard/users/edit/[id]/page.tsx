@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { EditUserClient } from './client'
+import logger from '@/lib/logger'
 
 export default function EditUserPage() {
   const router = useRouter()
@@ -42,7 +43,7 @@ export default function EditUserPage() {
         
         setIsAuthorized(true)
       } catch (err: any) {
-        console.error('Lỗi khi kiểm tra quyền:', err)
+        logger.error('Lỗi khi kiểm tra quyền:', err)
         router.push('/login')
       } finally {
         setIsLoading(false)

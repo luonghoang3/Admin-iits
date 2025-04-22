@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import logger from '@/lib/logger'
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next()
@@ -46,7 +47,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   } catch (error) {
-    console.error('Lỗi khi kiểm tra quyền:', error)
+    logger.error('Lỗi khi kiểm tra quyền:', error)
     // Vẫn cho phép truy cập, trang sẽ hiển thị lỗi
   }
 

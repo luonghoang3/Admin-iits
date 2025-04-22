@@ -83,6 +83,8 @@ export function DataTable<TData, TValue>({
       sorting,
       columnFilters,
     },
+    // Tắt tính năng tự động reset trang khi dữ liệu thay đổi
+    autoResetPageIndex: false,
     initialState: {
       pagination: {
         pageSize: 10,
@@ -157,15 +159,6 @@ export function DataTable<TData, TValue>({
     <div>
       <div className="flex items-center justify-between py-4">
         <div className="flex items-center gap-2">
-          <Input
-            placeholder="Tìm kiếm theo tên công ty..."
-            value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-            onChange={(event) =>
-              table.getColumn("name")?.setFilterValue(event.target.value)
-            }
-            className="max-w-sm"
-          />
-
           {/* Bộ lọc nhóm */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

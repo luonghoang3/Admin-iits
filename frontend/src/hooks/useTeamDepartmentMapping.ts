@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Team } from '@/types/orders'
+import logger from '@/lib/logger'
 
 export interface DepartmentTeamMapping {
   department: string;
@@ -50,7 +51,7 @@ export function useTeamDepartmentMapping() {
         setMappings(mappingsWithTeams)
         setTeams(teamsData)
       } catch (err: any) {
-        console.error('Lỗi khi tải dữ liệu ánh xạ department-team:', err)
+        logger.error('Lỗi khi tải dữ liệu ánh xạ department-team:', err)
         setError(err.message)
       } finally {
         setLoading(false)

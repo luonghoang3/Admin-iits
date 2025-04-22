@@ -53,6 +53,7 @@ import Plus from 'lucide-react/dist/esm/icons/plus'
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal'
 // @ts-ignore
 import ArrowRightLeft from 'lucide-react/dist/esm/icons/arrow-right-left'
+import logger from '@/lib/logger'
 
 interface Commodity {
   id: string
@@ -131,7 +132,7 @@ export default function CategoryDetailPage({ params }: { params: { id: string } 
         setCategories(categoriesData || [])
         
       } catch (err: any) {
-        console.error('Error loading data:', err)
+        logger.error('Error loading data:', err)
         setError(err.message || 'Đã xảy ra lỗi khi tải dữ liệu')
       } finally {
         setLoading(false)
@@ -206,7 +207,7 @@ export default function CategoryDetailPage({ params }: { params: { id: string } 
       setShowMoveDialog(false)
       
     } catch (err: any) {
-      console.error('Error moving commodities:', err)
+      logger.error('Error moving commodities:', err)
       setError(err.message || 'Đã xảy ra lỗi khi di chuyển hàng hóa')
     } finally {
       setLoading(false)
@@ -235,7 +236,7 @@ export default function CategoryDetailPage({ params }: { params: { id: string } 
       setCommodities(prev => prev.filter(c => c.id !== commodityId))
       
     } catch (err: any) {
-      console.error('Error deleting commodity:', err)
+      logger.error('Error deleting commodity:', err)
       setError(err.message || 'Đã xảy ra lỗi khi xóa hàng hóa')
     } finally {
       setLoading(false)

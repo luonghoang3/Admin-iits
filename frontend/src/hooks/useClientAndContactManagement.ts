@@ -9,6 +9,7 @@ import {
   fetchClients,
   fetchClient
 } from '@/utils/supabase/client'
+import logger from '@/lib/logger'
 
 interface Client {
   id: string
@@ -82,7 +83,7 @@ export function useClientAndContactManagement({
       const { contacts: clientContacts, error } = await fetchContactsByClientId(client.id);
 
       if (error) {
-        console.error('Error fetching contacts:', error);
+        logger.error('Error fetching contacts:', error);
         setContacts([]);
       } else {
         const contactsList = clientContacts || [];
@@ -100,7 +101,7 @@ export function useClientAndContactManagement({
         }
       }
     } catch (error) {
-      console.error('Error loading contacts:', error);
+      logger.error('Error loading contacts:', error);
       setContacts([]);
     }
   }
@@ -206,7 +207,7 @@ export function useClientAndContactManagement({
         if (!isMounted) return;
 
         // In case of exception, set test data
-        console.error('Error loading clients:', error);
+        logger.error('Error loading clients:', error);
         if (isMounted) {
           setClients([]);
           setClientPage(1);
@@ -339,7 +340,7 @@ export function useClientAndContactManagement({
       // Close dialog
       setClientDialogOpen(false)
     } catch (err: any) {
-      console.error('Error saving client:', err)
+      logger.error('Error saving client:', err)
       setClientError(err.message || 'Failed to save client')
     }
   }
@@ -367,7 +368,7 @@ export function useClientAndContactManagement({
       setIsConfirmDeleteOpen(false)
       setClientDialogOpen(false)
     } catch (err: any) {
-      console.error('Error deleting client:', err)
+      logger.error('Error deleting client:', err)
       setClientError(err.message || 'Failed to delete client')
     }
   }
@@ -487,7 +488,7 @@ export function useClientAndContactManagement({
       // Close dialog
       setContactDialogOpen(false)
     } catch (err: any) {
-      console.error('Error saving contact:', err)
+      logger.error('Error saving contact:', err)
       setContactError(err.message || 'Failed to save contact')
     }
   }
@@ -515,7 +516,7 @@ export function useClientAndContactManagement({
       setIsConfirmDeleteContactOpen(false)
       setContactDialogOpen(false)
     } catch (err: any) {
-      console.error('Error deleting contact:', err)
+      logger.error('Error deleting contact:', err)
       setContactError(err.message || 'Failed to delete contact')
     }
   }
@@ -532,14 +533,14 @@ export function useClientAndContactManagement({
         await fetchClients(1, 15, clientQuery);
 
       if (checkError) {
-        console.error('Error checking current results:', checkError);
+        logger.error('Error checking current results:', checkError);
         setIsLoadingMoreClients(false);
         return;
       }
 
       // Nếu số lượng kết quả hiện tại ít hơn 15, không cần tải thêm
       if (currentResults.length < 15) {
-        console.log('Not enough results to load more:', currentResults.length);
+        logger.log('Not enough results to load more:', currentResults.length);
         setHasMoreClients(false);
         setIsLoadingMoreClients(false);
         return;
@@ -549,18 +550,18 @@ export function useClientAndContactManagement({
       const itemsPerPage = 15;
       const nextPage = Math.floor(clients.length / itemsPerPage) + 1
 
-      console.log(`Loading more clients: page=${nextPage}, query="${clientQuery}"`);
+      logger.log(`Loading more clients: page=${nextPage}, query="${clientQuery}"`);
       const { clients: moreClients, hasMore, error, total } = await fetchClients(nextPage, itemsPerPage, clientQuery)
 
       // Kiểm tra xem có vượt quá số lượng kết quả có sẵn không
-      console.log('handleLoadMoreClients - Checking for error:', error);
+      logger.log('handleLoadMoreClients - Checking for error:', error);
       if (error) {
         // Nếu lỗi là "Requested Range Not Satisfiable", đặt hasMore = false và không hiển thị lỗi
         const errorStr = JSON.stringify(error);
-        console.log('Error object:', errorStr);
-        console.log('Error code:', error.code);
-        console.log('Error message:', error.message);
-        console.log('Error details:', error.details);
+        logger.log('Error object:', errorStr);
+        logger.log('Error code:', error.code);
+        logger.log('Error message:', error.message);
+        logger.log('Error details:', error.details);
 
         // Kiểm tra các trường hợp lỗi khác nhau
         const isPGRST103 = error.code === 'PGRST103';
@@ -568,13 +569,13 @@ export function useClientAndContactManagement({
         const hasRangeInStr = errorStr.includes('Requested range not satisfiable');
         const isEmptyError = errorStr === '{}';
 
-        console.log('isPGRST103:', isPGRST103);
-        console.log('hasRangeMessage:', hasRangeMessage);
-        console.log('hasRangeInStr:', hasRangeInStr);
-        console.log('isEmptyError:', isEmptyError);
+        logger.log('isPGRST103:', isPGRST103);
+        logger.log('hasRangeMessage:', hasRangeMessage);
+        logger.log('hasRangeInStr:', hasRangeInStr);
+        logger.log('isEmptyError:', isEmptyError);
 
         if (isEmptyError || hasRangeInStr || isPGRST103 || hasRangeMessage) {
-          console.log('Reached end of results, no more data to load');
+          logger.log('Reached end of results, no more data to load');
           setHasMoreClients(false);
           setIsLoadingMoreClients(false);
           return;
@@ -583,7 +584,7 @@ export function useClientAndContactManagement({
         // Đặt hasMoreClients = false để ngăn người dùng cố gắng tải thêm dữ liệu
         setHasMoreClients(false);
         setIsLoadingMoreClients(false);
-        console.error(`Error loading more clients: ${error}`);
+        logger.error(`Error loading more clients: ${error}`);
         return;
       }
 
@@ -603,7 +604,7 @@ export function useClientAndContactManagement({
         setHasMoreClients(false)
       }
     } catch (error) {
-      console.error('Error loading more clients:', error)
+      logger.error('Error loading more clients:', error)
     } finally {
       setIsLoadingMoreClients(false)
     }
@@ -649,7 +650,7 @@ export function useClientAndContactManagement({
       // Nếu không có thêm dữ liệu, hàm handleLoadMoreClients sẽ xử lý lỗi và đặt hasMoreClients = false
       setHasMoreClients(true);
     } catch (error) {
-      console.error('Error searching clients:', error)
+      logger.error('Error searching clients:', error)
     } finally {
       setLoading(false)
     }

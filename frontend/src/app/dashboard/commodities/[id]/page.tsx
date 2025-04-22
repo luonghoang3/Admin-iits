@@ -9,6 +9,7 @@ import { fetchCommodityById } from '@/services/commodityService'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { use } from 'react'
+import logger from '@/lib/logger'
 
 export default function CommodityDetailPage({ params }: { params: { id: string } }) {
   // Unwrap params using React.use() to avoid warnings
@@ -31,7 +32,7 @@ export default function CommodityDetailPage({ params }: { params: { id: string }
         }
       } catch (err) {
         setError('Có lỗi xảy ra khi tải thông tin hàng hóa')
-        console.error(err)
+        logger.error(err)
       } finally {
         setLoading(false)
       }

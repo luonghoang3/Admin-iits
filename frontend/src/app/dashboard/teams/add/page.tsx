@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
+import logger from '@/lib/logger'
 
 // Server action để xử lý form
 async function createTeam(formData: FormData) {
@@ -52,7 +53,7 @@ async function createTeam(formData: FormData) {
     revalidatePath('/dashboard/teams')
     redirect('/dashboard/teams')
   } catch (err) {
-    console.error('Lỗi khi tạo team:', err)
+    logger.error('Lỗi khi tạo team:', err)
     // Không trả về lỗi, mà sẽ hiển thị lỗi server thông qua error.tsx
     redirect('/dashboard/teams/add?error=failed')
   }

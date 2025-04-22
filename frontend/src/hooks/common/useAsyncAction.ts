@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import logger from '@/lib/logger'
 
 /**
  * Hook để quản lý trạng thái loading và xử lý các thao tác bất đồng bộ
@@ -42,7 +43,7 @@ export function useAsyncAction<T = any>() {
       const error = new Error(errorMessage)
       setError(error)
       onError?.(error)
-      console.error('Async action failed:', error)
+      logger.error('Async action failed:', error)
       return null
     }
   }, [])

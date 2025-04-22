@@ -3,13 +3,18 @@ export interface Commodity {
   id: string;
   name: string;
   description?: string | null;
-  category_id?: string | null;
   created_at?: string;
   updated_at?: string;
+  category_id?: string;
+
+  // Thông tin danh mục
+  category?: Category | null;
+  root_category?: Category | null;
 
   // Các trường từ nested join
-  category?: Category | null;
   teams?: Team[];
+  commodities?: any; // Để tương thích với các trường cũ
+  units?: any; // Để tương thích với các trường cũ
 }
 
 export interface Category {

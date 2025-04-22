@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, fetchTeams } from '@/utils/supabase/client'
+import logger from '@/lib/logger'
 
 interface Team {
   id: string
@@ -57,12 +58,12 @@ export function EditUserClient({ userId }: { userId: string }) {
         const { teams: teamsList, error } = await fetchTeams()
         
         if (error) {
-          console.error('Lỗi khi tải danh sách teams:', error)
+          logger.error('Lỗi khi tải danh sách teams:', error)
         } else {
           setTeams(teamsList || [])
         }
       } catch (err) {
-        console.error('Lỗi khi tải danh sách teams:', err)
+        logger.error('Lỗi khi tải danh sách teams:', err)
       }
     }
     
@@ -99,7 +100,7 @@ export function EditUserClient({ userId }: { userId: string }) {
           throw new Error('Không tìm thấy thông tin người dùng')
         }
       } catch (err: any) {
-        console.error('Lỗi khi tải thông tin người dùng:', err)
+        logger.error('Lỗi khi tải thông tin người dùng:', err)
         setError(err.message || 'Có lỗi xảy ra khi tải thông tin người dùng')
       } finally {
         setLoading(false)
@@ -175,7 +176,7 @@ export function EditUserClient({ userId }: { userId: string }) {
         router.push('/dashboard/users')
       }, 2000)
     } catch (err: any) {
-      console.error('Lỗi khi cập nhật người dùng:', err)
+      logger.error('Lỗi khi cập nhật người dùng:', err)
       setError(err.message || 'Có lỗi xảy ra khi cập nhật thông tin người dùng')
     } finally {
       setUpdating(false)

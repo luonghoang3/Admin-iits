@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, assignTeamToUser, fetchUsersWithTeams } from '@/utils/supabase/client'
+import logger from '@/lib/logger'
 
 interface User {
   id: string
@@ -71,7 +72,7 @@ export default function TeamMembersPage() {
         // Lấy danh sách người dùng và phân loại
         fetchUsers()
       } catch (err: any) {
-        console.error('Lỗi:', err)
+        logger.error('Lỗi:', err)
         setError(err.message)
       } finally {
         setLoading(false)
@@ -100,7 +101,7 @@ export default function TeamMembersPage() {
       setTeamMembers(members)
       setNonTeamMembers(nonMembers)
     } catch (err: any) {
-      console.error('Lỗi khi lấy danh sách người dùng:', err)
+      logger.error('Lỗi khi lấy danh sách người dùng:', err)
       setError(err.message)
     }
   }
@@ -123,7 +124,7 @@ export default function TeamMembersPage() {
       // Cập nhật danh sách
       fetchUsers()
     } catch (err: any) {
-      console.error('Lỗi khi thêm người dùng vào nhóm:', err)
+      logger.error('Lỗi khi thêm người dùng vào nhóm:', err)
       setError(err.message)
     } finally {
       setLoading(false)
@@ -148,7 +149,7 @@ export default function TeamMembersPage() {
       // Cập nhật danh sách
       fetchUsers()
     } catch (err: any) {
-      console.error('Lỗi khi xóa người dùng khỏi nhóm:', err)
+      logger.error('Lỗi khi xóa người dùng khỏi nhóm:', err)
       setError(err.message)
     } finally {
       setLoading(false)

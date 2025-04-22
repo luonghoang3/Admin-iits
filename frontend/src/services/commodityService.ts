@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/client'
 import { Commodity, Category, CategoryWithChildren, Team } from '@/types/commodities'
+import logger from '@/lib/logger'
 
 /**
  * Lấy danh sách hàng hóa
@@ -28,7 +29,7 @@ export async function fetchCommodities() {
 
     return { commodities, error: null }
   } catch (error: any) {
-    console.error('Error fetching commodities:', error)
+    logger.error('Error fetching commodities:', error)
     return { commodities: [], error: error.message }
   }
 }
@@ -61,7 +62,7 @@ export async function fetchCommodityById(id: string) {
 
     return { commodity, error: null }
   } catch (error: any) {
-    console.error('Error fetching commodity:', error)
+    logger.error('Error fetching commodity:', error)
     return { commodity: null, error: error.message }
   }
 }
@@ -95,7 +96,7 @@ export async function searchCommodities(query: string) {
 
     return { commodities, error: null }
   } catch (error: any) {
-    console.error('Error searching commodities:', error)
+    logger.error('Error searching commodities:', error)
     return { commodities: [], error: error.message }
   }
 }
@@ -115,7 +116,7 @@ export async function fetchCategories() {
 
     return { categories: data || [], error: null }
   } catch (error: any) {
-    console.error('Error fetching categories:', error)
+    logger.error('Error fetching categories:', error)
     return { categories: [], error: error.message }
   }
 }
@@ -187,7 +188,7 @@ export async function fetchTeams() {
 
     return { teams: data || [], error: null }
   } catch (error: any) {
-    console.error('Error fetching teams:', error)
+    logger.error('Error fetching teams:', error)
     return { teams: [], error: error.message }
   }
 }

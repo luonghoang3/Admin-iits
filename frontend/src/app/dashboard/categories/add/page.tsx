@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import logger from '@/lib/logger'
 
 export default function AddCategoryPage() {
   const router = useRouter()
@@ -55,7 +56,7 @@ export default function AddCategoryPage() {
       }, 1500)
       
     } catch (err: any) {
-      console.error('Lỗi khi thêm danh mục:', err)
+      logger.error('Lỗi khi thêm danh mục:', err)
       setError(err.message || 'Đã xảy ra lỗi khi thêm danh mục')
     } finally {
       setLoading(false)

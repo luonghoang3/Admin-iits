@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { PlusCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import logger from '@/lib/logger'
 
 export default function UsersPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -48,7 +49,7 @@ export default function UsersPage() {
         
         // Nếu lỗi khi kiểm tra profile hoặc không có profile
         if (profileError || !profile) {
-          console.error('Lỗi khi kiểm tra quyền admin:', profileError)
+          logger.error('Lỗi khi kiểm tra quyền admin:', profileError)
           // Chuyển về dashboard để tạo profile trước
           redirect('/dashboard')
           return
@@ -69,7 +70,7 @@ export default function UsersPage() {
           setProfiles(users)
         }
       } catch (err: any) {
-        console.error('Lỗi:', err)
+        logger.error('Lỗi:', err)
         setError(err.message || 'Đã có lỗi xảy ra')
       } finally {
         setLoading(false)
@@ -102,7 +103,7 @@ export default function UsersPage() {
       
       alert('Xóa người dùng thành công')
     } catch (err: any) {
-      console.error('Lỗi khi xóa người dùng:', err)
+      logger.error('Lỗi khi xóa người dùng:', err)
       alert(`Lỗi khi xóa người dùng: ${err.message}`)
     } finally {
       setLoading(false)

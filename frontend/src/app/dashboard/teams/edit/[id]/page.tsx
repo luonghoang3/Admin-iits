@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
+import logger from '@/lib/logger'
 
 interface TeamData {
   id: number | string
@@ -18,7 +19,7 @@ export default async function EditTeamPage({
     const id = params.id;
     
     if (!id) {
-      console.log('ID không hợp lệ: undefined');
+      logger.log('ID không hợp lệ: undefined');
       notFound();
     }
     
@@ -53,16 +54,16 @@ export default async function EditTeamPage({
       .single();
     
     if (error) {
-      console.error('Lỗi Supabase:', error);
+      logger.error('Lỗi Supabase:', error);
       if (error.code === 'PGRST116') {
-        console.log('Không tìm thấy team với ID:', id);
+        logger.log('Không tìm thấy team với ID:', id);
         notFound();
       }
       throw error;
     }
     
     if (!data) {
-      console.log('Không có dữ liệu team cho ID:', id);
+      logger.log('Không có dữ liệu team cho ID:', id);
       notFound();
     }
     
@@ -148,7 +149,7 @@ export default async function EditTeamPage({
       </div>
     );
   } catch (error) {
-    console.error('Lỗi khi tải thông tin team:', error);
+    logger.error('Lỗi khi tải thông tin team:', error);
     throw new Error('Không thể tải thông tin đội. Vui lòng thử lại sau.');
   }
 } 

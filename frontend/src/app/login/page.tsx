@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ReloadIcon } from '@radix-ui/react-icons'
+import logger from '@/lib/logger'
 
 export default function Login() {
   const router = useRouter()
@@ -43,7 +44,7 @@ export default function Login() {
       // Chuyển hướng đến dashboard
       router.push('/dashboard')
     } catch (err: any) {
-      console.error('Lỗi đăng nhập:', err)
+      logger.error('Lỗi đăng nhập:', err)
       if (err.message.includes('Invalid login credentials')) {
         setError('Thông tin đăng nhập không chính xác. Vui lòng kiểm tra email và mật khẩu.')
       } else {
@@ -86,7 +87,7 @@ export default function Login() {
       setEmail(adminEmail)
       setPassword(adminPassword)
     } catch (err: any) {
-      console.error('Lỗi khi tạo tài khoản admin:', err)
+      logger.error('Lỗi khi tạo tài khoản admin:', err)
       if (err.message.includes('already registered')) {
         setMessage(`Tài khoản ${adminEmail} đã tồn tại. Hãy sử dụng để đăng nhập.`)
         setEmail(adminEmail)

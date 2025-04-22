@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import logger from '@/lib/logger'
 
 interface Category {
   id: string
@@ -56,7 +57,7 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
           throw new Error('Không tìm thấy danh mục')
         }
       } catch (error: any) {
-        console.error('Lỗi khi lấy thông tin danh mục:', error)
+        logger.error('Lỗi khi lấy thông tin danh mục:', error)
         setFetchError(error.message || 'Đã xảy ra lỗi khi tải dữ liệu')
       } finally {
         setLoading(false)
@@ -102,7 +103,7 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
       }, 1500)
       
     } catch (err: any) {
-      console.error('Lỗi khi cập nhật danh mục:', err)
+      logger.error('Lỗi khi cập nhật danh mục:', err)
       setSubmitError(err.message || 'Đã xảy ra lỗi khi cập nhật danh mục')
     } finally {
       setLoading(false)

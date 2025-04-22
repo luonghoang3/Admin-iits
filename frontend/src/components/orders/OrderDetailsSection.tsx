@@ -18,6 +18,7 @@ import { OrderFormData, Team } from '@/types/orders'
 
 // Hooks
 import { createClient } from '@/utils/supabase/client'
+import logger from '@/lib/logger'
 
 interface OrderDetailsSectionProps {
   formData: OrderFormData;
@@ -61,7 +62,7 @@ const OrderDetailsSection: React.FC<OrderDetailsSectionProps> = ({
         if (error) throw error;
         setTeams(data || []);
       } catch (error) {
-        console.error('Lỗi khi lấy danh sách teams:', error);
+        logger.error('Lỗi khi lấy danh sách teams:', error);
       } finally {
         setLoading(false);
       }

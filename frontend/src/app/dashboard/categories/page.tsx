@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { DataTable } from './data-table'
 import { columns, Category } from './columns'
+import logger from '@/lib/logger'
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -75,7 +76,7 @@ export default function CategoriesPage() {
           setCategories(categoriesWithCommodities)
         }
       } catch (err: any) {
-        console.error('Error:', err)
+        logger.error('Error:', err)
         setError(err.message || 'Đã xảy ra lỗi')
       } finally {
         setLoading(false)
@@ -105,7 +106,7 @@ export default function CategoriesPage() {
       setCategories(categories.filter(category => category.id !== categoryId))
       alert('Xóa danh mục thành công')
     } catch (err: any) {
-      console.error('Error deleting category:', err)
+      logger.error('Error deleting category:', err)
       alert(`Lỗi khi xóa danh mục: ${err.message}`)
     } finally {
       setLoading(false)

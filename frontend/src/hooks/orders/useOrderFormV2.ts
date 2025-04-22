@@ -10,6 +10,7 @@ import {
   deleteOrderItem,
   deleteOrderItemsByOrderId
 } from '@/services/orderService'
+import logger from '@/lib/logger'
 import { toast } from '@/lib/toast'
 import { useFormState } from '../common/useFormState'
 import { useAsyncAction } from '../common/useAsyncAction'
@@ -85,7 +86,7 @@ export function useOrderFormV2({
     const tempItems = orderItems.filter(item => item.id && item.id.startsWith('temp_'));
     // Chỉ log trong môi trường development
     if (process.env.NODE_ENV === 'development') {
-      console.log('temporaryItems in useOrderFormV2:', tempItems);
+      logger.log('temporaryItems in useOrderFormV2:', tempItems);
     }
     return tempItems;
   }, [orderItems]);
@@ -172,7 +173,7 @@ export function useOrderFormV2({
               // Use the formatted order number
               orderToSave.order_number = formattedOrderNumber;
             } catch (error) {
-              console.error('Error generating order number:', error);
+              logger.error('Error generating order number:', error);
               // Fallback to old format if there's an error
               const now = new Date();
               const pad = (n: number) => n.toString().padStart(2, '0');
@@ -187,11 +188,11 @@ export function useOrderFormV2({
           const requiredFields = ['client_id', 'type', 'team_id', 'order_date', 'status', 'order_number'];
           const missingFields = requiredFields.filter(f => !(orderToSave as any)[f]);
           const emptyFields = requiredFields.filter(f => typeof (orderToSave as any)[f] === 'string' && !(orderToSave as any)[f].trim());
-          console.log('DEBUG orderToSave:', JSON.stringify(orderToSave, null, 2));
-          console.log('Missing fields:', missingFields);
-          console.log('Empty fields:', emptyFields);
+          logger.log('DEBUG orderToSave:', JSON.stringify(orderToSave, null, 2));
+          logger.log('Missing fields:', missingFields);
+          logger.log('Empty fields:', emptyFields);
           if (Object.keys(orderToSave).length === 0 || missingFields.length > 0 || emptyFields.length > 0) {
-            console.error('OrderFormV2: Missing or empty required fields:', missingFields, emptyFields, 'formData:', formData);
+            logger.error('OrderFormV2: Missing or empty required fields:', missingFields, emptyFields, 'formData:', formData);
             toast.toast({
               title: 'Thiếu thông tin bắt buộc',
               description: `Vui lòng nhập đầy đủ các trường: ${[...missingFields, ...emptyFields].join(', ')}`,
@@ -203,12 +204,12 @@ export function useOrderFormV2({
           let savedOrder: import('@/types/orders').Order | null = null;
           try {
             // Debug: log data before sending to API
-            console.log('Sending order data to API:', orderToSave);
+            logger.log('Sending order data to API:', orderToSave);
 
             const savedOrderResponse = await createOrder(orderToSave);
 
             // Debug: log response
-            console.log('createOrder response:', savedOrderResponse);
+            logger.log('createOrder response:', savedOrderResponse);
 
             savedOrder = savedOrderResponse as import('@/types/orders').Order | null;
             if (!savedOrder || !savedOrder.id) {
@@ -227,7 +228,7 @@ export function useOrderFormV2({
             // để tránh các vấn đề về timing và state
             // Không cần log ở đây vì đã được xử lý trong OrderForm
           } catch (createError: any) {
-            console.error('Error creating order:', createError);
+            logger.error('Error creating order:', createError);
             toast.toast({
               title: 'Order creation failed',
               description: createError.message || 'Unknown error',
@@ -255,7 +256,7 @@ export function useOrderFormV2({
         return { id: savedOrderId };
       });
     } catch (error: any) {
-      console.error('Error in saveOrder:', error);
+      logger.error('Error in saveOrder:', error);
       let errorMessage: string;
       if (error instanceof Error) {
         errorMessage = error.message;

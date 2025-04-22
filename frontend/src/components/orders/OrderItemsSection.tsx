@@ -81,6 +81,7 @@ interface OrderItemsSectionProps {
   isLoadingMoreCommodities?: boolean;
   loadMoreCommodities?: () => void;
   handleCommoditySearch?: (query: string) => void;
+  onAddNewCommodity?: () => Promise<string | undefined>;
 }
 
 const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({
@@ -105,7 +106,8 @@ const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({
   hasMoreCommodities,
   isLoadingMoreCommodities,
   loadMoreCommodities,
-  handleCommoditySearch: externalHandleCommoditySearch
+  handleCommoditySearch: externalHandleCommoditySearch,
+  onAddNewCommodity
 }) => {
   // --- Local Dialog State Management ---
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
@@ -117,9 +119,9 @@ const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({
   // Handler for add or update item
   const handleSaveItem = () => {
     if (!currentItemData) return;
-    console.log('OrderItemsSection: handleSaveItem called with data:', currentItemData);
+    // Gỡ bỏ console.log để tránh log không cần thiết
     addOrUpdateItem(currentItemData);
-    console.log('OrderItemsSection: addOrUpdateItem called');
+    // Gỡ bỏ console.log để tránh log không cần thiết
     setIsItemDialogOpen(false);
     setCurrentItemData({});
     setIsEditingItemDialog(false);
@@ -348,6 +350,7 @@ const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({
         loadMoreCommodities={loadMoreCommodities}
         isLoadingCommodities={isLoadingCommodities}
         isLoadingUnits={isLoadingUnits}
+        onAddNewCommodity={onAddNewCommodity}
       />
     </>
   )

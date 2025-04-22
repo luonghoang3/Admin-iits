@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ContactFormData } from '@/types/clients'
+import logger from '@/lib/logger'
 
 interface ContactDialogProps {
   open: boolean
@@ -18,7 +19,7 @@ interface ContactDialogProps {
   handleSaveContact: () => void
 }
 
-console.log('ContactDialog component loaded');
+logger.log('ContactDialog component loaded');
 
 export default function ContactDialog({
   open,

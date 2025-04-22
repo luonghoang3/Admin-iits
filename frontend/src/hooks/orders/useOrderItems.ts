@@ -4,6 +4,7 @@ import { fetchOrderItems, createOrderItem, updateOrderItem, deleteOrderItem as a
 import { useAsyncAction } from '../common/useAsyncAction'
 import { v4 as uuidv4 } from 'uuid'
 import { toast } from '@/lib/toast'
+import logger from '@/lib/logger'
 
 const DEFAULT_ITEM: OrderItem = {
   commodity_id: '',
@@ -376,10 +377,10 @@ export function useOrderItems({
         };
 
         // Add to temporary items
-        console.log('Adding temporary item to items:', tempItem);
+        logger.log('Adding temporary item to items:', tempItem);
         setItems((prevItems) => {
           const updatedItems = [...prevItems, tempItem];
-          console.log('Updated items after adding temporary item:', updatedItems);
+          logger.log('Updated items after adding temporary item:', updatedItems);
           return updatedItems;
         });
 
@@ -411,7 +412,7 @@ export function useOrderItems({
 
           // Chỉ log trong môi trường development
           if (process.env.NODE_ENV === 'development') {
-            console.log('Converting temporary item to permanent:', {
+            logger.log('Converting temporary item to permanent:', {
               tempId: id,
               newItem: processedItem,
               effectiveOrderId
@@ -435,12 +436,12 @@ export function useOrderItems({
 
 
           const isDev = process.env.NODE_ENV === 'development';
-          if (isDev) console.log('Creating order item:', itemToCreate);
+          if (isDev) logger.log('Creating order item:', itemToCreate);
 
           const response = await createOrderItem(itemToCreate);
 
           if (response.error) {
-            if (isDev) console.error('Error in createOrderItem:', response.error);
+            if (isDev) logger.error('Error in createOrderItem:', response.error);
             toast.toast({
               title: "Error creating item",
               description: response.error.message || "An error occurred",
@@ -489,12 +490,12 @@ export function useOrderItems({
           }
 
           const isDev = process.env.NODE_ENV === 'development';
-          if (isDev) console.log('Updating order item:', processedItem.id);
+          if (isDev) logger.log('Updating order item:', processedItem.id);
 
           const response = await updateOrderItem(processedItem.id, itemToUpdate);
 
           if (response.error) {
-            if (isDev) console.error('Error in updateOrderItem:', response.error);
+            if (isDev) logger.error('Error in updateOrderItem:', response.error);
             toast.toast({
               title: "Error updating item",
               description: response.error.message || "An error occurred",
@@ -592,7 +593,7 @@ export function useOrderItems({
 
     // Early return nếu không có orderId hợp lệ
     if (!newOrderId || typeof newOrderId !== 'string') {
-      if (isDev) console.error('Invalid orderId provided to saveTemporaryItems:', newOrderId);
+      if (isDev) logger.error('Invalid orderId provided to saveTemporaryItems:', newOrderId);
       toast.toast({
         title: "Error saving items",
         description: "No valid order ID provided",
@@ -606,11 +607,11 @@ export function useOrderItems({
 
     // Early return nếu không có items tạm thời
     if (tempItems.length === 0) {
-      if (isDev) console.log('No temporary items to save');
+      if (isDev) logger.log('No temporary items to save');
       return [];
     }
 
-    if (isDev) console.log(`Saving ${tempItems.length} temporary items for order ${newOrderId}`);
+    if (isDev) logger.log(`Saving ${tempItems.length} temporary items for order ${newOrderId}`);
 
     // Cập nhật orderId trong hook state
     setOrderId(newOrderId);
@@ -628,7 +629,7 @@ export function useOrderItems({
           failedItems.push(tempItem);
         }
       } catch (error) {
-        if (isDev) console.error('Error saving temporary item:', error);
+        if (isDev) logger.error('Error saving temporary item:', error);
         failedItems.push(tempItem);
       }
     }
@@ -657,7 +658,7 @@ export function useOrderItems({
   const temporaryItems = useMemo(() => {
     // Chỉ log trong môi trường development
     if (process.env.NODE_ENV === 'development') {
-      console.log('Current items:', items);
+      logger.log('Current items:', items);
     }
     return items.filter(item => item.id && item.id.startsWith('temp_'));
   }, [items]);

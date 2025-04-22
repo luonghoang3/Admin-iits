@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { 
-  createClient, 
-  fetchClient, 
+import {
+  createClient,
+  fetchClient,
   updateClient,
   fetchTeams
 } from '@/utils/supabase/client'
+import logger from '@/lib/logger'
 
 interface Client {
   id: string
@@ -35,14 +36,14 @@ function getTeamColor(id: string): string {
   for (let i = 0; i < id.length; i++) {
     hash = id.charCodeAt(i) + ((hash << 5) - hash);
   }
-  
+
   // List of safe pastel colors
   const colors = [
-    '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf', 
+    '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
     '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
     '#fffffc', '#d8f3dc', '#b7e4c7', '#95d5b2'
   ];
-  
+
   // Get color based on hash
   return colors[Math.abs(hash) % colors.length];
 }
@@ -50,17 +51,17 @@ function getTeamColor(id: string): string {
 export default function EditClientPage() {
   const router = useRouter()
   const params = useParams()
-  
+
   // Truy cập params trực tiếp thay vì sử dụng React.use()
   const clientId = params.id as string
-  
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [selectedTeams, setSelectedTeams] = useState<string[]>([])
   const [client, setClient] = useState<Client | null>(null)
-  
+
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -68,16 +69,16 @@ export default function EditClientPage() {
     phone: '',
     tax_id: ''
   })
-  
+
   useEffect(() => {
     async function loadClient() {
       try {
         const { client, error } = await fetchClient(clientId)
-        
+
         if (error) {
           throw new Error(error)
         }
-        
+
         if (client) {
           setClient(client)
           setFormData({
@@ -87,7 +88,7 @@ export default function EditClientPage() {
             phone: client.phone || '',
             tax_id: client.tax_id || ''
           })
-          
+
           // Set selected teams if any
           if (client.team_ids) {
             setSelectedTeams(client.team_ids)
@@ -95,28 +96,28 @@ export default function EditClientPage() {
         } else {
           throw new Error('Client not found')
         }
-        
+
         // Load teams for selection
         const { teams: teamsData, error: teamsError } = await fetchTeams()
-        
+
         if (teamsError) {
-          console.error('Error loading teams:', teamsError)
+          logger.error('Error loading teams:', teamsError)
         } else if (teamsData) {
           setTeams(teamsData)
         }
       } catch (err: any) {
-        console.error('Error loading client:', err)
+        logger.error('Error loading client:', err)
         setError(err.message || 'Failed to load client')
       } finally {
         setLoading(false)
       }
     }
-    
+
     if (clientId) {
       loadClient()
     }
   }, [clientId])
-  
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
@@ -124,34 +125,34 @@ export default function EditClientPage() {
       [name]: value
     }))
   }
-  
+
   // Function to toggle team selection
   const toggleTeam = (teamId: string) => {
     setSelectedTeams(prevTeams => {
       // If team is already selected, remove it
       if (prevTeams.includes(teamId)) {
         return prevTeams.filter(id => id !== teamId);
-      } 
+      }
       // If team is not selected, add it
       else {
         return [...prevTeams, teamId];
       }
     });
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Validate required fields
     if (!formData.name.trim()) {
       setError('Company name is required')
       return
     }
-    
+
     try {
       setSaving(true)
       setError(null)
-      
+
       const { client, error } = await updateClient(clientId, {
         name: formData.name.trim(),
         address: formData.address.trim() || undefined,
@@ -160,20 +161,20 @@ export default function EditClientPage() {
         tax_id: formData.tax_id.trim() || undefined,
         team_ids: selectedTeams
       })
-      
+
       if (error) {
         throw new Error(error)
       }
-      
+
       // Redirect to client detail page
       router.push(`/dashboard/clients/${clientId}`)
     } catch (err: any) {
-      console.error('Error saving client:', err)
+      logger.error('Error saving client:', err)
       setError(err.message || 'Failed to save client')
       setSaving(false)
     }
   }
-  
+
   if (loading) {
     return (
       <div className="p-8">
@@ -183,7 +184,7 @@ export default function EditClientPage() {
       </div>
     )
   }
-  
+
   if (error && !client) {
     return (
       <div className="p-8">
@@ -201,7 +202,7 @@ export default function EditClientPage() {
       </div>
     )
   }
-  
+
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
@@ -213,13 +214,13 @@ export default function EditClientPage() {
           Cancel
         </Link>
       </div>
-      
+
       {error && (
         <div className="bg-red-50 text-red-600 p-4 rounded-md mb-6">
           {error}
         </div>
       )}
-      
+
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <form onSubmit={handleSubmit}>
           <div className="p-6 space-y-6">
@@ -237,7 +238,7 @@ export default function EditClientPage() {
                 required
               />
             </div>
-            
+
             <div>
               <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
                 Address
@@ -251,7 +252,7 @@ export default function EditClientPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
@@ -265,7 +266,7 @@ export default function EditClientPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            
+
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
                 Phone Number
@@ -279,7 +280,7 @@ export default function EditClientPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            
+
             <div>
               <label htmlFor="tax_id" className="block text-sm font-medium text-gray-700 mb-1">
                 Tax ID
@@ -293,7 +294,7 @@ export default function EditClientPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Assign Teams
@@ -304,9 +305,9 @@ export default function EditClientPage() {
                     selectedTeams.map(teamId => {
                       const team = teams.find(t => t.id === teamId);
                       if (!team) return null;
-                      
+
                       return (
-                        <span 
+                        <span
                           key={teamId}
                           className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-gray-800"
                           style={{ backgroundColor: getTeamColor(teamId) }}
@@ -349,7 +350,7 @@ export default function EditClientPage() {
               </div>
             </div>
           </div>
-          
+
           <div className="px-6 py-4 bg-gray-50 flex justify-end">
             <button
               type="submit"
@@ -365,4 +366,4 @@ export default function EditClientPage() {
       </div>
     </div>
   )
-} 
+}

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { fetchCommodities, fetchCategories, buildCategoryTree, fetchTeams } from '@/services/commodityService'
 import { Commodity, Category, CategoryWithChildren, Team } from '@/types/commodities'
 import { Skeleton } from '@/components/ui/skeleton'
+import logger from '@/lib/logger'
 
 export default function CommoditiesPage() {
   const router = useRouter()
@@ -41,7 +42,7 @@ export default function CommoditiesPage() {
         const { teams: teamsData } = await fetchTeams()
         setTeams(teamsData)
       } catch (error) {
-        console.error('Error loading data:', error)
+        logger.error('Error loading data:', error)
       } finally {
         setLoading(false)
       }

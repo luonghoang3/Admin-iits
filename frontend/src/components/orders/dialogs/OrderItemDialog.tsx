@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useCallback, useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,8 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Combobox as HeadlessuiCombobox } from "@/components/ui/combobox"
-import { HierarchicalCombobox } from "@/components/ui/hierarchical-combobox"
-import { buildCategoryTree, buildHierarchicalItems, filterHierarchicalItems } from "@/utils/hierarchical-utils"
+import CommodityCombobox from "../CommodityCombobox"
 import { OrderItem, Commodity, Unit } from '@/types/orders'
 
 interface OrderItemDialogProps {
@@ -33,11 +32,27 @@ interface OrderItemDialogProps {
   loadMoreCommodities?: () => void
   isLoadingCommodities?: boolean
   isLoadingUnits?: boolean
+  onAddNewCommodity?: () => Promise<string | undefined>
 }
 
-console.log('OrderItemDialog component loaded');
+// Hàm debounce để trì hoãn cập nhật state
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
-export default function OrderItemDialog({
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+function OrderItemDialog({
   open,
   onOpenChange,
   isEditing,
@@ -57,13 +72,86 @@ export default function OrderItemDialog({
   isLoadingMoreCommodities,
   loadMoreCommodities,
   isLoadingCommodities,
-  isLoadingUnits
+  isLoadingUnits,
+  onAddNewCommodity
 }: OrderItemDialogProps) {
+  // State cục bộ cho trường mô tả để tránh re-render toàn bộ component
+  const [localDescription, setLocalDescription] = useState(currentItem.commodity_description || '');
+
+  // Cập nhật localDescription khi currentItem thay đổi
+  useEffect(() => {
+    setLocalDescription(currentItem.commodity_description || '');
+  }, [currentItem.commodity_description]);
+
+  // Debounce giá trị mô tả để giảm số lần cập nhật
+  const debouncedDescription = useDebounce(localDescription, 300);
+
+  // Cập nhật giá trị thực khi debounced value thay đổi
+  useEffect(() => {
+    if (debouncedDescription !== currentItem.commodity_description) {
+      const event = {
+        target: {
+          name: 'commodity_description',
+          value: debouncedDescription
+        }
+      } as React.ChangeEvent<HTMLTextAreaElement>;
+
+      handleChange(event);
+    }
+  }, [debouncedDescription, currentItem.commodity_description, handleChange]);
+
+  // Xử lý thay đổi mô tả cục bộ
+  const handleDescriptionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setLocalDescription(e.target.value);
+  }, []);
+
+  // Xử lý thay đổi commodity
+  const handleCommodityChangeCallback = useCallback((value: string) => {
+    handleSelectChange('commodity_id', value);
+  }, [handleSelectChange]);
+
+  // Xử lý thêm mới commodity
+  const handleAddNewCommodity = useCallback(async () => {
+    if (onAddNewCommodity) {
+      try {
+        // Gọi hàm thêm mới và lấy ID của hàng hóa mới
+        const newCommodityId = await onAddNewCommodity();
+
+        // Nếu có ID, tự động chọn hàng hóa mới
+        if (newCommodityId) {
+          handleSelectChange('commodity_id', newCommodityId);
+        }
+
+        return newCommodityId;
+      } catch (error) {
+        console.error('Error adding new commodity:', error);
+      }
+    }
+  }, [onAddNewCommodity, handleSelectChange]);
+
+  // Xử lý thay đổi unit
+  const handleUnitChangeCallback = useCallback((value: string) => {
+    handleSelectChange('unit_id', value);
+  }, [handleSelectChange]);
+
+  // Xử lý thay đổi quantity
+  const handleQuantityChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    handleChange(e);
+  }, [handleChange]);
+
+  // Xử lý đóng dialog
+  const handleDialogClose = useCallback((isOpen: boolean) => {
+    if (!isOpen) handleClose();
+    onOpenChange(isOpen);
+  }, [handleClose, onOpenChange]);
+
+  // Xử lý lưu
+  const handleSaveCallback = useCallback(() => {
+    handleSave();
+  }, [handleSave]);
+
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) handleClose();
-      onOpenChange(isOpen);
-    }}>
+    <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
@@ -85,51 +173,15 @@ export default function OrderItemDialog({
 
           <div className="grid gap-2">
             <Label htmlFor="commodity_id">Commodity*</Label>
-            <HierarchicalCombobox
-              items={filterHierarchicalItems(
-                buildHierarchicalItems(
-                  buildCategoryTree(
-                    // Lọc ra các danh mục từ commodities và loại bỏ các giá trị null/undefined
-                    commodities
-                      .filter(c => c.category)
-                      .map(c => c.category!)
-                      // Loại bỏ các danh mục trùng lặp
-                      .filter((category, index, self) =>
-                        index === self.findIndex(c => c.id === category.id)
-                      )
-                  ),
-                  commodities,
-                  true
-                ),
-                commoditySearch
-              )}
-              className="z-50"
+            <CommodityCombobox
+              commodities={commodities}
               value={currentItem.commodity_id || ''}
-              onChange={(value) => handleSelectChange('commodity_id', value)}
+              onChange={handleCommodityChangeCallback}
               placeholder="Select commodity..."
+              disabled={isLoadingCommodities}
               onSearch={handleCommoditySearch}
               loading={isLoadingCommodities}
-              emptyContent={
-                <div className="relative cursor-default select-none px-4 py-2 text-muted-foreground">
-                  {commoditySearch ? "No commodities found" : "Type to search commodities"}
-                </div>
-              }
-              loadingContent={
-                <div className="relative cursor-default select-none px-4 py-2 text-muted-foreground">
-                  Loading...
-                </div>
-              }
-              showSelected
-              onLoadMore={loadMoreCommodities}
-              hasMore={hasMoreCommodities}
-              isLoadingMore={isLoadingMoreCommodities}
-              selectedItemData={
-                currentItem.commodity_id ? {
-                  value: currentItem.commodity_id,
-                  label: commodities.find(c => c.id === currentItem.commodity_id)?.name || '',
-                  description: commodities.find(c => c.id === currentItem.commodity_id)?.description || ''
-                } : null
-              }
+              onAddNew={handleAddNewCommodity}
             />
           </div>
 
@@ -140,7 +192,7 @@ export default function OrderItemDialog({
               name="quantity"
               type="number"
               value={currentItem.quantity ?? ''}
-              onChange={handleChange}
+              onChange={handleQuantityChange}
               min="0.01"
               step="any"
               placeholder="Enter quantity"
@@ -156,7 +208,7 @@ export default function OrderItemDialog({
                 description: u.description || undefined
               }))}
               value={currentItem.unit_id || ''}
-              onChange={(value) => handleSelectChange('unit_id', value)}
+              onChange={handleUnitChangeCallback}
               placeholder="Select unit..."
               onSearch={handleUnitSearch}
               loading={isLoadingUnits}
@@ -186,8 +238,8 @@ export default function OrderItemDialog({
             <Textarea
               id="commodity_description"
               name="commodity_description"
-              value={currentItem.commodity_description || ''}
-              onChange={handleChange}
+              value={localDescription}
+              onChange={handleDescriptionChange}
               placeholder="Enter additional item details"
               rows={3}
             />
@@ -198,7 +250,7 @@ export default function OrderItemDialog({
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>
+          <Button onClick={handleSaveCallback}>
             {isEditing ? 'Save Changes' : 'Add Item'}
           </Button>
         </DialogFooter>
@@ -206,3 +258,6 @@ export default function OrderItemDialog({
     </Dialog>
   )
 }
+
+// Sử dụng React.memo để tránh re-render không cần thiết
+export default React.memo(OrderItemDialog);

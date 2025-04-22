@@ -4,6 +4,7 @@ import * as React from "react"
 import { Search, Loader2 } from "lucide-react"
 import { fetchClientsForCombobox } from "@/utils/supabase/client"
 import { useDebounce } from "@/hooks/useDebounce"
+import logger from '@/lib/logger'
 
 interface ClientOption {
   value: string
@@ -52,7 +53,7 @@ export function ClientCombobox({
   // Tải dữ liệu khách hàng
   const loadClients = React.useCallback(async (reset = false) => {
     try {
-      console.log(`loadClients called with reset=${reset}, current page=${page}`)
+      logger.log(`loadClients called with reset=${reset}, current page=${page}`)
 
       // Xóa timeout hiển thị loading nếu có
       if (loadingTimeoutRef.current) {
@@ -77,18 +78,18 @@ export function ClientCombobox({
 
       // Nếu đang tải thêm (không reset), tăng trang lên 1 cho lần tải tiếp theo
       if (!reset) {
-        console.log(`Incrementing page from ${page} to ${page + 1}`)
+        logger.log(`Incrementing page from ${page} to ${page + 1}`)
         setPage(page + 1)
       } else {
         // Nếu reset, đặt lại trang về 1
         if (page !== 1) {
-          console.log(`Resetting page from ${page} to 1`)
+          logger.log(`Resetting page from ${page} to 1`)
           setPage(1)
         }
       }
 
       try {
-        console.log(`Fetching clients: page=${currentPage}, query="${debouncedSearchQuery}"`)
+        logger.log(`Fetching clients: page=${currentPage}, query="${debouncedSearchQuery}"`)
 
         const { clients, hasMore: moreResults, error, total } = await fetchClientsForCombobox({
           page: currentPage,
@@ -96,10 +97,10 @@ export function ClientCombobox({
           searchQuery: debouncedSearchQuery
         })
 
-        console.log(`API returned: ${clients?.length || 0} clients, hasMore=${moreResults}, total=${total}`)
+        logger.log(`API returned: ${clients?.length || 0} clients, hasMore=${moreResults}, total=${total}`)
 
         if (error) {
-          console.error('Error loading clients:', error)
+          logger.error('Error loading clients:', error)
           return
         }
 
@@ -114,7 +115,7 @@ export function ClientCombobox({
 
         // Cập nhật danh sách tùy chọn
         if (reset) {
-          console.log(`Setting ${clients.length} clients (reset)`)
+          logger.log(`Setting ${clients.length} clients (reset)`)
           setOptions(clients)
           optionsRef.current = clients
         } else {
@@ -122,28 +123,28 @@ export function ClientCombobox({
           const existingIds = new Set(optionsRef.current.map(opt => opt.value))
           const newClients = clients.filter(client => !existingIds.has(client.value))
 
-          console.log(`Adding ${newClients.length} new clients to existing ${optionsRef.current.length} clients`)
+          logger.log(`Adding ${newClients.length} new clients to existing ${optionsRef.current.length} clients`)
 
           // Cách đơn giản hơn để loại bỏ trùng lặp
           const allOptions = [...optionsRef.current, ...newClients]
           const uniqueOptions = Array.from(new Map(allOptions.map(item => [item.value, item])).values())
 
-          console.log(`Final unique options count: ${uniqueOptions.length}`)
+          logger.log(`Final unique options count: ${uniqueOptions.length}`)
           setOptions(uniqueOptions)
           optionsRef.current = uniqueOptions
         }
 
-        console.log(`Has more results: ${moreResults}`)
+        logger.log(`Has more results: ${moreResults}`)
         setHasMore(moreResults)
 
         // Đã cập nhật page ở trên, không cần cập nhật ở đây nữa
         // Chỉ log để debug
-        console.log(`Current page after API call: ${page}, next page will be: ${page + 1}`)
+        logger.log(`Current page after API call: ${page}, next page will be: ${page + 1}`)
       } catch (err) {
-        console.error('Error in loadClients try/catch:', err)
+        logger.error('Error in loadClients try/catch:', err)
       }
     } catch (err) {
-      console.error('Error in loadClients:', err)
+      logger.error('Error in loadClients:', err)
     } finally {
       // Xóa timeout hiển thị loading nếu có
       if (loadingTimeoutRef.current) {
@@ -162,11 +163,11 @@ export function ClientCombobox({
   // Khai báo hàm loadMoreData trước để tránh lỗi tham chiếu
   const loadMoreData = React.useCallback(() => {
     if (loading || loadingMore || !hasMore) {
-      console.log(`Cannot load more: loading=${loading}, loadingMore=${loadingMore}, hasMore=${hasMore}`);
+      logger.log(`Cannot load more: loading=${loading}, loadingMore=${loadingMore}, hasMore=${hasMore}`);
       return;
     }
 
-    console.log('MANUALLY LOADING MORE DATA...');
+    logger.log('MANUALLY LOADING MORE DATA...');
 
     // Đặt trạng thái loadingMore ngay lập tức
     setLoadingMore(true);
@@ -185,12 +186,12 @@ export function ClientCombobox({
 
     // Kiểm tra điều kiện có thể tải thêm hay không
     if (!hasMore) {
-      // console.log('No more data to load');
+      // logger.log('No more data to load');
       return;
     }
 
     if (loading || loadingMore) {
-      // console.log('Already loading data');
+      // logger.log('Already loading data');
       return;
     }
 
@@ -200,12 +201,12 @@ export function ClientCombobox({
 
     // Chỉ log khi gần đến cuối để tránh quá nhiều log
     if (distanceToBottom < 200) {
-      console.log(`Scroll event - Distance to bottom: ${distanceToBottom}px`);
+      logger.log(`Scroll event - Distance to bottom: ${distanceToBottom}px`);
     }
 
     // Nếu đã cuộn gần đến cuối (còn 100px), tải thêm dữ liệu
     if (distanceToBottom < 100) {
-      console.log('LOADING MORE CLIENTS FROM SCROLL!');
+      logger.log('LOADING MORE CLIENTS FROM SCROLL!');
 
       // Sử dụng requestAnimationFrame để đảm bảo hiệu suất tốt
       window.requestAnimationFrame(() => {
@@ -263,7 +264,7 @@ export function ClientCombobox({
       let isMounted = true
       let timeoutId: NodeJS.Timeout | null = null
 
-      console.log('Initial load when dropdown opens')
+      logger.log('Initial load when dropdown opens')
 
       // Đặt trạng thái loadingMore ngay lập tức
       setLoadingMore(true)
@@ -463,7 +464,7 @@ export function ClientCombobox({
                       e.preventDefault()
                       e.stopPropagation()
 
-                      console.log('Manual load more clicked')
+                      logger.log('Manual load more clicked')
                       // Gọi trực tiếp loadClients để đảm bảo tải thêm dữ liệu
                       setLoadingMore(true)
                       setTimeout(() => loadClients(false), 50)

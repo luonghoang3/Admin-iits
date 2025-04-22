@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import logger from '@/lib/logger'
 
 // Cấu hình kết nối với Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:8000'
@@ -21,21 +22,21 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // Hàm kiểm tra kết nối tới Supabase (có thể gọi từ bất kỳ đâu)
 export async function checkSupabaseConnection() {
   try {
-    console.log('Testing Supabase connection to URL:', supabaseUrl)
-    console.log('Using API key (first 10 chars):', supabaseAnonKey.substring(0, 10) + '...')
+    logger.log('Testing Supabase connection to URL:', supabaseUrl)
+    logger.log('Using API key (first 10 chars):', supabaseAnonKey.substring(0, 10) + '...')
     
     // Thử gọi một API endpoint đơn giản
     const { data, error } = await supabase.from('profiles').select('count', { count: 'exact', head: true })
     
     if (error) {
-      console.error('Supabase connection test failed:', error)
+      logger.error('Supabase connection test failed:', error)
       return { success: false, error }
     }
     
-    console.log('Supabase connection test successful:', data)
+    logger.log('Supabase connection test successful:', data)
     return { success: true, data }
   } catch (err) {
-    console.error('Supabase connection test exception:', err)
+    logger.error('Supabase connection test exception:', err)
     return { success: false, error: err }
   }
 } 

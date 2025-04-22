@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, createUser, fetchTeams } from '@/utils/supabase/client'
+import logger from '@/lib/logger'
 
 interface Team {
   id: string
@@ -55,12 +56,12 @@ export default function AddUserPage() {
         const { teams: teamsList, error } = await fetchTeams()
         
         if (error) {
-          console.error('Lỗi khi tải danh sách teams:', error)
+          logger.error('Lỗi khi tải danh sách teams:', error)
         } else {
           setTeams(teamsList || [])
         }
       } catch (err) {
-        console.error('Lỗi khi tải danh sách teams:', err)
+        logger.error('Lỗi khi tải danh sách teams:', err)
       }
     }
     
@@ -95,7 +96,7 @@ export default function AddUserPage() {
           return
         }
       } catch (err: any) {
-        console.error('Lỗi khi kiểm tra quyền:', err)
+        logger.error('Lỗi khi kiểm tra quyền:', err)
         router.push('/login')
       }
     }
@@ -205,7 +206,7 @@ export default function AddUserPage() {
         router.push('/dashboard/users')
       }, 2000)
     } catch (err: any) {
-      console.error('Lỗi khi tạo người dùng:', err)
+      logger.error('Lỗi khi tạo người dùng:', err)
       setError(err.message)
     } finally {
       setLoading(false)

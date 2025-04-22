@@ -18,8 +18,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useOrderFormV2 } from '@/hooks/orders/useOrderFormV2'
 import { useOrderItems } from '@/hooks/orders/useOrderItems'
 import { useClientAndContactManagement } from '@/hooks/useClientAndContactManagement'
+import logger from '@/lib/logger'
 import { useUnits } from "@/hooks/useUnits"
+// Chỉ sử dụng bảng commodities_new
 import { useCommodities } from "@/hooks/useCommodities"
+import { useCategories } from "@/hooks/useCategories"
 
 // Component sections - lazy loaded
 import dynamic from 'next/dynamic'
@@ -54,6 +57,10 @@ const DeleteContactDialog = dynamic(() => import('./dialogs/DeleteContactDialog'
 })
 
 const DeleteEntityDialog = dynamic(() => import('./dialogs/DeleteEntityDialog'), {
+  loading: () => null
+})
+
+const CommodityDialog = dynamic(() => import('./dialogs/CommodityDialog'), {
   loading: () => null
 })
 
@@ -132,13 +139,13 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
       const { nextSequence, formattedOrderNumber, error } = await fetchNextOrderSequence(typePrefix, teamCode, yearCode);
 
       if (error) {
-        console.error('Error fetching next sequence:', error);
+        logger.error('Error fetching next sequence:', error);
         return 1; // Default to 1 if there's an error
       }
 
       return nextSequence;
     } catch (error) {
-      console.error('Error in fetchNextSequenceFromDB:', error);
+      logger.error('Error in fetchNextSequenceFromDB:', error);
       return 1; // Default to 1 if there's an error
     }
   }, []);
@@ -171,7 +178,7 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
                       teamData.name === 'CG' ? 'CG' : 'XX';
           }
         } catch (err) {
-          console.error('Error fetching team data:', err);
+          logger.error('Error fetching team data:', err);
         }
       }
 
@@ -262,7 +269,7 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
     updatePreviewOrderNumber();
   }, [generatePreviewOrderNumber]);
 
-  // Commodities with pagination and search
+  // Chỉ sử dụng bảng commodities_new
   const {
     commodities,
     isLoading: isLoadingCommodities,
@@ -271,12 +278,71 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
     searchQuery: commoditySearch,
     searchCommodities,
     loadMoreCommodities,
-    findCommodityById
+    findCommodityById,
+    addCommodity
   } = useCommodities()
 
   // Units with search state
   const { units, isLoading: isLoadingUnits } = useUnits()
   const [unitSearch, setUnitSearch] = useState('')
+
+  // Categories for commodity dialog
+  const { categories, isLoading: isLoadingCategories } = useCategories()
+
+  // State for commodity dialog
+  const [isCommodityDialogOpen, setIsCommodityDialogOpen] = useState(false)
+  const [commodityError, setCommodityError] = useState<string | null>(null)
+  const [isAddingCommodity, setIsAddingCommodity] = useState(false)
+
+  // Handler for adding new commodity
+  const handleAddCommodity = async (commodityData: { name: string, description?: string, category_id?: string }) => {
+    try {
+      setIsAddingCommodity(true)
+      setCommodityError(null)
+
+      // Kiểm tra dữ liệu đầu vào
+      if (!commodityData.name || commodityData.name.trim() === '') {
+        throw new Error('Commodity name is required')
+      }
+
+      // Xử lý giá trị "none" cho category_id
+      const dataToSave = {
+        ...commodityData,
+        name: commodityData.name.trim(),
+        description: commodityData.description?.trim() || null,
+        category_id: commodityData.category_id === 'none' ? null : commodityData.category_id
+      }
+
+      // Log dữ liệu để debug
+      if (process.env.NODE_ENV === 'development') {
+        logger.log('Adding commodity with data:', dataToSave)
+      }
+
+      // Thêm vào bảng commodities_new (bảng chính và duy nhất)
+      try {
+        const newCommodity = await addCommodity(dataToSave)
+
+        // Đóng dialog
+        setIsCommodityDialogOpen(false)
+
+        // Trả về ID của hàng hóa mới để sử dụng
+        return newCommodity.id
+      } catch (commodityError) {
+        logger.error('Error adding to commodities_new:', commodityError)
+        throw new Error(
+          commodityError instanceof Error
+            ? `Failed to add commodity: ${commodityError.message}`
+            : 'Failed to add commodity to database'
+        )
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add commodity'
+      logger.error('Commodity error:', errorMessage)
+      setCommodityError(errorMessage)
+    } finally {
+      setIsAddingCommodity(false)
+    }
+  }
 
   // Load existing order data (now uses loadOrderDataAndItems from hook)
   // We only need to load once when the component mounts
@@ -303,8 +369,8 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
 
       // Chỉ log trong môi trường development
       if (process.env.NODE_ENV === 'development') {
-        console.log('OrderForm: handleSubmit called');
-        console.log('OrderForm: temporaryItems at submit time:', temporaryItems);
+        logger.log('OrderForm: handleSubmit called');
+        logger.log('OrderForm: temporaryItems at submit time:', temporaryItems);
       }
 
       // Validate required fields
@@ -331,18 +397,18 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
         // Lưu các items tạm thời nếu có
         if (savedOrder?.id && temporaryItems?.length > 0) {
           const isDev = process.env.NODE_ENV === 'development';
-          if (isDev) console.log(`Saving ${temporaryItems.length} temporary items for order ${savedOrder.id}`);
+          if (isDev) logger.log(`Saving ${temporaryItems.length} temporary items for order ${savedOrder.id}`);
 
           try {
             await saveTemporaryItems(savedOrder.id);
           } catch (itemError) {
             // Không throw error ở đây, vẫn tiếp tục với việc tạo đơn hàng
-            if (isDev) console.error('Error saving temporary items:', itemError);
+            if (isDev) logger.error('Error saving temporary items:', itemError);
           }
         }
       } catch (saveError) {
         if (process.env.NODE_ENV === 'development') {
-          console.error('Error saving order:', saveError);
+          logger.error('Error saving order:', saveError);
         }
         throw saveError; // Re-throw to be caught by the outer catch block
       }
@@ -393,6 +459,16 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
         open={isConfirmDeleteOpen}
         onOpenChange={setIsConfirmDeleteOpen}
         handleDeleteContact={handleDeleteContact}
+      />
+
+      {/* Commodity Dialog - Lazy Loaded */}
+      <CommodityDialog
+        open={isCommodityDialogOpen}
+        onOpenChange={setIsCommodityDialogOpen}
+        categories={categories}
+        error={commodityError}
+        handleSave={handleAddCommodity}
+        isLoading={isAddingCommodity || isLoadingCategories}
       />
 
       <div className="flex justify-between items-center mb-6">
@@ -508,6 +584,7 @@ export default function OrderForm({ orderId, mode = 'add', backUrl = '/dashboard
           isLoadingMoreCommodities={isLoadingMoreCommodities}
           loadMoreCommodities={loadMoreCommodities}
           handleCommoditySearch={searchCommodities}
+          onAddNewCommodity={() => setIsCommodityDialogOpen(true)}
         />
       </div>
     </div>

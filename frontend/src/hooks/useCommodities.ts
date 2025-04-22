@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import type { Commodity } from '@/types/commodities';
+import logger from '@/lib/logger'
+
+interface CommodityInput {
+  id?: string;
+  name: string;
+  description?: string;
+  category_id?: string;
+}
 
 interface UseCommoditiesReturn {
   commodities: Commodity[];
@@ -12,6 +20,7 @@ interface UseCommoditiesReturn {
   searchCommodities: (query: string) => void;
   loadMoreCommodities: () => Promise<void>;
   findCommodityById: (id: string) => Commodity | undefined;
+  addCommodity: (data: CommodityInput) => Promise<Commodity>;
 }
 
 export function useCommodities(): UseCommoditiesReturn {
@@ -21,15 +30,43 @@ export function useCommodities(): UseCommoditiesReturn {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [page, setPage] = useState(0);
-  const pageSize = 20;
+  // Không còn sử dụng phân trang, tải tất cả dữ liệu một lần
 
-  // Hàm tải dữ liệu hàng hóa
-  const loadCommodities = useCallback(async (query: string, pageNumber: number, replace: boolean = false) => {
+  // Hàm tải dữ liệu hàng hóa - tải tất cả một lần
+  const loadCommodities = useCallback(async (query: string) => {
     try {
       const supabase = createClient();
-      const from = pageNumber * pageSize;
-      const to = from + pageSize - 1;
+
+      // Lấy tất cả danh mục từ bảng categories_new
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('categories_new')
+        .select('*')
+        .order('name');
+
+      if (categoriesError) throw categoriesError;
+
+      // Tạo map categories để tra cứu nhanh
+      const categoriesMap = new Map();
+      categoriesData?.forEach(category => {
+        categoriesMap.set(category.id, {
+          ...category,
+          children: [],
+          parent: null
+        });
+      });
+
+      // Xây dựng cấu trúc phân cấp danh mục
+      categoriesData?.forEach(category => {
+        if (category.parent_id && categoriesMap.has(category.parent_id)) {
+          // Thêm danh mục con vào danh mục cha
+          const parentCategory = categoriesMap.get(category.parent_id);
+          parentCategory.children.push(category.id);
+
+          // Thiết lập tham chiếu tới danh mục cha
+          const childCategory = categoriesMap.get(category.id);
+          childCategory.parent = parentCategory;
+        }
+      });
 
       // Sử dụng bảng commodities_new thay vì commodities
       let request = supabase
@@ -46,42 +83,64 @@ export function useCommodities(): UseCommoditiesReturn {
         request = request.ilike('name', `%${query}%`);
       }
 
-      // Phân trang
-      request = request.range(from, to);
-
-      const { data, error, count } = await request;
+      const { data, error } = await request;
 
       if (error) throw error;
 
       // Chuyển đổi dữ liệu để phù hợp với interface Commodity
-      const formattedData = data?.map(item => ({
-        ...item,
-        category_id: item.category_id,
-        category: item.category,
-        teams: item.teams?.map((t: any) => t.teams)
-      })) || [];
+      const formattedData = data?.map(item => {
+        const categoryEntry = item.category_id ? categoriesMap.get(item.category_id) : null;
+        let rootCategory = null;
+
+        if (categoryEntry) {
+          // Tìm danh mục gốc (root)
+          let currentCategory = categoryEntry;
+          while (currentCategory && currentCategory.parent) {
+            currentCategory = currentCategory.parent;
+          }
+
+          if (currentCategory && currentCategory.id !== categoryEntry.id) {
+            rootCategory = {
+              id: currentCategory.id,
+              name: currentCategory.name,
+              description: currentCategory.description || null,
+              parent_id: null
+            };
+          } else if (currentCategory) {
+            // Nếu không có parent, danh mục hiện tại là danh mục gốc
+            rootCategory = {
+              id: currentCategory.id,
+              name: currentCategory.name,
+              description: currentCategory.description || null,
+              parent_id: null
+            };
+          }
+        }
+
+        return {
+          ...item,
+          category_id: item.category_id,
+          category: item.category,
+          root_category: rootCategory || item.category,
+          teams: item.teams?.map((t: any) => t.teams) || []
+        };
+      }) || [];
 
       // Cập nhật state
-      if (replace) {
-        setCommodities(formattedData);
-      } else {
-        setCommodities(prev => [...prev, ...formattedData]);
-      }
-
-      // Kiểm tra xem còn dữ liệu để tải không
-      setHasMore(formattedData.length === pageSize);
+      setCommodities(formattedData);
+      setHasMore(false); // Không còn dữ liệu để tải thêm
       setError(null);
     } catch (err) {
-      console.error('Error loading commodities:', err);
+      logger.error('Error loading commodities:', err);
       setError(err instanceof Error ? err.message : 'Failed to load commodities');
     }
-  }, [pageSize]);
+  }, []);
 
   // Tải dữ liệu ban đầu
   useEffect(() => {
     async function initialLoad() {
       setIsLoading(true);
-      await loadCommodities('', 0, true);
+      await loadCommodities('');
       setIsLoading(false);
     }
 
@@ -91,28 +150,124 @@ export function useCommodities(): UseCommoditiesReturn {
   // Hàm tìm kiếm hàng hóa
   const searchCommodities = useCallback((query: string) => {
     setSearchQuery(query);
-    setPage(0);
     setIsLoading(true);
-    loadCommodities(query, 0, true).then(() => {
+    loadCommodities(query).then(() => {
       setIsLoading(false);
     });
   }, [loadCommodities]);
 
-  // Hàm tải thêm dữ liệu
+  // Hàm tải thêm dữ liệu - không còn cần thiết vì đã tải tất cả dữ liệu một lần
   const loadMoreCommodities = useCallback(async () => {
-    if (isLoadingMore || !hasMore) return;
-    
-    setIsLoadingMore(true);
-    const nextPage = page + 1;
-    await loadCommodities(searchQuery, nextPage, false);
-    setPage(nextPage);
-    setIsLoadingMore(false);
-  }, [isLoadingMore, hasMore, page, searchQuery, loadCommodities]);
+    // Không còn cần thiết vì đã tải tất cả dữ liệu một lần
+    return;
+  }, []);
 
   // Hàm tìm hàng hóa theo ID
   const findCommodityById = useCallback((id: string) => {
     return commodities.find(commodity => commodity.id === id);
   }, [commodities]);
+
+  // Hàm thêm mới hàng hóa
+  const addCommodity = useCallback(async (data: CommodityInput): Promise<Commodity> => {
+    try {
+      const supabase = createClient();
+
+      // Kiểm tra dữ liệu đầu vào
+      if (!data.name) {
+        throw new Error('Commodity name is required');
+      }
+
+      // Chuẩn bị dữ liệu để thêm vào bảng
+      const commodityData: any = {
+        name: data.name,
+        description: data.description || null,
+        category_id: data.category_id === 'none' ? null : data.category_id || null
+      };
+
+      // Sử dụng ID được cung cấp nếu có
+      if (data.id) {
+        commodityData.id = data.id;
+      }
+
+      // Thêm mới hàng hóa
+      const { data: newCommodity, error: insertError } = await supabase
+        .from('commodities_new')
+        .insert([commodityData]) // Đảm bảo dữ liệu được gửi dưới dạng mảng
+        .select('*')
+        .single();
+
+      if (insertError) {
+        logger.error('Insert error:', insertError);
+        throw new Error(`Failed to insert commodity: ${insertError.message}`);
+      }
+
+      if (!newCommodity) {
+        throw new Error('No data returned after commodity creation');
+      }
+
+      // Lấy thông tin danh mục nếu có
+      let category = null;
+      let rootCategory = null;
+
+      if (newCommodity.category_id) {
+        try {
+          const { data: categoryData } = await supabase
+            .from('categories_new')
+            .select('*')
+            .eq('id', newCommodity.category_id)
+            .single();
+
+          if (categoryData) {
+            category = {
+              id: categoryData.id,
+              name: categoryData.name,
+              description: categoryData.description || null,
+              parent_id: categoryData.parent_id || null
+            };
+
+            // Nếu danh mục có parent_id, lấy thông tin danh mục gốc
+            if (categoryData.parent_id) {
+              const { data: rootCategoryData } = await supabase
+                .from('categories_new')
+                .select('*')
+                .eq('id', categoryData.parent_id)
+                .single();
+
+              if (rootCategoryData) {
+                rootCategory = {
+                  id: rootCategoryData.id,
+                  name: rootCategoryData.name,
+                  description: rootCategoryData.description || null,
+                  parent_id: null
+                };
+              }
+            } else {
+              // Nếu không có parent_id, danh mục hiện tại là danh mục gốc
+              rootCategory = { ...category };
+            }
+          }
+        } catch (categoryError) {
+          logger.error('Error fetching category:', categoryError);
+          // Không throw error, vẫn tiếp tục với commodity đã tạo
+        }
+      }
+
+      // Thêm hàng hóa mới vào danh sách
+      const formattedCommodity = {
+        ...newCommodity,
+        category: category,
+        root_category: rootCategory,
+        teams: []
+      };
+
+      setCommodities(prev => [formattedCommodity, ...prev]);
+
+      return formattedCommodity as Commodity;
+    } catch (err) {
+      logger.error('Error adding commodity:', err);
+      throw err;
+    }
+  }, []);
 
   return {
     commodities,
@@ -123,6 +278,7 @@ export function useCommodities(): UseCommoditiesReturn {
     searchQuery,
     searchCommodities,
     loadMoreCommodities,
-    findCommodityById
+    findCommodityById,
+    addCommodity
   };
 }

@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
+import logger from '@/lib/logger'
 
 // Server action để xử lý form
 async function createUnit(formData: FormData) {
@@ -52,7 +53,7 @@ async function createUnit(formData: FormData) {
     revalidatePath('/dashboard/units')
     redirect('/dashboard/units')
   } catch (err) {
-    console.error('Lỗi khi tạo đơn vị:', err)
+    logger.error('Lỗi khi tạo đơn vị:', err)
     // Không trả về lỗi, mà sẽ hiển thị lỗi server thông qua error.tsx
     redirect('/dashboard/units/add?error=failed')
   }

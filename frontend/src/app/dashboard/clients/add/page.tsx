@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // Add some icons
 import { ArrowLeft, Building2, Plus, Save, Users, X } from "lucide-react"
+import logger from '@/lib/logger'
 
 interface Team {
   id: string
@@ -64,12 +65,12 @@ export default function AddClientPage() {
         const { teams: teamsData, error: teamsError } = await fetchTeams()
         
         if (teamsError) {
-          console.error('Error loading teams:', teamsError)
+          logger.error('Error loading teams:', teamsError)
         } else if (teamsData) {
           setTeams(teamsData)
         }
       } catch (err) {
-        console.error('Failed to load teams:', err)
+        logger.error('Failed to load teams:', err)
       }
     }
     
@@ -128,7 +129,7 @@ export default function AddClientPage() {
         throw new Error('Failed to create client')
       }
     } catch (err: any) {
-      console.error('Error creating client:', err)
+      logger.error('Error creating client:', err)
       setError(err.message || 'An error occurred')
     } finally {
       setLoading(false)

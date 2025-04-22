@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ClientFormData } from '@/types/clients'
+import logger from '@/lib/logger'
 
 interface ClientDialogProps {
   open: boolean
@@ -18,7 +19,7 @@ interface ClientDialogProps {
   handleSaveClient: () => void
 }
 
-console.log('ClientDialog component loaded');
+logger.log('ClientDialog component loaded');
 
 export default function ClientDialog({
   open,

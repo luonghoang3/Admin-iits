@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import DeleteButton from './components/DeleteButton'
+import logger from '@/lib/logger'
 
 // Server action để xử lý xóa
 async function deleteTeam(formData: FormData) {
@@ -11,7 +12,7 @@ async function deleteTeam(formData: FormData) {
   const id = formData.get('id') as string
   
   if (!id) {
-    console.error('ID không được cung cấp')
+    logger.error('ID không được cung cấp')
     return
   }
   
@@ -52,7 +53,7 @@ async function deleteTeam(formData: FormData) {
     // Cập nhật cache
     revalidatePath('/dashboard/teams')
   } catch (error) {
-    console.error('Lỗi khi xóa team:', error)
+    logger.error('Lỗi khi xóa team:', error)
   }
 }
 

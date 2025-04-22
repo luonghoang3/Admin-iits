@@ -7,6 +7,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ReloadIcon } from '@radix-ui/react-icons'
+import logger from '@/lib/logger'
 
 export default function AuthCheck({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
@@ -32,7 +33,7 @@ export default function AuthCheck({ children }: { children: ReactNode }) {
           setIsLoading(false)
         }
       } catch (err: any) {
-        console.error('Lỗi xác thực:', err)
+        logger.error('Lỗi xác thực:', err)
         if (isMounted) {
           setError(err.message || 'Có lỗi xảy ra khi kiểm tra xác thực.')
           setIsLoading(false)

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { inter } from "@/lib/fonts";
+import AccessibilityFix from "@/components/AccessibilityFix";
 
 // Font đã được cấu hình trong lib/fonts.ts
 
@@ -25,6 +26,7 @@ export default function RootLayout({
         )}
       >
         <div className="relative flex min-h-screen flex-col">
+          <AccessibilityFix />
           {children}
         </div>
       </body>

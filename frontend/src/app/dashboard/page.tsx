@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/client'
 import { redirect } from 'next/navigation'
 import DashboardClient from './dashboard-client'
+import logger from '@/lib/logger'
 
 export default async function Dashboard() {
   const supabase = await createClient()
@@ -36,7 +37,7 @@ export default async function Dashboard() {
           isFirstUser = count === 0
         }
       } catch (err) {
-        console.log('Bỏ qua lỗi đếm profiles, coi như user đầu tiên')
+        logger.log('Bỏ qua lỗi đếm profiles, coi như user đầu tiên')
       }
 
       // Nếu là người dùng đầu tiên, set role là admin
@@ -58,7 +59,7 @@ export default async function Dashboard() {
         ])
 
       if (insertError) {
-        console.error('Lỗi khi tạo profile:', insertError)
+        logger.error('Lỗi khi tạo profile:', insertError)
         // Vẫn tiếp tục xử lý
       }
 
@@ -73,7 +74,7 @@ export default async function Dashboard() {
 
     return <DashboardClient user={user} userRole={profile?.role || 'user'} />
   } catch (error) {
-    console.error('Lỗi khi xử lý dashboard:', error)
+    logger.error('Lỗi khi xử lý dashboard:', error)
     return <DashboardClient user={user} userRole="user" />
   }
 } 

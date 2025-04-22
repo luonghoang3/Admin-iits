@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/popover"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
+import logger from '@/lib/logger'
 
 export default function NewCommodityPage() {
   const router = useRouter()
@@ -69,7 +70,7 @@ export default function NewCommodityPage() {
         const { teams: teamsData } = await fetchTeams()
         setTeams(teamsData)
       } catch (error) {
-        console.error('Error loading data:', error)
+        logger.error('Error loading data:', error)
       } finally {
         setLoading(false)
       }
@@ -180,7 +181,7 @@ export default function NewCommodityPage() {
       // Chuyển hướng đến trang chi tiết hàng hóa
       router.push(`/dashboard/commodities/${newCommodity.id}`)
     } catch (error) {
-      console.error('Error saving commodity:', error)
+      logger.error('Error saving commodity:', error)
       alert('Có lỗi xảy ra khi lưu hàng hóa. Vui lòng thử lại sau.')
     } finally {
       setSaving(false)
