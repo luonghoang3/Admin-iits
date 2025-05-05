@@ -17,7 +17,8 @@ import {
   PencilIcon,
   DocumentDuplicateIcon,
   TrashIcon,
-  ArchiveBoxIcon as PackageIcon
+  ArchiveBoxIcon as PackageIcon,
+  ReceiptRefundIcon
 } from "@heroicons/react/24/outline"
 
 import { Order, OrderItem } from '@/types/orders'
@@ -185,6 +186,21 @@ export default function OrderDetailPage({ params: paramsPromise }: OrderDetailPa
           <Button
             variant="outline"
             size="sm"
+            asChild
+            className="flex items-center gap-1 text-green-600 hover:text-green-700"
+          >
+            <Link
+              href={`/dashboard/invoices/add?orderId=${orderId}`}
+              className="flex items-center gap-1"
+              onClick={() => console.log('Xuất hóa đơn clicked with orderId:', orderId)}
+            >
+              <ReceiptRefundIcon className="h-4 w-4" />
+              Xuất hóa đơn
+            </Link>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             className="flex items-center gap-1 text-red-600 hover:text-red-700"
             onClick={handleDeleteOrder}
           >
@@ -204,7 +220,7 @@ export default function OrderDetailPage({ params: paramsPromise }: OrderDetailPa
           <CardContent className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">Client</p>
-              <p className="font-medium">{order.clients?.name || '-'}</p>
+              <p className="font-medium">{order.clients?.trade_name || order.clients?.name || '-'}</p>
             </div>
             {order.clients && (
               <>

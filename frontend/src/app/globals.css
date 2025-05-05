@@ -119,4 +119,19 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Estilos para gráficos */
+  .recharts-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .recharts-default-tooltip {
+    background-color: var(--background) !important;
+    border-color: var(--border) !important;
+    color: var(--foreground) !important;
+  }
 }

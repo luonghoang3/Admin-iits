@@ -12,7 +12,7 @@ import PanelLeft from 'lucide-react/dist/esm/icons/panel-left';
 import { Button } from '@/components/ui/button';
 
 // Import từng icon riêng lẻ
-// @ts-ignore - Bỏ qua lỗi TypeScript tạm thời
+// @ts-ignore
 import Home from 'lucide-react/dist/esm/icons/home';
 // @ts-ignore
 import Users2 from 'lucide-react/dist/esm/icons/users-2';
@@ -34,6 +34,8 @@ import Contact from 'lucide-react/dist/esm/icons/contact';
 import UserCog from 'lucide-react/dist/esm/icons/user-cog';
 // @ts-ignore
 import BoxesIcon from 'lucide-react/dist/esm/icons/boxes';
+// @ts-ignore
+import FileText from 'lucide-react/dist/esm/icons/file-text';
 
 const Sidebar = () => {
   const pathname = usePathname();
@@ -42,7 +44,7 @@ const Sidebar = () => {
   return (
     <div
       className={cn(
-        "h-full min-h-screen border-r transition-all duration-300",
+        "h-full border-r transition-all duration-300",
         isOpen ? "w-64 bg-card" : "w-16 bg-gray-900"
       )}
     >
@@ -69,9 +71,11 @@ const Sidebar = () => {
         </Button>
       </div>
       <nav className={cn(
-        "space-y-3 py-3",
+        "space-y-3 py-3 overflow-y-auto",
         isOpen ? "px-3" : "px-2 flex flex-col items-center"
-      )}>
+      )}
+        style={{ maxHeight: "calc(100vh - 64px)" }}>
+
         <SidebarMenuItem
           href="/dashboard"
           icon={<Home />}
@@ -115,7 +119,14 @@ const Sidebar = () => {
           href="/dashboard/orders"
           icon={<ClipboardList />}
           label="Quản lý đơn hàng"
-          isActive={pathname.includes('/dashboard/orders')}
+          isActive={pathname.includes('/dashboard/orders') && !pathname.includes('/dashboard/orders/invoices')}
+        />
+
+        <SidebarMenuItem
+          href="/dashboard/invoices"
+          icon={<FileText />}
+          label="Quản lý hóa đơn"
+          isActive={pathname.includes('/dashboard/invoices')}
         />
 
         <SidebarGroup title="Quản lý hàng giám định" icon={<BoxesIcon />}>

@@ -92,10 +92,8 @@ export const columns: ColumnDef<Order>[] = [
     accessorKey: "client_name",
     header: "Khách hàng",
     cell: ({ row }) => {
-      // Sử dụng trực tiếp client_name đã được xử lý từ fetchOrders
-      // Đã gỡ bỏ debug log
-
-      const clientName = row.original.client_name || '-';
+      // Sử dụng clients.name từ dữ liệu join
+      const clientName = row.original.clients?.name || row.original.client_name || '-';
 
       return (
         <div className="font-medium">
@@ -119,9 +117,8 @@ export const columns: ColumnDef<Order>[] = [
     accessorKey: "team_name",
     header: "Team",
     cell: ({ row }) => {
-      // Đã gỡ bỏ debug log
-
-      const teamName = row.original.team_name || 'Unknown';
+      // Sử dụng teams.name từ dữ liệu join
+      const teamName = row.original.teams?.name || row.original.team_name || 'Unknown';
       const { color } = teamColorMap[teamName] ||
         { color: "bg-gray-100 text-gray-800 border-gray-200" };
 

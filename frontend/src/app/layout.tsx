@@ -25,7 +25,7 @@ export default function RootLayout({
           inter.variable
         )}
       >
-        <div className="relative flex min-h-screen flex-col">
+        <div className="relative flex min-h-screen flex-col overflow-hidden">
           <AccessibilityFix />
           {children}
         </div>

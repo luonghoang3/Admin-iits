@@ -1,7 +1,7 @@
 'use client'
 
 import { createClient } from '@/utils/supabase/client'
-import { redirect } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { ReactNode, useEffect, useState } from 'react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -12,23 +12,24 @@ import logger from '@/lib/logger'
 export default function AuthCheck({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+  const router = useRouter()
+
   useEffect(() => {
     let isMounted = true;
-    
+
     async function checkAuth() {
       try {
         const supabase = createClient()
         const { data: { session }, error: authError } = await supabase.auth.getSession()
-        
+
         if (authError) {
           throw authError;
         }
-        
+
         if (!isMounted) return;
-        
+
         if (!session) {
-          redirect('/login')
+          router.push('/login')
         } else {
           setIsLoading(false)
         }
@@ -40,14 +41,14 @@ export default function AuthCheck({ children }: { children: ReactNode }) {
         }
       }
     }
-    
+
     checkAuth()
-    
+
     return () => {
       isMounted = false;
     };
   }, [])
-  
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -58,7 +59,7 @@ export default function AuthCheck({ children }: { children: ReactNode }) {
       </div>
     )
   }
-  
+
   if (error) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -82,6 +83,6 @@ export default function AuthCheck({ children }: { children: ReactNode }) {
       </div>
     )
   }
-  
+
   return <>{children}</>
-} 
+}

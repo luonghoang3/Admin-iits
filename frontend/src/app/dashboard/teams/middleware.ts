@@ -41,10 +41,10 @@ export async function middleware(request: NextRequest) {
     if (profile && !profile.is_active) {
       return NextResponse.redirect(new URL('/login?error=account_inactive', request.url))
     }
-    
-    // Nếu không phải admin, chuyển hướng về dashboard
+
+    // Nếu không phải admin, chuyển hướng về trang quản lý người dùng
     if (profile?.role !== 'admin') {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return NextResponse.redirect(new URL('/dashboard/users', request.url))
     }
   } catch (error) {
     logger.error('Lỗi khi kiểm tra quyền:', error)
@@ -56,4 +56,4 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: ['/dashboard/teams/:path*'],
-} 
+}

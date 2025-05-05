@@ -9,11 +9,34 @@ import logger from '@/lib/logger'
 export async function fetchOrderById(id: string) {
   const supabase = createClient();
   try {
-    const { data, error } = await supabase.from('orders').select('*').eq('id', id).single();
-    if (error) throw error;
-    if (!data) throw new Error(`Order with ID ${id} not found`);
+    // Giảm số lượng log để tránh vòng lặp vô tận
+    console.log('fetchOrderById - Fetching order with ID:', id);
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        clients!client_id (id, name, trade_name, email, phone, address, tax_id),
+        contacts!contact_id (id, full_name, position, email, phone)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('fetchOrderById - Error fetching order:', error);
+      throw error;
+    }
+
+    if (!data) {
+      console.error('fetchOrderById - Order not found with ID:', id);
+      throw new Error(`Order with ID ${id} not found`);
+    }
+
+    // Chỉ log thông tin cơ bản, không log toàn bộ dữ liệu
+    console.log('fetchOrderById - Successfully fetched order with ID:', id);
     return data;
   } catch (error) {
+    console.error('fetchOrderById - Caught error:', error);
     logger.error('Error in fetchOrderById:', error, 'id:', id);
     throw error;
   }
@@ -377,12 +400,12 @@ export async function fetchOrders({
       let client_name = '-';
       let team_name = 'Unknown';
 
-      // Xử lý client_name
+      // Xử lý client_name - ưu tiên trade_name nếu có
       try {
         if (order.clients) {
           // Supabase trả về clients dưới dạng object
           // @ts-ignore - Bỏ qua kiểm tra kiểu dữ liệu
-          client_name = order.clients.name || '-';
+          client_name = order.clients.trade_name || order.clients.name || '-';
           // Đã gỡ bỏ debug log
         }
       } catch (e) {

@@ -32,7 +32,7 @@ interface ComboboxProps {
   hasMore?: boolean
   isLoadingMore?: boolean
   // New prop to pass the full selected item object
-  selectedItemData?: ComboboxItem | null 
+  selectedItemData?: ComboboxItem | null
 }
 
 export function Combobox({
@@ -100,9 +100,9 @@ export function Combobox({
           {/* Use Combobox.Input as the main element */}
           <HeadlessUICombobox.Input
             className="relative w-full cursor-default rounded-md border border-input bg-transparent py-2 pl-3 pr-10 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-            displayValue={(val: string) => 
-              (selectedItemData && selectedItemData.value === val) 
-                ? selectedItemData.label 
+            displayValue={(val: string) =>
+              (selectedItemData && selectedItemData.value === val)
+                ? selectedItemData.label
                 : items.find(item => item.value === val)?.label || ''
             }
             onChange={handleInputChange}
@@ -195,8 +195,21 @@ export function Combobox({
                   ))}
                   {isLoadingMore && (
                     <div className="relative cursor-default select-none px-4 py-2 text-muted-foreground text-center">
-                      Loading more...
+                      Đang tải thêm khách hàng...
                     </div>
+                  )}
+                  {hasMore && !isLoadingMore && onLoadMore && (
+                    <button
+                      type="button"
+                      className="w-full py-3 px-3 text-sm font-medium text-blue-600 bg-blue-50 text-center cursor-pointer hover:bg-blue-100 flex items-center justify-center border-t border-b border-blue-100"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onLoadMore();
+                      }}
+                    >
+                      Tải thêm khách hàng
+                    </button>
                   )}
                 </>
               )}
@@ -206,4 +219,4 @@ export function Combobox({
       </HeadlessUICombobox>
     </div>
   )
-} 
+}

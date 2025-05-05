@@ -155,12 +155,20 @@ export default function ClientsPage() {
     const queryLower = searchQuery.toLowerCase();
     const queryWithoutAccent = removeAccentsJS(queryLower);
 
-    // Lọc khách hàng theo tên (cả có dấu và không dấu)
+    // Lọc khách hàng theo tên và trade_name (cả có dấu và không dấu)
     const filtered = allClients.filter(client => {
-      const clientName = client.name.toLowerCase();
+      // Tìm kiếm trong tên chính
+      const clientName = (client.name || '').toLowerCase();
       const clientNameWithoutAccent = removeAccentsJS(clientName);
 
-      return clientName.includes(queryLower) || clientNameWithoutAccent.includes(queryWithoutAccent);
+      // Tìm kiếm trong trade_name (nếu có)
+      const tradeName = (client.trade_name || '').toLowerCase();
+      const tradeNameWithoutAccent = removeAccentsJS(tradeName);
+
+      return clientName.includes(queryLower) ||
+             clientNameWithoutAccent.includes(queryWithoutAccent) ||
+             tradeName.includes(queryLower) ||
+             tradeNameWithoutAccent.includes(queryWithoutAccent);
     });
 
     setFilteredClients(filtered);

@@ -13,12 +13,12 @@ export default function NotFound() {
           Quay lại danh sách đội
         </Link>
         <Link
-          href="/dashboard"
+          href="/dashboard/users"
           className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
         >
-          Về dashboard
+          Về trang quản lý người dùng
         </Link>
       </div>
     </div>
   )
-} 
+}

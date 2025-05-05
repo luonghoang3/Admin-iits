@@ -8,48 +8,48 @@ import logger from '@/lib/logger'
 // Server action để xử lý xóa
 async function deleteUnit(formData: FormData) {
   'use server'
-  
+
   const id = formData.get('id') as string
-  
+
   if (!id) {
     logger.error('ID không được cung cấp')
     return
   }
-  
+
   try {
     const supabase = await createClient()
-    
+
     // Kiểm tra quyền
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       throw new Error('Chưa đăng nhập')
     }
-    
+
     // Kiểm tra quyền admin
     const { data: profile } = await supabase
       .from('profiles')
       .select('role, is_active')
       .eq('id', user.id)
       .single()
-      
+
     if (!profile?.is_active) {
       throw new Error('Tài khoản không hoạt động')
     }
-    
+
     if (profile?.role !== 'admin') {
       throw new Error('Không có quyền thực hiện')
     }
-    
+
     // Xóa unit trực tiếp qua Supabase
     const { error } = await supabase
       .from('units')
       .delete()
       .eq('id', id)
-    
+
     if (error) {
       throw error
     }
-    
+
     // Cập nhật cache
     revalidatePath('/dashboard/units')
   } catch (error) {
@@ -59,54 +59,54 @@ async function deleteUnit(formData: FormData) {
 
 export default async function UnitsPage() {
   const supabase = await createClient()
-  
+
   // Kiểm tra session
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     redirect('/login')
   }
-  
+
   // Kiểm tra quyền admin
   const { data: profile } = await supabase
     .from('profiles')
     .select('role, is_active')
     .eq('id', user.id)
     .single()
-    
+
   if (!profile?.is_active) {
     redirect('/login?error=inactive')
   }
-  
+
   if (profile?.role !== 'admin') {
-    redirect('/dashboard')
+    redirect('/dashboard/users')
   }
-  
+
   // Lấy dữ liệu units
   const { data: units, error } = await supabase
     .from('units')
     .select('*')
     .order('name')
-  
+
   return (
     <div className="p-6">
       <div className="border-b pb-4 mb-6">
         <h1 className="text-2xl font-bold mb-4">Quản lý đơn vị tính</h1>
         <div className="flex space-x-4">
-          <Link 
-            href="/dashboard/units" 
+          <Link
+            href="/dashboard/units"
             className="px-3 py-2 rounded-md bg-blue-500 text-white"
           >
             Danh sách
           </Link>
-          <Link 
-            href="/dashboard/units/add" 
+          <Link
+            href="/dashboard/units/add"
             className="px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200"
           >
             Thêm đơn vị mới
           </Link>
         </div>
       </div>
-      
+
       {error ? (
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded mb-4">
           <p>Đã xảy ra lỗi khi tải dữ liệu</p>
@@ -166,4 +166,4 @@ export default async function UnitsPage() {
       )}
     </div>
   )
-} 
+}

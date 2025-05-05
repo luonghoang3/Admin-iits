@@ -64,14 +64,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Nếu đã đăng nhập, chuyển hướng từ login sang dashboard
+  // Nếu đã đăng nhập, chuyển hướng từ login sang trang Dashboard
   if (session && request.nextUrl.pathname.startsWith('/login')) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
+
+  // Không cần chuyển hướng nữa vì đã có trang Dashboard mới
+  // if (request.nextUrl.pathname === '/dashboard') {
+  //   return NextResponse.redirect(new URL('/dashboard/users', request.url))
+  // }
 
   return response
 }
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
-} 
+}

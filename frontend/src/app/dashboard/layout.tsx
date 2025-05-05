@@ -1,25 +1,26 @@
-'use client'
+'use client';
 
-import Sidebar from '@/components/admin/Sidebar'
-import { ReactNode } from 'react'
-import AuthCheck from '@/components/auth/AuthCheck'
-import { SidebarProvider } from '@/contexts/SidebarContext'
+import { SidebarProvider } from '@/contexts/SidebarContext';
+import Sidebar from '@/components/admin/Sidebar';
+import AuthCheck from '@/components/auth/AuthCheck';
+import { Toaster } from '@/components/ui/toaster';
 
 export default function DashboardLayout({
   children,
 }: {
-  children: ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <AuthCheck>
       <SidebarProvider>
-        <div className="flex h-screen bg-background">
+        <div className="flex h-screen">
           <Sidebar />
-          <main className="flex-1 overflow-auto p-4">
-            {children}
-          </main>
+          <div className="flex-1 overflow-hidden">
+            <main className="p-4 md:p-6 h-full overflow-auto">{children}</main>
+            <Toaster />
+          </div>
         </div>
       </SidebarProvider>
     </AuthCheck>
-  )
+  );
 }

@@ -86,7 +86,7 @@ const ClientInformationSection: React.FC<ClientInformationSectionProps> = ({
               <div className="flex-1">
                 <HeadlessuiCombobox
                   items={clients.map(client => ({
-                    label: client.name,
+                    label: client.trade_name || client.name, // Ưu tiên trade_name (tiếng Anh) nếu có
                     description: client.email || '',
                     value: client.id
                   }))}
@@ -115,7 +115,7 @@ const ClientInformationSection: React.FC<ClientInformationSectionProps> = ({
                   selectedItemData={
                     client_id ? {
                       value: client_id,
-                      label: clients.find(c => c.id === client_id)?.name || '',
+                      label: clients.find(c => c.id === client_id)?.trade_name || clients.find(c => c.id === client_id)?.name || '',
                       description: clients.find(c => c.id === client_id)?.email || ''
                     } : null
                   }
