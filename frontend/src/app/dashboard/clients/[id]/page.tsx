@@ -11,6 +11,7 @@ import {
   deleteContact,
   fetchTeams
 } from '@/utils/supabase/client'
+import ClientOrdersList from '@/components/clients/ClientOrdersList'
 import logger from '@/lib/logger'
 
 interface Contact {
@@ -358,6 +359,15 @@ export default function ClientDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Orders Section */}
+      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium">Đơn hàng</h3>
+        </div>
+
+        <ClientOrdersList clientId={client.id} />
       </div>
 
       {/* Contacts Section */}

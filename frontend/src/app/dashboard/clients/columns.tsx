@@ -37,6 +37,9 @@ export interface Client {
   created_at: string
   updated_at: string
   contacts: Contact[]
+  trade_name?: string | null
+  name_without_accent?: string | null
+  trade_name_without_accent?: string | null
 }
 
 export interface Team {
@@ -52,14 +55,14 @@ function getTeamColor(teamName: string): string {
   for (let i = 0; i < teamName.length; i++) {
     hash = teamName.charCodeAt(i) + ((hash << 5) - hash);
   }
-  
+
   // List of safe pastel colors
   const colors = [
-    '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf', 
+    '#ffadad', '#ffd6a5', '#fdffb6', '#caffbf',
     '#9bf6ff', '#a0c4ff', '#bdb2ff', '#ffc6ff',
     '#fffffc', '#d8f3dc', '#b7e4c7', '#95d5b2'
   ];
-  
+
   // Get color based on hash
   return colors[Math.abs(hash) % colors.length];
 }
@@ -90,27 +93,17 @@ export const columns: ColumnDef<Client>[] = [
     },
   },
   {
-    accessorKey: "contact_info",
-    header: "Thông tin liên hệ",
+    accessorKey: "trade_name",
+    header: "Tên thương mại",
     cell: ({ row }) => {
       const client = row.original
       return (
         <div>
           <div className="font-medium">
-            {client.email || '-'}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {client.phone || '-'}
+            {client.trade_name || '-'}
           </div>
         </div>
       )
-    },
-  },
-  {
-    accessorKey: "tax_id",
-    header: "Mã số thuế",
-    cell: ({ row }) => {
-      return row.original.tax_id || '-'
     },
   },
   {
@@ -122,7 +115,7 @@ export const columns: ColumnDef<Client>[] = [
         <div className="flex flex-wrap gap-1">
           {teams.length > 0 ? (
             teams.map((teamName, index) => (
-              <Badge 
+              <Badge
                 key={index}
                 variant="outline"
                 style={{ backgroundColor: getTeamColor(teamName), borderColor: 'transparent' }}
@@ -218,4 +211,4 @@ export const columns: ColumnDef<Client>[] = [
       )
     },
   },
-] 
+]

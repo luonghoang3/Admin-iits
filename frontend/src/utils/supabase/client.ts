@@ -409,11 +409,9 @@ export async function fetchClients(page = 1, limit = 15, searchQuery = '') {
       // Loại bỏ dấu từ từ khóa tìm kiếm
       const searchWithoutAccent = removeAccentsJS(searchQuery)
 
-      // Tìm kiếm trên cả hai cột name và name_without_accent
-      query = query.or([
-        { name: { ilike: `%${searchQuery}%` } },
-        { name_without_accent: { ilike: `%${searchWithoutAccent}%` } }
-      ])
+      // Tìm kiếm trên cả bốn cột: name, name_without_accent, trade_name và trade_name_without_accent
+      // Sử dụng cú pháp chuỗi thay vì mảng đối tượng để tránh lỗi
+      query = query.or(`name.ilike.%${searchQuery}%,name_without_accent.ilike.%${searchWithoutAccent}%,trade_name.ilike.%${searchQuery}%,trade_name_without_accent.ilike.%${searchWithoutAccent}%`)
     }
 
     // Add pagination
@@ -487,21 +485,19 @@ export async function fetchClientsForCombobox({
     // Calculate offset based on page and limit
     const offset = (page - 1) * limit
 
-    // Create query to get clients (only id and name for performance)
+    // Create query to get clients (id, name, and trade_name for performance)
     let query = supabase
       .from('clients')
-      .select('id, name', { count: 'exact' })
+      .select('id, name, trade_name', { count: 'exact' })
 
     // Add search filter if provided
     if (searchQuery) {
       // Loại bỏ dấu từ từ khóa tìm kiếm
       const searchWithoutAccent = removeAccentsJS(searchQuery)
 
-      // Tìm kiếm trên cả hai cột name và name_without_accent
-      query = query.or([
-        { name: { ilike: `%${searchQuery}%` } },
-        { name_without_accent: { ilike: `%${searchWithoutAccent}%` } }
-      ])
+      // Tìm kiếm trên cả bốn cột: name, name_without_accent, trade_name và trade_name_without_accent
+      // Sử dụng cú pháp chuỗi thay vì mảng đối tượng để tránh lỗi
+      query = query.or(`name.ilike.%${searchQuery}%,name_without_accent.ilike.%${searchWithoutAccent}%,trade_name.ilike.%${searchQuery}%,trade_name_without_accent.ilike.%${searchWithoutAccent}%`)
     }
 
     // Add pagination and sorting
@@ -522,10 +518,11 @@ export async function fetchClientsForCombobox({
       }
     }
 
-    // Format clients for combobox
+    // Format clients for combobox - use trade_name if available, otherwise use name
     const clients = data ? data.map(client => ({
       value: client.id,
-      label: client.name
+      label: client.trade_name || client.name, // Ưu tiên trade_name (tiếng Anh) nếu có
+      originalName: client.name // Lưu lại tên gốc để tham khảo nếu cần
     })) : []
 
     // Calculate if there are more results
@@ -832,11 +829,9 @@ export async function fetchOrders({
       // Loại bỏ dấu từ từ khóa tìm kiếm
       const searchWithoutAccent = removeAccentsJS(clientSearch)
 
-      // Tìm kiếm trên cả hai cột name và name_without_accent
-      query = query.or([
-        { "clients.name": { ilike: `%${clientSearch}%` } },
-        { "clients.name_without_accent": { ilike: `%${searchWithoutAccent}%` } }
-      ])
+      // Tìm kiếm trên cả bốn cột: name, name_without_accent, trade_name và trade_name_without_accent
+      // Sử dụng cú pháp chuỗi thay vì mảng đối tượng để tránh lỗi
+      query = query.or(`clients.name.ilike.%${clientSearch}%,clients.name_without_accent.ilike.%${searchWithoutAccent}%,clients.trade_name.ilike.%${clientSearch}%,clients.trade_name_without_accent.ilike.%${searchWithoutAccent}%`)
 
       // Log query để kiểm tra
       logger.log(`Searching for clients with name containing: ${clientSearch} (without accents: ${searchWithoutAccent})`)
@@ -901,7 +896,7 @@ export async function fetchOrder(orderId: string) {
       .from('orders')
       .select(`
         *,
-        clients:client_id (id, name, phone, email),
+        clients:client_id (id, name, trade_name, phone, email),
         teams:team_id (id, name, description)
       `)
       .eq('id', orderId)
@@ -929,7 +924,8 @@ export async function fetchOrder(orderId: string) {
     return {
       order: {
         ...order,
-        client_name: order.clients?.name,
+        client_name: order.clients?.trade_name || order.clients?.name, // Ưu tiên trade_name nếu có
+        client_original_name: order.clients?.name, // Lưu lại tên gốc để tham khảo nếu cần
         client_contacts: contacts || [],
         selected_contact: selectedContact,
         team: order.teams || null
@@ -1446,6 +1442,74 @@ export const fetchContactsByClientId = async (clientId: string) => {
   } catch (error: any) {
     logger.error('Error fetching contacts:', error)
     return { contacts: [], error: error.message }
+  }
+}
+
+// Fetch orders by client ID with pagination
+export const fetchOrdersByClientId = async (clientId: string, page = 1, limit = 10) => {
+  const supabase = createClient()
+
+  try {
+    // Calculate offset based on page and limit
+    const offset = (page - 1) * limit
+
+    // First, get the total count
+    const { count, error: countError } = await supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+
+    if (countError) {
+      throw countError
+    }
+
+    // Then get the paginated data
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select(`
+        id,
+        order_number,
+        order_date,
+        status,
+        team_id,
+        teams:team_id (id, name)
+      `)
+      .eq('client_id', clientId)
+      .order('order_date', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (error) {
+      throw error
+    }
+
+    // Format orders to include team name
+    const formattedOrders = orders.map(order => {
+      const teamInfo = order.teams || {};
+      return {
+        ...order,
+        team_name: teamInfo.name || null
+      }
+    });
+
+    // Calculate total pages
+    const totalPages = Math.ceil((count || 0) / limit)
+
+    return {
+      orders: formattedOrders,
+      totalPages,
+      currentPage: page,
+      totalCount: count || 0,
+      error: null
+    }
+  } catch (error: any) {
+    logger.error('Error fetching orders by client ID:', error)
+    return {
+      orders: [],
+      totalPages: 0,
+      currentPage: page,
+      totalCount: 0,
+      error: error.message
+    }
   }
 }
 
