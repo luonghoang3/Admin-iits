@@ -235,7 +235,7 @@ export default function InvoiceDetailsItemsSection({
 
   // Format currency
   const formatCurrency = (amount: number | null, currency: string) => {
-    if (amount === null) return '-';
+    if (amount === null || amount === 0) return '';
 
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
@@ -245,17 +245,33 @@ export default function InvoiceDetailsItemsSection({
     }).format(amount)
   }
 
-  // Calculate total amount
-  const calculateTotal = () => {
+  // Calculate totals by currency
+  const calculateTotals = () => {
     if (!formData.invoice_details || formData.invoice_details.length === 0) {
-      return 0
+      return { vnd: 0, usd: 0 }
     }
 
-    return formData.invoice_details.reduce((total, detail) => {
+    return formData.invoice_details.reduce((totals, detail) => {
       // Skip null amounts
-      if (detail.amount === null) return total;
-      return total + detail.amount;
-    }, 0)
+      if (detail.amount === null) return totals;
+
+      if (detail.currency === 'VND') {
+        totals.vnd += detail.amount;
+      } else if (detail.currency === 'USD') {
+        totals.usd += detail.amount;
+      }
+
+      return totals;
+    }, { vnd: 0, usd: 0 })
+  }
+
+  // Check if we have amounts in each currency
+  const hasCurrencyAmounts = () => {
+    const totals = calculateTotals();
+    return {
+      hasVND: totals.vnd > 0,
+      hasUSD: totals.usd > 0
+    }
   }
 
   // Get unit name by id
@@ -267,9 +283,9 @@ export default function InvoiceDetailsItemsSection({
 
   // Get pricing type name by id
   const getPricingTypeName = (pricingTypeId: string | null | undefined) => {
-    if (!pricingTypeId) return 'Standard'
+    if (!pricingTypeId) return ''
     const pricingType = pricingTypes.find(pt => pt.id === pricingTypeId)
-    return pricingType ? pricingType.name : 'Standard'
+    return pricingType ? pricingType.name : ''
   }
 
   return (
@@ -458,7 +474,12 @@ export default function InvoiceDetailsItemsSection({
                     <TableCell>{getUnitName(detail.unit_id)}</TableCell>
                     <TableCell>
                       {detail.is_fixed_price
-                        ? (detail.fixed_price === null ? '' : `${getPricingTypeName(detail.pricing_type_id)}: ${formatCurrency(detail.fixed_price, detail.currency)}`)
+                        ? (detail.fixed_price === null ? '' :
+                            (getPricingTypeName(detail.pricing_type_id)
+                              ? `${getPricingTypeName(detail.pricing_type_id)}: ${formatCurrency(detail.fixed_price, detail.currency)}`
+                              : formatCurrency(detail.fixed_price, detail.currency)
+                            )
+                          )
                         : (detail.unit_price === null ? '' : formatCurrency(detail.unit_price, detail.currency))
                       }
                     </TableCell>
@@ -488,12 +509,32 @@ export default function InvoiceDetailsItemsSection({
 
             <div className="mt-4 flex justify-end">
               <div className="w-[200px] space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-medium">Tổng cộng:</span>
-                  <span className="font-bold">
-                    {formatCurrency(calculateTotal(), 'VND')}
-                  </span>
-                </div>
+                {(() => {
+                  const totals = calculateTotals();
+                  const { hasVND, hasUSD } = hasCurrencyAmounts();
+
+                  return (
+                    <>
+                      {hasUSD && (
+                        <div className="flex justify-between">
+                          <span className="font-medium">Tổng cộng (USD):</span>
+                          <span className="font-bold">
+                            {formatCurrency(totals.usd, 'USD')}
+                          </span>
+                        </div>
+                      )}
+
+                      {hasVND && (
+                        <div className="flex justify-between">
+                          <span className="font-medium">Tổng cộng (VND):</span>
+                          <span className="font-bold">
+                            {formatCurrency(totals.vnd, 'VND')}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </>

@@ -17,6 +17,8 @@ export default function FinancialDetailsSection({
 }: FinancialDetailsSectionProps) {
   // Format currency based on the currency type
   const formatCurrency = (amount: number, currency: 'VND' | 'USD' = 'VND'): string => {
+    if (amount === 0) return '';
+
     if (currency === 'USD') {
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -80,11 +82,17 @@ export default function FinancialDetailsSection({
 
       // Update VAT amount and total_amount_with_vat in form data based on primary currency
       if (primaryCurrency === 'USD') {
-        handleValueChange('vat_amount', vatAmountUSD);
-        handleValueChange('total_amount_with_vat', totalWithVatUSD);
+        // Round to 2 decimal places for USD
+        const roundedVatUSD = Math.round(vatAmountUSD * 100) / 100;
+        const roundedTotalUSD = Math.round(totalWithVatUSD * 100) / 100;
+        handleValueChange('vat_amount', roundedVatUSD);
+        handleValueChange('total_amount_with_vat', roundedTotalUSD);
       } else {
-        handleValueChange('vat_amount', vatAmountVND);
-        handleValueChange('total_amount_with_vat', totalWithVatVND);
+        // Round to 0 decimal places for VND
+        const roundedVatVND = Math.round(vatAmountVND);
+        const roundedTotalVND = Math.round(totalWithVatVND);
+        handleValueChange('vat_amount', roundedVatVND);
+        handleValueChange('total_amount_with_vat', roundedTotalVND);
       }
     } else {
       setSubtotalVND(0);
@@ -119,13 +127,19 @@ export default function FinancialDetailsSection({
         if (primaryCurrency === 'USD') {
           const vatAmount = subtotalUSD * numericValue / 100;
           const totalWithVat = subtotalUSD + vatAmount;
-          handleValueChange('vat_amount', vatAmount);
-          handleValueChange('total_amount_with_vat', totalWithVat);
+          // Round to 2 decimal places for USD
+          const roundedVatUSD = Math.round(vatAmount * 100) / 100;
+          const roundedTotalUSD = Math.round(totalWithVat * 100) / 100;
+          handleValueChange('vat_amount', roundedVatUSD);
+          handleValueChange('total_amount_with_vat', roundedTotalUSD);
         } else {
           const vatAmount = subtotalVND * numericValue / 100;
           const totalWithVat = subtotalVND + vatAmount;
-          handleValueChange('vat_amount', vatAmount);
-          handleValueChange('total_amount_with_vat', totalWithVat);
+          // Round to 0 decimal places for VND
+          const roundedVatVND = Math.round(vatAmount);
+          const roundedTotalVND = Math.round(totalWithVat);
+          handleValueChange('vat_amount', roundedVatVND);
+          handleValueChange('total_amount_with_vat', roundedTotalVND);
         }
       }
     }
@@ -161,7 +175,10 @@ export default function FinancialDetailsSection({
               type="number"
               step="0.01"
               min="0"
-              value={formData.vat_amount === null || formData.vat_amount === undefined ? '' : formData.vat_amount}
+              value={formData.vat_amount === null || formData.vat_amount === undefined ? '' :
+                    (primaryCurrency === 'USD'
+                      ? (Math.round(formData.vat_amount * 100) / 100)
+                      : Math.round(formData.vat_amount))}
               onChange={(e) => handleNumericChange(e, 'vat_amount')}
               placeholder="Tự động tính"
               readOnly
@@ -199,9 +216,9 @@ export default function FinancialDetailsSection({
               <div className="flex justify-between items-center mt-2">
                 <Label>VAT ({formData.vat_percentage || 0}%):</Label>
                 <div className="font-medium">
-                  {formData.vat_percentage
-                    ? formatCurrency(subtotalVND * formData.vat_percentage / 100, 'VND')
-                    : '-'}
+                  {formData.vat_percentage && formData.vat_percentage > 0
+                    ? formatCurrency(Math.round(subtotalVND * formData.vat_percentage / 100), 'VND')
+                    : ''}
                 </div>
               </div>
 
@@ -224,9 +241,9 @@ export default function FinancialDetailsSection({
               <div className="flex justify-between items-center mt-2">
                 <Label>VAT ({formData.vat_percentage || 0}%):</Label>
                 <div className="font-medium">
-                  {formData.vat_percentage
-                    ? formatCurrency(subtotalUSD * formData.vat_percentage / 100, 'USD')
-                    : '-'}
+                  {formData.vat_percentage && formData.vat_percentage > 0
+                    ? formatCurrency(Math.round(subtotalUSD * formData.vat_percentage / 100 * 100) / 100, 'USD')
+                    : ''}
                 </div>
               </div>
 
