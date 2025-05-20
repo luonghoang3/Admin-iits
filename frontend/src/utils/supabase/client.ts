@@ -518,10 +518,10 @@ export async function fetchClientsForCombobox({
       }
     }
 
-    // Format clients for combobox - use trade_name if available, otherwise use name
+    // Format clients for combobox - show both name and trade_name if available
     const clients = data ? data.map(client => ({
       value: client.id,
-      label: client.trade_name || client.name, // Ưu tiên trade_name (tiếng Anh) nếu có
+      label: client.trade_name ? `${client.name} (${client.trade_name})` : client.name,
       originalName: client.name // Lưu lại tên gốc để tham khảo nếu cần
     })) : []
 
