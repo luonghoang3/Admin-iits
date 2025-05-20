@@ -44,3 +44,11 @@ next-env.d.ts
 
 # Zone.Identifier files
 *.Zone.Identifier
+
+# Scripts and data files
+/scripts/*.csv
+/scripts/data/
+/scripts/logs/
+/scripts/temp/
+/scripts/temp_*.sql
+/scripts/*.txt
