@@ -70,14 +70,14 @@ const OrdersList = memo(({
       </div>
       <div className="flex flex-col flex-1 pt-1">
         {/* Phần bảng danh sách đơn hàng */}
-        <div className="flex-1 max-h-[300px] overflow-y-auto">
+        <div className="flex-1">
           <table className="w-full border-collapse">
             <thead className="bg-muted/50 sticky top-0 z-10">
               <tr>
-                <th className="text-left py-1 px-2 text-xs font-medium text-muted-foreground w-[20%]">Order No.</th>
-                <th className="text-left py-1 px-2 text-xs font-medium text-muted-foreground w-[45%]">Khách hàng</th>
-                <th className="text-right py-1 pr-4 text-xs font-medium text-muted-foreground w-[30%]">Ngày đặt hàng</th>
-                <th className="w-[5%]"></th>
+                <th className="text-left py-1 px-2 text-xs font-medium text-muted-foreground w-[15%]">Order No.</th>
+                <th className="text-left py-1 px-2 text-xs font-medium text-muted-foreground w-[50%]">Khách hàng</th>
+                <th className="text-right py-1 pr-4 text-xs font-medium text-muted-foreground w-[25%]">Ngày đặt hàng</th>
+                <th className="w-[10%]"></th>
               </tr>
             </thead>
             <tbody>
@@ -85,7 +85,7 @@ const OrdersList = memo(({
                 orders.map((order) => (
                   <tr key={order.id} className="border-b hover:bg-muted/30">
                     <td className="py-1 px-2 text-xs whitespace-nowrap">{order.order_number}</td>
-                    <td className="py-1 px-2 text-xs truncate">{order.clients?.name}</td>
+                    <td className="py-1 px-2 text-xs max-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{order.clients?.name}</td>
                     <td className="py-1 px-2 text-xs whitespace-nowrap text-right pr-4">{new Date(order.order_date).toLocaleDateString('vi-VN')}</td>
                     <td className="py-1 px-1 text-xs text-center">
                       <DropdownMenu>

@@ -72,8 +72,8 @@ const TeamDonutChart = memo(({
     if (active && payload && payload.length && payload[0] && payload[0].payload) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white p-3 rounded-md shadow-md border border-gray-100">
-          <p className="text-sm font-medium mb-1">{data.team || 'Không xác định'}</p>
+        <div className="bg-white p-3 rounded-md shadow-md border border-gray-200">
+          <p className="text-sm font-semibold mb-1">{data.team || 'Không xác định'}</p>
           <p className="text-sm">
             <span className="font-medium">{data.count || 0}</span> đơn hàng ({data.percent > 1 ? Math.round(data.percent) : Math.round(data.percent * 100)}%)
           </p>
@@ -84,7 +84,7 @@ const TeamDonutChart = memo(({
   };
 
   return (
-    <Card className="w-full md:w-[40%] flex flex-col">
+    <Card className="w-full h-full flex flex-col">
       <div className="px-4 pt-3 pb-1 flex flex-row items-center justify-between">
         <h3 className="text-base font-semibold">
           Tỉ lệ đóng góp đơn hàng theo team {selectedYear}
@@ -122,21 +122,21 @@ const TeamDonutChart = memo(({
       <div className="flex-1 flex flex-col pt-1 px-4">
         {/* Danh sách chi tiết - phía trên */}
         <div className="flex justify-center items-center py-2">
-          <ul className="flex space-x-6">
+          <div className="flex flex-row flex-wrap justify-center gap-x-8 gap-y-2">
             {teamOrders.map((team, index) => (
-              <li key={index} className="flex items-center">
-                <div className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: team.color }}></div>
+              <div key={index} className="flex items-center">
+                <div className="w-4 h-4 rounded-full mr-2" style={{ backgroundColor: team.color }}></div>
                 <span className="text-sm font-medium mr-1">{team.team}</span>
                 <span className="text-lg font-bold mr-1" style={{ color: team.color }}>{team.count}</span>
                 <span className="text-xs font-medium text-muted-foreground">({team.percent > 1 ? Math.round(team.percent) : Math.round(team.percent * 100)}%)</span>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
 
         {/* Biểu đồ tròn - ở giữa */}
-        <div className="flex justify-center items-center">
-          <div className="relative w-[500px] h-[350px]">
+        <div className="flex justify-center items-center flex-1">
+          <div className="relative w-full h-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -145,8 +145,8 @@ const TeamDonutChart = memo(({
                   cy="50%"
                   labelLine={false}
                   label={renderCustomizedLabel}
-                  outerRadius={120}
-                  innerRadius={60}
+                  outerRadius={140}
+                  innerRadius={70}
                   fill="#8884d8"
                   dataKey="count"
                   nameKey="team"
@@ -164,7 +164,7 @@ const TeamDonutChart = memo(({
                   y="50%"
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fontSize={28}
+                  fontSize={32}
                   fontWeight="bold"
                 >
                   {ordersThisYear}
@@ -174,7 +174,7 @@ const TeamDonutChart = memo(({
                   y="58%"
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fontSize={15}
+                  fontSize={16}
                   fill="#666"
                 >
                   đơn hàng

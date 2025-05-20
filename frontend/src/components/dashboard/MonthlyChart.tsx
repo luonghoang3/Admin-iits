@@ -24,7 +24,7 @@ const MonthlyChart = memo(({
   onYearChange
 }: MonthlyChartProps) => {
   return (
-    <Card className="w-full md:w-[60%] flex flex-col">
+    <Card className="w-full h-full flex flex-col">
       <div className="px-4 pt-3 pb-1 flex flex-row items-center justify-between">
         <h3 className="text-base font-semibold">Thống kê đơn hàng theo tháng</h3>
         <div className="flex items-center">

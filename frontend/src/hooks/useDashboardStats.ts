@@ -12,7 +12,16 @@ const initialStats: DashboardStats = {
   ordersThisYear: 0,
   monthlyOrders: [],
   monthlyOrdersLastYear: [],
-  teamOrders: []
+  teamOrders: [],
+  // Thêm các trường mới
+  totalInvoices: 0,
+  invoicesThisYear: 0,
+  invoiceStatusCounts: [],
+  monthlyInvoices: [],
+  monthlyInvoicesLastYear: [],
+  teamInvoices: [],
+  totalRevenueVND: 0,
+  totalRevenueUSD: 0
 }
 
 export function useDashboardStats(selectedYear: number, selectedMonth: string) {
@@ -80,7 +89,7 @@ export function useDashboardStats(selectedYear: number, selectedMonth: string) {
           largestTeam.percent += (100 - totalPercent);
         }
 
-        // Đảm bảo dữ liệu tháng đầy đủ 12 tháng
+        // Đảm bảo dữ liệu tháng đầy đủ 12 tháng cho đơn hàng
         const ensureFullMonths = (monthlyData: any[] | null) => {
           if (!monthlyData) return Array(12).fill(0).map((_, i) => ({ month: i + 1, count: 0 }));
 
@@ -92,6 +101,47 @@ export function useDashboardStats(selectedYear: number, selectedMonth: string) {
           return result;
         };
 
+        // Đảm bảo dữ liệu tháng đầy đủ 12 tháng cho hóa đơn
+        const ensureFullMonthsInvoices = (monthlyData: any[] | null) => {
+          if (!monthlyData) return Array(12).fill(0).map((_, i) => ({
+            month: i + 1,
+            count: 0,
+            vnd_amount: 0,
+            usd_amount: 0
+          }));
+
+          const result = Array(12).fill(0).map((_, i) => {
+            const monthData = monthlyData.find((m: any) => m.month === i + 1);
+            return {
+              month: i + 1,
+              count: monthData ? monthData.count : 0,
+              vnd_amount: monthData ? monthData.vnd_amount : 0,
+              usd_amount: monthData ? monthData.usd_amount : 0
+            };
+          });
+
+          return result;
+        };
+
+        // Xử lý dữ liệu team invoices để thêm màu sắc
+        let teamInvoices = statsData.team_invoices || [];
+        teamInvoices = teamInvoices.map((team: any) => ({
+          team: team.team || 'Không xác định',
+          count: team.count || 0,
+          vnd_amount: team.vnd_amount || 0,
+          usd_amount: team.usd_amount || 0,
+          percent: Math.round((team.count / (statsData.year_invoice_count?.count || 1)) * 100),
+          color: teamColors[team.team_id] || '#9E9E9E',
+          team_id: team.team_id
+        })).sort((a: any, b: any) => b.count - a.count);
+
+        // Điều chỉnh phần trăm cho team invoices
+        const totalPercentInvoices = teamInvoices.reduce((sum: number, team: any) => sum + team.percent, 0);
+        if (totalPercentInvoices !== 100 && teamInvoices.length > 0) {
+          const largestTeam = teamInvoices[0];
+          largestTeam.percent += (100 - totalPercentInvoices);
+        }
+
         // Tạo đối tượng stats mới
         const newStats: DashboardStats = {
           totalUsers: statsData.user_count?.count || 0,
@@ -100,7 +150,16 @@ export function useDashboardStats(selectedYear: number, selectedMonth: string) {
           ordersThisYear: statsData.year_order_count?.count || 0,
           monthlyOrders: ensureFullMonths(statsData.current_year_orders),
           monthlyOrdersLastYear: ensureFullMonths(statsData.previous_year_orders),
-          teamOrders
+          teamOrders,
+          // Thêm các trường mới
+          totalInvoices: statsData.invoice_count?.count || 0,
+          invoicesThisYear: statsData.year_invoice_count?.count || 0,
+          invoiceStatusCounts: statsData.invoice_status_counts || [],
+          monthlyInvoices: ensureFullMonthsInvoices(statsData.current_year_invoices),
+          monthlyInvoicesLastYear: ensureFullMonthsInvoices(statsData.previous_year_invoices),
+          teamInvoices,
+          totalRevenueVND: statsData.total_revenue_vnd?.amount || 0,
+          totalRevenueUSD: statsData.total_revenue_usd?.amount || 0
         };
 
         // Lưu vào cache và cập nhật state
