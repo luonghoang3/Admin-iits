@@ -1,15 +1,17 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  createClientRecord,
-  updateClient,
-  deleteClient,
-  createContact,
-  updateContact,
-  deleteContact,
+  createClient,
+  updateClientInfo,
+  deleteClientById,
+  createClientContact,
+  updateClientContact,
+  deleteClientContact,
   fetchClients,
-  fetchClient
-} from '@/utils/supabase/client'
+  fetchClient,
+  fetchContactsByClientId
+} from '@/services/clientService'
 import logger from '@/lib/logger'
+import { useCache } from '@/contexts/CacheContext'
 
 interface Client {
   id: string
@@ -76,9 +78,6 @@ export function useClientAndContactManagement({
     }
 
     try {
-      // Import the fetchContactsByClientId function
-      const { fetchContactsByClientId } = await import('@/utils/supabase/client');
-
       // Fetch contacts for the selected client
       const { contacts: clientContacts, error } = await fetchContactsByClientId(client.id);
 
@@ -284,7 +283,7 @@ export function useClientAndContactManagement({
 
       if (clientDialogMode === 'add') {
         // Create new client
-        const { client, error } = await createClientRecord({
+        const { client, error } = await createClient({
           name: clientForm.name,
           email: clientForm.email || undefined,
           phone: clientForm.phone || undefined,
@@ -308,7 +307,7 @@ export function useClientAndContactManagement({
         }
       } else {
         // Update existing client
-        const { client, error } = await updateClient(
+        const { client, error } = await updateClientInfo(
           clientForm.id,
           {
             name: clientForm.name,
@@ -349,7 +348,7 @@ export function useClientAndContactManagement({
     if (!clientForm.id) return
 
     try {
-      const { success, error } = await deleteClient(clientForm.id)
+      const { success, error } = await deleteClientById(clientForm.id)
 
       if (error) {
         throw new Error(error)
@@ -439,7 +438,7 @@ export function useClientAndContactManagement({
 
       if (contactDialogMode === 'add') {
         // Create new contact
-        const { contact, error } = await createContact({
+        const { contact, error } = await createClientContact({
           client_id: initialClientId,
           full_name: contactForm.full_name,
           position: contactForm.position || undefined,
@@ -461,14 +460,15 @@ export function useClientAndContactManagement({
         }
       } else {
         // Update existing contact
-        const { contact, error } = await updateContact(
+        const { contact, error } = await updateClientContact(
           contactForm.id,
           {
             full_name: contactForm.full_name,
             position: contactForm.position || undefined,
             phone: contactForm.phone || undefined,
             email: contactForm.email || undefined
-          }
+          },
+          initialClientId // Pass client ID for cache invalidation
         )
 
         if (error) {
@@ -497,7 +497,7 @@ export function useClientAndContactManagement({
     if (!contactForm.id) return
 
     try {
-      const { success, error } = await deleteContact(contactForm.id)
+      const { success, error } = await deleteClientContact(contactForm.id, initialClientId)
 
       if (error) {
         throw new Error(error)

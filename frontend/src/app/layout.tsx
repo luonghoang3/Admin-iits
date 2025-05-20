@@ -3,6 +3,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { inter } from "@/lib/fonts";
 import AccessibilityFix from "@/components/AccessibilityFix";
+import { CacheProvider } from "@/contexts/CacheContext";
 
 // Font đã được cấu hình trong lib/fonts.ts
 
@@ -27,7 +28,9 @@ export default function RootLayout({
       >
         <div className="relative flex min-h-screen flex-col overflow-hidden">
           <AccessibilityFix />
-          {children}
+          <CacheProvider>
+            {children}
+          </CacheProvider>
         </div>
       </body>
     </html>

@@ -1,34 +1,79 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Order } from '@/app/dashboard/orders/columns-dashboard'
 import logger from '@/lib/logger'
+import {
+  createCacheKey,
+  getMemoryCache,
+  setMemoryCache,
+  getPersistentCache,
+  setPersistentCache
+} from '@/utils/cache-utils'
+
+// Thời gian sống của cache (15 phút)
+const ORDERS_CACHE_TTL = 15 * 60 * 1000;
+
+// Singleton Supabase client
+const supabaseClient = createClient();
 
 export function useOrdersList(selectedYear: number, selectedMonth: string, currentPage: number) {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [totalPages, setTotalPages] = useState(1)
-  const [cachedOrders, setCachedOrders] = useState<Record<string, Order[]>>({})
-  const supabase = createClient()
+  const memoryCache = useRef<Record<string, any>>({})
+  // Không cần tạo Supabase client mới mỗi lần render
 
   useEffect(() => {
     async function fetchOrders() {
       try {
-        // Tạo key cho cache dựa trên năm, tháng và trang
-        const cacheKey = `${selectedYear}-${selectedMonth}-${currentPage}`;
+        // Tạo cache key nhất quán
+        const cacheKey = createCacheKey('useOrdersList', {
+          year: selectedYear,
+          month: selectedMonth,
+          page: currentPage
+        });
 
-        // Kiểm tra xem đã có dữ liệu trong cache chưa
-        if (cachedOrders[cacheKey]) {
-          setOrders(cachedOrders[cacheKey]);
+        // Kiểm tra memory cache trước
+        const memoryCachedData = getMemoryCache<{
+          orders: Order[],
+          totalPages: number
+        }>(cacheKey, memoryCache.current);
+
+        if (memoryCachedData) {
+          setOrders(memoryCachedData.orders);
+          setTotalPages(memoryCachedData.totalPages);
+          setLoading(false);
+          return;
+        }
+
+        // Nếu không có trong memory cache, kiểm tra persistent cache
+        const persistentCachedData = getPersistentCache<{
+          orders: Order[],
+          totalPages: number
+        }>(cacheKey);
+
+        if (persistentCachedData) {
+          // Cập nhật cả memory cache và state
+          memoryCache.current = setMemoryCache(
+            cacheKey,
+            persistentCachedData,
+            ORDERS_CACHE_TTL,
+            memoryCache.current
+          );
+
+          setOrders(persistentCachedData.orders);
+          setTotalPages(persistentCachedData.totalPages);
+          setLoading(false);
           return;
         }
 
         setLoading(true);
 
         // Chuẩn bị truy vấn cơ bản
-        let query = supabase
+        let query = supabaseClient
           .from('orders')
           .select(`
             *,
@@ -40,7 +85,7 @@ export function useOrdersList(selectedYear: number, selectedMonth: string, curre
           .lte('order_date', `${selectedYear}-12-31`);
 
         // Chuẩn bị truy vấn đếm
-        let countQuery = supabase
+        let countQuery = supabaseClient
           .from('orders')
           .select('id', { count: 'exact', head: true })
           .gte('order_date', `${selectedYear}-01-01`)
@@ -81,15 +126,29 @@ export function useOrdersList(selectedYear: number, selectedMonth: string, curre
         const pageSize = 10;
         setTotalPages(Math.ceil(totalItems / pageSize));
 
-        // Lưu vào cache và cập nhật state
-        setCachedOrders(prev => ({
-          ...prev,
-          [cacheKey]: dataResult.data || []
-        }));
+        const ordersData = dataResult.data || [];
 
-        setOrders(dataResult.data || []);
+        // Tạo đối tượng cache
+        const cacheData = {
+          orders: ordersData,
+          totalPages: Math.ceil(totalItems / pageSize)
+        };
 
-        logger.info(`Đã tải ${dataResult.data?.length || 0} đơn hàng`);
+        // Lưu vào cả memory cache và persistent cache
+        memoryCache.current = setMemoryCache(
+          cacheKey,
+          cacheData,
+          ORDERS_CACHE_TTL,
+          memoryCache.current
+        );
+
+        // Lưu vào persistent cache để giữ giữa các lần refresh
+        setPersistentCache(cacheKey, cacheData, ORDERS_CACHE_TTL);
+
+        setOrders(ordersData);
+        setTotalPages(cacheData.totalPages);
+
+        logger.info(`Đã tải và cache ${ordersData.length} đơn hàng cho ${selectedYear}-${selectedMonth}-trang ${currentPage}`);
       } catch (error: any) {
         logger.error('Error fetching orders:', error);
         setError(error.message || 'Lỗi khi tải danh sách đơn hàng');
@@ -101,5 +160,11 @@ export function useOrdersList(selectedYear: number, selectedMonth: string, curre
     fetchOrders();
   }, [selectedYear, selectedMonth, currentPage]);
 
-  return { orders, loading, error, totalPages };
+  // Thêm hàm để xóa cache khi cần
+  const clearCache = () => {
+    memoryCache.current = {};
+    logger.info('Đã xóa memory cache cho orders list');
+  };
+
+  return { orders, loading, error, totalPages, clearCache };
 }

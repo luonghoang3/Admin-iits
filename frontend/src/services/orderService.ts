@@ -1,6 +1,7 @@
 import { createClient, fetchNextOrderSequence } from '@/utils/supabase/client';
 import { OrderFormData } from '@/types/orders';
-import logger from '@/lib/logger'
+import logger from '@/lib/logger';
+import { invalidateOrderCache } from '@/services/cacheInvalidationService';
 
 // This service layer provides a simplified interface for order-related operations
 // It uses the lower-level functions from client.ts but adds additional business logic
@@ -96,6 +97,10 @@ export async function createOrder(orderData: OrderFormData) {
     const { data, error } = await supabase.from('orders').insert([dataToSave]).select().single();
     if (error) throw error;
     if (!data) throw new Error('No data returned from API');
+
+    // Invalidate cache khi tạo đơn hàng mới
+    invalidateOrderCache(data.id);
+
     return data;
   } catch (error) {
     logger.error('Error in createOrder:', error, 'orderData:', orderData);
@@ -110,6 +115,10 @@ export async function updateOrder(id: string, orderData: Partial<OrderFormData>)
     const { data, error } = await supabase.from('orders').update(orderData).eq('id', id).select().single();
     if (error) throw error;
     if (!data) throw new Error('No data returned from API');
+
+    // Invalidate cache khi cập nhật đơn hàng
+    invalidateOrderCache(id);
+
     return data;
   } catch (error) {
     logger.error('Error in updateOrder:', error, 'id:', id, 'orderData:', orderData);
@@ -122,6 +131,10 @@ export async function deleteOrder(id: string) {
   const supabase = createClient();
   const { error } = await supabase.from('orders').delete().eq('id', id);
   if (error) throw error;
+
+  // Invalidate cache khi xóa đơn hàng
+  invalidateOrderCache(id);
+
   return { success: true };
 }
 

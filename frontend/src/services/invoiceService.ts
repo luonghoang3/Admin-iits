@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { InvoiceFormData, InvoiceDetailFormData } from '@/types/invoices';
 import logger from '@/lib/logger';
+import { invalidateInvoiceCache } from '@/services/cacheInvalidationService';
 
 // Fetch invoice by ID
 export async function fetchInvoiceById(id: string) {
@@ -157,11 +158,19 @@ export async function createInvoice(invoiceData: InvoiceFormData) {
       if (fetchError) throw fetchError;
 
       // Return combined data
-      return {
+      const result = {
         ...data,
         invoice_details: insertedDetails || []
       };
+
+      // Invalidate cache khi tạo hóa đơn mới
+      invalidateInvoiceCache(data.id);
+
+      return result;
     }
+
+    // Invalidate cache khi tạo hóa đơn mới
+    invalidateInvoiceCache(data.id);
 
     return data;
   } catch (error) {
@@ -254,11 +263,19 @@ export async function updateInvoice(id: string, invoiceData: Partial<InvoiceForm
       if (detailsError) throw detailsError;
 
       // Return combined data
-      return {
+      const result = {
         ...data,
         invoice_details: updatedDetails || []
       };
+
+      // Invalidate cache khi cập nhật hóa đơn
+      invalidateInvoiceCache(id);
+
+      return result;
     }
+
+    // Invalidate cache khi cập nhật hóa đơn
+    invalidateInvoiceCache(id);
 
     return data;
   } catch (error) {
@@ -282,6 +299,10 @@ export async function deleteInvoice(id: string) {
     // Then delete the invoice
     const { error } = await supabase.from('invoices').delete().eq('id', id);
     if (error) throw error;
+
+    // Invalidate cache khi xóa hóa đơn
+    invalidateInvoiceCache(id);
+
     return true;
   } catch (error) {
     logger.error('Error in deleteInvoice:', error, 'id:', id);

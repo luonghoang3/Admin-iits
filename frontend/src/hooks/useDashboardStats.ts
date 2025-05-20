@@ -1,9 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { DashboardStats, StatsData } from '@/types/dashboard'
 import logger from '@/lib/logger'
+import {
+  createCacheKey,
+  getMemoryCache,
+  setMemoryCache,
+  getPersistentCache,
+  setPersistentCache
+} from '@/utils/cache-utils'
+
+// Thời gian sống của cache (30 phút)
+const STATS_CACHE_TTL = 30 * 60 * 1000;
+
+// Singleton Supabase client
+const supabaseClient = createClient();
 
 const initialStats: DashboardStats = {
   totalUsers: 0,
@@ -28,25 +41,52 @@ export function useDashboardStats(selectedYear: number, selectedMonth: string) {
   const [stats, setStats] = useState<DashboardStats>(initialStats)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [cachedStats, setCachedStats] = useState<Record<string, DashboardStats>>({})
-  const supabase = createClient()
+  const memoryCache = useRef<Record<string, any>>({})
+  // Không cần tạo Supabase client mới mỗi lần render
 
   useEffect(() => {
     async function fetchStats() {
       try {
-        // Tạo key cho cache dựa trên năm và tháng
-        const cacheKey = `${selectedYear}-${selectedMonth}`;
+        // Tạo cache key nhất quán
+        const cacheKey = createCacheKey('useDashboardStats', {
+          year: selectedYear,
+          month: selectedMonth
+        });
 
-        // Kiểm tra xem đã có dữ liệu trong cache chưa
-        if (cachedStats[cacheKey]) {
-          setStats(cachedStats[cacheKey]);
+        // Kiểm tra memory cache trước
+        const memoryCachedData = getMemoryCache<DashboardStats>(
+          cacheKey,
+          memoryCache.current
+        );
+
+        if (memoryCachedData) {
+          setStats(memoryCachedData);
+          setLoading(false);
           return;
         }
 
+        // Nếu không có trong memory cache, kiểm tra persistent cache
+        const persistentCachedData = getPersistentCache<DashboardStats>(cacheKey);
+
+        if (persistentCachedData) {
+          // Cập nhật cả memory cache và state
+          memoryCache.current = setMemoryCache(
+            cacheKey,
+            persistentCachedData,
+            STATS_CACHE_TTL,
+            memoryCache.current
+          );
+
+          setStats(persistentCachedData);
+          setLoading(false);
+          return;
+        }
+
+        // Nếu không có dữ liệu trong cache, fetch từ API
         setLoading(true);
 
         // Sử dụng stored procedure để lấy tất cả dữ liệu thống kê trong một lần gọi
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
           .rpc('get_dashboard_stats', {
             year_param: selectedYear,
             month_param: selectedMonth
@@ -162,15 +202,20 @@ export function useDashboardStats(selectedYear: number, selectedMonth: string) {
           totalRevenueUSD: statsData.total_revenue_usd?.amount || 0
         };
 
-        // Lưu vào cache và cập nhật state
-        setCachedStats(prev => ({
-          ...prev,
-          [cacheKey]: newStats
-        }));
+        // Lưu vào cả memory cache và persistent cache
+        memoryCache.current = setMemoryCache(
+          cacheKey,
+          newStats,
+          STATS_CACHE_TTL,
+          memoryCache.current
+        );
+
+        // Lưu vào persistent cache để giữ giữa các lần refresh
+        setPersistentCache(cacheKey, newStats, STATS_CACHE_TTL);
 
         setStats(newStats);
 
-        logger.info('Đã tải dữ liệu thống kê từ stored procedure');
+        logger.info(`Đã tải và cache dữ liệu thống kê cho ${selectedYear}-${selectedMonth}`);
       } catch (error: any) {
         logger.error('Error fetching stats:', error);
         setError(error.message || 'Lỗi khi tải dữ liệu thống kê');
@@ -182,5 +227,11 @@ export function useDashboardStats(selectedYear: number, selectedMonth: string) {
     fetchStats();
   }, [selectedYear, selectedMonth]);
 
-  return { stats, loading, error };
+  // Thêm hàm để xóa cache khi cần
+  const clearCache = () => {
+    memoryCache.current = {};
+    logger.info('Đã xóa memory cache cho dashboard stats');
+  };
+
+  return { stats, loading, error, clearCache };
 }
